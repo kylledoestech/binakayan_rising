@@ -1,0 +1,16 @@
+{
+    "name": "BinakayanRising.Data",
+    "rootNamespace": "BinakayanRising.Data",
+    "references": [
+        "BinakayanRising.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
