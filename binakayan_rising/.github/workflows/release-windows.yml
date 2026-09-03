@@ -1,0 +1,95 @@
+name: Release Windows installer
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-windows-main
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Windows game
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-StandaloneWindows64-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-StandaloneWindows64-
+            Library-
+
+      - name: Build Windows game
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: StandaloneWindows64
+          buildName: Binakayan Rising
+          versioning: Semantic
+
+      - name: Upload Windows game
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-game
+          path: build/StandaloneWindows64
+          if-no-files-found: error
+
+  package-and-release:
+    name: Create installer and release
+    needs: build
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out installer script
+        uses: actions/checkout@v4
+
+      - name: Download Windows game
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-game
+          path: dist
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: winget install --id JRSoftware.InnoSetup --exact --source winget --silent --accept-package-agreements --accept-source-agreements
+
+      - name: Create Setup.exe
+        shell: pwsh
+        run: |
+          $env:APP_SOURCE_DIR = "$env:GITHUB_WORKSPACE\dist"
+          $env:APP_VERSION = "0.0.${{ github.run_number }}"
+          $iscc = (Get-ChildItem 'C:\Program Files*\Inno Setup *\ISCC.exe' | Select-Object -First 1 -ExpandProperty FullName)
+          if (-not $iscc) { throw 'Inno Setup compiler was not found.' }
+          & $iscc 'installer\BinakayanRising.iss'
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BinakayanRising-Setup-${{ github.run_number }}
+          path: installer/Output/BinakayanRising-Setup-*.exe
+          if-no-files-found: error
+
+      - name: Publish GitHub prerelease
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $installer = (Get-ChildItem 'installer\Output\BinakayanRising-Setup-*.exe' | Select-Object -First 1 -ExpandProperty FullName)
+          if (-not $installer) { throw 'Installer was not created.' }
+          gh release create "build-${{ github.run_number }}" $installer --target "${{ github.sha }}" --title "Windows build #${{ github.run_number }}" --prerelease --generate-notes
