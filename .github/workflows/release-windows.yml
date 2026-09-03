@@ -26,8 +26,8 @@ jobs:
       - name: Cache Unity Library
         uses: actions/cache@v4
         with:
-          path: Library
-          key: Library-StandaloneWindows64-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          path: binakayan_rising/Library
+          key: Library-StandaloneWindows64-${{ hashFiles('binakayan_rising/Assets/**', 'binakayan_rising/Packages/**', 'binakayan_rising/ProjectSettings/**') }}
           restore-keys: |
             Library-StandaloneWindows64-
             Library-
@@ -39,6 +39,7 @@ jobs:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
+          projectPath: binakayan_rising
           targetPlatform: StandaloneWindows64
           buildName: Binakayan Rising
           versioning: Semantic
