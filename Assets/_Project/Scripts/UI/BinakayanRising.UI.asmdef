@@ -1,0 +1,20 @@
+{
+    "name": "BinakayanRising.UI",
+    "rootNamespace": "BinakayanRising.UI",
+    "references": [
+        "BinakayanRising.Core",
+        "BinakayanRising.Data",
+        "BinakayanRising.Gameplay",
+        "Unity.InputSystem",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

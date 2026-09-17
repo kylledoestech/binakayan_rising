@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using BinakayanRising.Core.Combat;
 using BinakayanRising.Core.Grid;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -38,7 +40,7 @@ namespace BinakayanRising.Gameplay
     public sealed class BattlePlaytest : MonoBehaviour
     {
         /// <summary>Which stage of the mission the prototype is in.</summary>
-        private enum Phase
+        public enum Phase
         {
             Deployment,
             Combat,
@@ -76,8 +78,16 @@ namespace BinakayanRising.Gameplay
             public Vector3 Lunge;
         }
 
-        private static readonly Color KatipunanColor = new Color(0.78f, 0.24f, 0.20f);
-        private static readonly Color SpanishColor = new Color(0.83f, 0.66f, 0.16f);
+        private static readonly Color KatipunanColor = new Color32(0x8C, 0x2E, 0x22, 0xFF);
+        private static readonly Color SpanishColor = new Color32(0x2E, 0x4A, 0x6B, 0xFF);
+
+        // Sorting layers, so the board stacks by role rather than by whoever happened to be
+        // spawned last. Everything used to sit on Default and rely on sortingOrder alone, which
+        // meant a shadow and a tile two rows away could trade places as the board grew.
+        private const string TerrainLayer = "Terrain";
+        private const string TerrainDecorLayer = "TerrainDecor";
+        private const string ShadowsLayer = "Shadows";
+        private const string UnitsLayer = "Units";
         private static readonly Color PanelColor = new Color(0.07f, 0.08f, 0.09f, 0.88f);
         private static readonly Color AccentColor = new Color(0.95f, 0.78f, 0.35f);
 
@@ -112,10 +122,6 @@ namespace BinakayanRising.Gameplay
         private int selectedSlot = -1;
         private bool showHelp = true;
 
-        private GUIStyle titleStyle;
-        private GUIStyle labelStyle;
-        private GUIStyle smallStyle;
-        private GUIStyle centeredStyle;
 
         /// <summary>
         /// Drops the prototype into whatever scene is running, so that pressing Play is all it takes
@@ -140,7 +146,13 @@ namespace BinakayanRising.Gameplay
             host.AddComponent<BattlePlaytest>();
         }
 
-        /// <summary>True when something in this project's Gameplay assembly is already running the scene.</summary>
+        /// <summary>True when something this project owns is already running the scene.</summary>
+        /// <remarks>
+        /// The check spans every <c>BinakayanRising.*</c> namespace, not just Gameplay. A scene
+        /// driven by a UI screen — the styleguide harness, or any authored screen — is just as
+        /// driven as one running the battle prototype, and bootstrapping the prototype on top of
+        /// it draws the legacy HUD over whatever that scene was actually for.
+        /// </remarks>
         private static bool SceneAlreadyDriven()
         {
             MonoBehaviour[] behaviours = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
@@ -153,7 +165,7 @@ namespace BinakayanRising.Gameplay
                 }
 
                 System.Type type = behaviour.GetType();
-                if (type.Namespace != null && type.Namespace.StartsWith("BinakayanRising.Gameplay"))
+                if (type.Namespace != null && type.Namespace.StartsWith("BinakayanRising."))
                 {
                     return true;
                 }
@@ -181,6 +193,294 @@ namespace BinakayanRising.Gameplay
         }
 #endif
 
+        /// <summary>
+        /// A unit's presentation state at one instant, copied out for the HUD to read.
+        /// </summary>
+        /// <remarks>
+        /// The HUD is handed copies rather than the live view objects so it cannot reach into
+        /// replay state and mutate it. Everything the interface needs to draw a unit is here;
+        /// nothing it does not need is.
+        /// </remarks>
+        public readonly struct UnitSnapshot
+        {
+            /// <summary>Simulation id.</summary>
+            public readonly int Id;
+
+            /// <summary>Full name, for the order-of-battle list.</summary>
+            public readonly string DisplayName;
+
+            /// <summary>Abbreviation, for the board token label.</summary>
+            public readonly string ShortName;
+
+            /// <summary>Which side the unit fights for.</summary>
+            public readonly Team Team;
+
+            /// <summary>Health remaining.</summary>
+            public readonly float CurrentHP;
+
+            /// <summary>Health at full strength.</summary>
+            public readonly float MaxHP;
+
+            /// <summary>False once the unit has been removed from the board.</summary>
+            public readonly bool Alive;
+
+            /// <summary>Where the unit currently stands, in world space.</summary>
+            public readonly Vector3 World;
+
+            /// <summary>Creates a snapshot.</summary>
+            public UnitSnapshot(
+                int id, string displayName, string shortName, Team team,
+                float currentHP, float maxHP, bool alive, Vector3 world)
+            {
+                Id = id;
+                DisplayName = displayName;
+                ShortName = shortName;
+                Team = team;
+                CurrentHP = currentHP;
+                MaxHP = maxHP;
+                Alive = alive;
+                World = world;
+            }
+
+            /// <summary>Health as a 0..1 fraction, safe when the unit has no maximum.</summary>
+            public float HealthFraction => MaxHP <= 0f ? 0f : Mathf.Clamp01(CurrentHP / MaxHP);
+        }
+
+        /// <summary>A floating damage or status number, copied out for the HUD to read.</summary>
+        public readonly struct PopupSnapshot
+        {
+            /// <summary>What the number says.</summary>
+            public readonly string Text;
+
+            /// <summary>Where it is anchored, in world space.</summary>
+            public readonly Vector3 World;
+
+            /// <summary>Colour, before the age fade is applied.</summary>
+            public readonly Color Tint;
+
+            /// <summary>Seconds since the popup appeared.</summary>
+            public readonly float Age;
+
+            /// <summary>Creates a snapshot.</summary>
+            public PopupSnapshot(string text, Vector3 world, Color tint, float age)
+            {
+                Text = text;
+                World = world;
+                Tint = tint;
+                Age = age;
+            }
+        }
+
+        /// <summary>
+        /// Builds the heads-up display for a playtest, if a UI layer has registered one.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// This is how the battle gets an interface without the Gameplay assembly referencing the
+        /// UI assembly — which would invert the dependency and let simulation code reach into
+        /// widgets. The UI assembly registers a factory before the first scene loads; this class
+        /// calls it and never learns what it built.
+        /// </para>
+        /// <para>
+        /// A null factory is a supported configuration, not an error: the prototype still runs,
+        /// plays and resolves with no HUD at all, which is what the offline
+        /// <c>Tools/battle-sim</c> path relies on.
+        /// </para>
+        /// </remarks>
+        public static System.Func<GameObject, Component> HudFactory;
+
+        /// <summary>
+        /// Raised when something the interface draws has structurally changed — the phase, the
+        /// roster selection, the log, the result.
+        /// </summary>
+        /// <remarks>
+        /// Per-frame values such as health and unit positions are deliberately not announced here.
+        /// They change on almost every frame of a replay, so the HUD polls
+        /// <see cref="GetUnits"/> instead and this event stays a rebuild signal rather than a
+        /// firehose.
+        /// </remarks>
+        public event System.Action StateChanged;
+
+        /// <summary>Raised when a unit is set down on the board, for placement feedback.</summary>
+        /// <remarks>
+        /// Separate from <see cref="StateChanged"/> because it is a moment rather than a state:
+        /// a sound should play once, on the placement, not on every rebuild that follows it.
+        /// </remarks>
+        public event System.Action UnitPlaced;
+
+        /// <summary>Which stage of the mission is running.</summary>
+        public Phase CurrentPhase => phase;
+
+        /// <summary>Seed the next assault will be resolved from.</summary>
+        public int Seed => seed;
+
+        /// <summary>Size of the Spanish column the next assault will face.</summary>
+        public int SpanishCount => spanishCount;
+
+        /// <summary>Replay rate. Zero means resolve the whole battle instantly.</summary>
+        public float Speed => speed;
+
+        /// <summary>AI turn currently being replayed.</summary>
+        public int CurrentTurn => currentTurn;
+
+        /// <summary>Index of the roster slot awaiting placement, or -1.</summary>
+        public int SelectedSlot => selectedSlot;
+
+        /// <summary>Whether the Kapatiran bond tips are expanded.</summary>
+        public bool ShowHelp => showHelp;
+
+        /// <summary>The resolved battle, once one exists.</summary>
+        public BattleResult Result => result;
+
+        /// <summary>The Katipunan roster available for deployment.</summary>
+        public IReadOnlyList<RosterEntry> Roster => roster;
+
+        /// <summary>Most recent field-report lines, oldest first.</summary>
+        public IReadOnlyList<string> Ticker => ticker;
+
+        /// <summary>How many roster units are standing on the board.</summary>
+        public int PlacementCount => placements.Count;
+
+        /// <summary>The camera framing the board, for world-to-screen conversion.</summary>
+        public Camera BoardCamera => view;
+
+        /// <summary>True when the given roster unit has been placed.</summary>
+        public bool IsPlaced(int unitId) => placements.ContainsKey(unitId);
+
+        /// <summary>Copies the current unit states into <paramref name="into"/>.</summary>
+        /// <remarks>
+        /// Fills a caller-owned list rather than returning a new one: this runs every frame during
+        /// a replay, and allocating a list per frame is how a smooth replay turns into a stuttering
+        /// one once the garbage collector catches up.
+        /// </remarks>
+        public void GetUnits(List<UnitSnapshot> into)
+        {
+            if (into == null)
+            {
+                return;
+            }
+
+            into.Clear();
+            foreach (KeyValuePair<int, UnitView> pair in views)
+            {
+                UnitView unit = pair.Value;
+                into.Add(new UnitSnapshot(
+                    unit.Id, unit.DisplayName, unit.ShortName, unit.Team,
+                    unit.CurrentHP, unit.MaxHP, unit.Alive,
+                    unit.Root != null ? unit.Root.transform.position : Vector3.zero));
+            }
+        }
+
+        /// <summary>Copies the live floating numbers into <paramref name="into"/>.</summary>
+        public void GetPopups(List<PopupSnapshot> into)
+        {
+            if (into == null)
+            {
+                return;
+            }
+
+            into.Clear();
+            for (int i = 0; i < popups.Count; i++)
+            {
+                Popup popup = popups[i];
+                into.Add(new PopupSnapshot(popup.Text, popup.World, popup.Tint, popup.Age));
+            }
+        }
+
+        /// <summary>Sets the seed for the next assault.</summary>
+        public void SetSeed(int value)
+        {
+            if (seed == value)
+            {
+                return;
+            }
+
+            seed = value;
+            RaiseStateChanged();
+        }
+
+        /// <summary>Sets the replay rate. Zero resolves the remaining events immediately.</summary>
+        public void SetSpeed(float value)
+        {
+            if (Mathf.Approximately(speed, value))
+            {
+                return;
+            }
+
+            speed = value;
+            RaiseStateChanged();
+        }
+
+        /// <summary>Sets the size of the Spanish column, clamped to what the map can hold.</summary>
+        public void SetSpanishCount(int value)
+        {
+            int clamped = Mathf.Clamp(value, 1, 14);
+            if (spanishCount == clamped)
+            {
+                return;
+            }
+
+            spanishCount = clamped;
+
+            // The opposing column is spawned as part of entering deployment, so changing its size
+            // has to rebuild the board or the number and the board disagree.
+            EnterDeployment();
+        }
+
+        /// <summary>Selects a roster slot for placement.</summary>
+        public void SelectSlot(int index)
+        {
+            if (selectedSlot == index)
+            {
+                return;
+            }
+
+            selectedSlot = index;
+            RaiseStateChanged();
+        }
+
+        /// <summary>Expands or collapses the Kapatiran bond tips.</summary>
+        public void SetShowHelp(bool value)
+        {
+            if (showHelp == value)
+            {
+                return;
+            }
+
+            showHelp = value;
+            RaiseStateChanged();
+        }
+
+        /// <summary>Returns to deployment, clearing any resolved battle.</summary>
+        public void RequestRedeploy()
+        {
+            EnterDeployment();
+        }
+
+        /// <summary>Resolves and begins replaying the battle.</summary>
+        public void RequestAssault()
+        {
+            BeginAssault();
+        }
+
+        /// <summary>Fills every empty deployment slot automatically.</summary>
+        public void RequestAutoDeploy()
+        {
+            AutoDeploy();
+        }
+
+        /// <summary>Replays the same formation against a fresh seed.</summary>
+        public void RequestNewSeed()
+        {
+            seed++;
+            BeginAssault();
+        }
+
+        private void RaiseStateChanged()
+        {
+            StateChanged?.Invoke();
+        }
+
         private void Awake()
         {
             layout = new IsoGridLayout(1f, 0.5f);
@@ -192,6 +492,10 @@ namespace BinakayanRising.Gameplay
             // Start ready to play. Players can still lift, rearrange, or redeploy every unit,
             // but pressing Play no longer opens on an empty battlefield.
             AutoDeploy();
+
+            // Built last: the HUD reads the board, the roster and the camera as it builds itself,
+            // so all three have to exist before it runs.
+            HudFactory?.Invoke(gameObject);
         }
 
         private void OnDestroy()
@@ -263,9 +567,16 @@ namespace BinakayanRising.Gameplay
                     tile.transform.SetParent(boardRoot, false);
                     tile.transform.position = CellToWorld(cell);
 
+                    TerrainType terrain = grid.GetTerrain(cell);
+
                     SpriteRenderer renderer = tile.AddComponent<SpriteRenderer>();
-                    renderer.sprite = PlaceholderArt.Tile;
-                    renderer.color = TerrainColor(grid.GetTerrain(cell));
+                    renderer.sprite = BoardArt.Tile(terrain);
+
+                    // A painted tile already carries its own earth, water and timber tones. The
+                    // terrain tint exists only to give the placeholder white diamond a colour, so
+                    // applying it over real art multiplies the whole board down into mud.
+                    renderer.color = BoardArt.TilesAreThemed ? Color.white : TerrainColor(terrain);
+                    renderer.sortingLayerName = TerrainLayer;
                     renderer.sortingOrder = SortingFor(cell);
 
                     if (!grid.IsDeployable(cell))
@@ -278,10 +589,25 @@ namespace BinakayanRising.Gameplay
                     highlight.transform.position = CellToWorld(cell);
 
                     SpriteRenderer highlightRenderer = highlight.AddComponent<SpriteRenderer>();
-                    highlightRenderer.sprite = PlaceholderArt.Tile;
-                    highlightRenderer.color = new Color(1f, 1f, 1f, 0.18f);
+                    highlightRenderer.sprite = BoardArt.DeployMarker();
+                    highlightRenderer.color = BoardArt.DeployMarkerIsThemed
+                        ? Color.white
+                        : new Color(1f, 1f, 1f, 0.18f);
+                    highlightRenderer.sortingLayerName = TerrainDecorLayer;
                     highlightRenderer.sortingOrder = SortingFor(cell) + 1;
                     deployHighlights.Add(highlightRenderer);
+                }
+            }
+        }
+
+        /// <summary>Shows or hides the markers over every deployable cell.</summary>
+        private void ShowDeployHighlights(bool visible)
+        {
+            for (int i = 0; i < deployHighlights.Count; i++)
+            {
+                if (deployHighlights[i] != null)
+                {
+                    deployHighlights[i].enabled = visible;
                 }
             }
         }
@@ -300,6 +626,7 @@ namespace BinakayanRising.Gameplay
             popups.Clear();
             ticker.Clear();
             ClearViews();
+            ShowDeployHighlights(true);
 
             foreach (CombatUnit spanish in PlaytestScenario.SpanishColumn(spanishCount))
             {
@@ -314,6 +641,8 @@ namespace BinakayanRising.Gameplay
                     CreateView(entry.Id, entry.DisplayName, entry.ShortName, Team.Katipunan, entry.Stats.MaxHP, placement.Value);
                 }
             }
+
+            RaiseStateChanged();
         }
 
         /// <summary>
@@ -322,6 +651,10 @@ namespace BinakayanRising.Gameplay
         /// </summary>
         private void BeginAssault()
         {
+            // The deployment zone is an instruction, not scenery. Left lit through the replay it
+            // keeps telling the player to place units on a board they can no longer place on.
+            ShowDeployHighlights(false);
+
             List<CombatUnit> units = new List<CombatUnit>();
             CombatConfig config = PlaytestScenario.Config(seed);
 
@@ -383,10 +716,12 @@ namespace BinakayanRising.Gameplay
             eventDuration = 0f;
             phase = Phase.Combat;
             Log("The Spanish column advances on the trench line.");
+            RaiseStateChanged();
         }
 
         private void Update()
         {
+            HandleBoardInput();
             AdvanceAnimations();
 
             if (phase != Phase.Combat || result == null)
@@ -426,6 +761,7 @@ namespace BinakayanRising.Gameplay
         {
             phase = Phase.Finished;
             Log("Battle resolved: " + result.Outcome + " after " + result.TurnsElapsed + " AI turns.");
+            RaiseStateChanged();
         }
 
         private static float DurationFor(BattleEventType type)
@@ -559,7 +895,11 @@ namespace BinakayanRising.Gameplay
                 unit.Lunge = Vector3.Lerp(unit.Lunge, Vector3.zero, Mathf.Min(1f, step * 8f));
                 unit.Root.transform.position = position + unit.Lunge + new Vector3(0f, 0.12f, 0f);
 
-                Color tint = unit.Team == Team.Katipunan ? KatipunanColor : SpanishColor;
+                // A themed token is painted in its own team colour already; only the fallback
+                // white disc needs one multiplied over it.
+                Color tint = BoardArt.TokensAreThemed
+                    ? Color.white
+                    : (unit.Team == Team.Katipunan ? KatipunanColor : SpanishColor);
                 if (!unit.Alive)
                 {
                     tint = new Color(tint.r * 0.35f, tint.g * 0.35f, tint.b * 0.35f, 0.35f);
@@ -588,62 +928,48 @@ namespace BinakayanRising.Gameplay
             return t * t * (3f - (2f * t));
         }
 
-        private void OnGUI()
+        /// <summary>
+        /// Turns a click on the board into a placement, ignoring clicks that landed on the HUD.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The interface is asked whether it consumed the pointer, rather than the board testing
+        /// the click against a list of hardcoded panel rectangles as the IMGUI version did. That
+        /// old approach silently broke every time a panel moved or resized, because the rectangle
+        /// it tested and the rectangle it drew were two separate numbers that had to be kept
+        /// in agreement by hand.
+        /// </para>
+        /// <para>
+        /// <see cref="EventSystem.current"/> may legitimately be null — the offline harness runs
+        /// this component with no interface at all — so a missing event system means "nothing is
+        /// covering the board", not an error.
+        /// </para>
+        /// </remarks>
+        private void HandleBoardInput()
         {
-            EnsureStyles();
-
-            float panelWidth = 268f;
-            Rect topBar = new Rect(0f, 0f, Screen.width, 38f);
-            Rect sidePanel = new Rect(0f, 38f, panelWidth, Screen.height - 38f);
-            Rect logPanel = new Rect(Screen.width - 340f, Screen.height - 156f, 340f, 156f);
-
-            HandleBoardInput(topBar, sidePanel, logPanel);
-
-            DrawWorldOverlays();
-
-            DrawPanel(topBar, PanelColor);
-            DrawTopBar(topBar);
-
-            DrawPanel(sidePanel, PanelColor);
-            if (phase == Phase.Deployment)
-            {
-                DrawDeploymentPanel(sidePanel);
-            }
-            else
-            {
-                DrawUnitPanel(sidePanel);
-            }
-
-            DrawPanel(logPanel, PanelColor);
-            DrawLog(logPanel);
-
-            if (phase == Phase.Finished && result != null)
-            {
-                DrawResultOverlay();
-            }
-        }
-
-        private void HandleBoardInput(Rect topBar, Rect sidePanel, Rect logPanel)
-        {
-            Event current = Event.current;
-            if (current == null || current.type != EventType.MouseDown || current.button != 0)
-            {
-                return;
-            }
-
             if (phase != Phase.Deployment)
             {
                 return;
             }
 
-            Vector2 mouse = current.mousePosition;
-            if (topBar.Contains(mouse) || sidePanel.Contains(mouse) || logPanel.Contains(mouse))
+            Mouse mouse = Mouse.current;
+            if (mouse == null || !mouse.leftButton.wasPressedThisFrame)
             {
                 return;
             }
 
-            Vector3 screen = new Vector3(mouse.x, Screen.height - mouse.y, 0f);
-            Vector3 world = view.ScreenToWorldPoint(screen);
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+            {
+                return;
+            }
+
+            if (view == null)
+            {
+                return;
+            }
+
+            Vector2 screen = mouse.position.ReadValue();
+            Vector3 world = view.ScreenToWorldPoint(new Vector3(screen.x, screen.y, 0f));
             GridCoord cell = layout.WorldToCell(new IsoVector(world.x, world.y));
 
             if (!grid.InBounds(cell))
@@ -652,7 +978,6 @@ namespace BinakayanRising.Gameplay
             }
 
             TryPlaceOrLift(cell);
-            current.Use();
         }
 
         /// <summary>Places the selected roster unit, or lifts one already standing on the cell.</summary>
@@ -678,306 +1003,7 @@ namespace BinakayanRising.Gameplay
             placements[roster[selectedSlot].Id] = cell;
             selectedSlot = NextUnplacedSlot(selectedSlot);
             EnterDeployment();
-        }
-
-        private void DrawTopBar(Rect bar)
-        {
-            GUI.Label(new Rect(12f, 8f, 320f, 24f), "BINAKAYAN RISING  -  playable slice", titleStyle);
-
-            string phaseText = phase == Phase.Deployment
-                ? "DEPLOYMENT"
-                : (phase == Phase.Combat ? "COMBAT  -  AI turn " + currentTurn : "RESOLVED");
-            GUI.Label(new Rect(348f, 10f, 260f, 22f), phaseText, labelStyle);
-
-            float x = Screen.width - 470f;
-            GUI.Label(new Rect(x, 10f, 40f, 22f), "Seed", smallStyle);
-            if (GUI.Button(new Rect(x + 38f, 8f, 24f, 22f), "-"))
-            {
-                seed--;
-            }
-
-            GUI.Label(new Rect(x + 66f, 10f, 60f, 22f), seed.ToString(), labelStyle);
-            if (GUI.Button(new Rect(x + 118f, 8f, 24f, 22f), "+"))
-            {
-                seed++;
-            }
-
-            GUI.Label(new Rect(x + 154f, 10f, 46f, 22f), "Speed", smallStyle);
-            DrawSpeedButton(new Rect(x + 198f, 8f, 34f, 22f), 0.5f, "0.5x");
-            DrawSpeedButton(new Rect(x + 234f, 8f, 28f, 22f), 1f, "1x");
-            DrawSpeedButton(new Rect(x + 264f, 8f, 28f, 22f), 3f, "3x");
-            DrawSpeedButton(new Rect(x + 294f, 8f, 46f, 22f), 0f, "skip");
-
-            if (GUI.Button(new Rect(Screen.width - 118f, 8f, 106f, 22f), "Redeploy"))
-            {
-                EnterDeployment();
-            }
-        }
-
-        private void DrawSpeedButton(Rect rect, float value, string label)
-        {
-            Color previous = GUI.color;
-            GUI.color = Mathf.Approximately(speed, value) ? AccentColor : Color.white;
-            if (GUI.Button(rect, label))
-            {
-                speed = value;
-            }
-
-            GUI.color = previous;
-        }
-
-        private void DrawDeploymentPanel(Rect panel)
-        {
-            float y = panel.y + 12f;
-            GUI.Label(new Rect(14f, y, 240f, 22f), "DEPLOY YOUR KATIPUNEROS", titleStyle);
-            y += 26f;
-            GUI.Label(new Rect(14f, y, 244f, 34f), "Pick a unit, then click a lit tile on the trench line or a tent.", smallStyle);
-            y += 40f;
-
-            for (int i = 0; i < roster.Count; i++)
-            {
-                RosterEntry entry = roster[i];
-                bool placed = placements.ContainsKey(entry.Id);
-                Rect row = new Rect(12f, y, 244f, 46f);
-
-                DrawPanel(row, i == selectedSlot ? new Color(0.20f, 0.18f, 0.12f, 0.95f) : new Color(1f, 1f, 1f, 0.05f));
-
-                if (GUI.Button(row, GUIContent.none, GUIStyle.none))
-                {
-                    selectedSlot = i;
-                }
-
-                Color previous = GUI.color;
-                GUI.color = placed ? new Color(0.55f, 0.75f, 0.55f) : Color.white;
-                GUI.Label(new Rect(row.x + 10f, row.y + 5f, 224f, 20f), entry.ShortName + "  " + entry.DisplayName, labelStyle);
-                GUI.color = previous;
-
-                GUI.Label(
-                    new Rect(row.x + 10f, row.y + 24f, 224f, 18f),
-                    "HP " + entry.Stats.MaxHP.ToString("0") + "   ATK " + entry.Stats.AttackDamage.ToString("0")
-                        + "   DEF " + entry.Stats.Defense.ToString("0") + "   RNG " + entry.Stats.AttackRange.ToString("0")
-                        + (placed ? "   [deployed]" : string.Empty),
-                    smallStyle);
-
-                y += 50f;
-            }
-
-            y += 8f;
-            GUI.Label(new Rect(14f, y, 244f, 20f), "Spanish column: " + spanishCount, labelStyle);
-            y += 22f;
-            if (GUI.Button(new Rect(12f, y, 60f, 24f), "-") && spanishCount > 1)
-            {
-                spanishCount--;
-                EnterDeployment();
-            }
-
-            if (GUI.Button(new Rect(76f, y, 60f, 24f), "+") && spanishCount < 14)
-            {
-                spanishCount++;
-                EnterDeployment();
-            }
-
-            if (GUI.Button(new Rect(140f, y, 116f, 24f), "Auto-deploy"))
-            {
-                AutoDeploy();
-            }
-
-            y += 34f;
-
-            GUI.enabled = placements.Count > 0;
-            if (GUI.Button(new Rect(12f, y, 244f, 34f), "BEGIN ASSAULT"))
-            {
-                BeginAssault();
-            }
-
-            GUI.enabled = true;
-            y += 44f;
-
-            if (showHelp)
-            {
-                GUI.Label(
-                    new Rect(14f, y, 244f, 150f),
-                    "Kapatiran bonds:\n"
-                        + "MRK + ENG adjacent  ->  +20% accuracy, +1 attack range (flat)\n\n"
-                        + "EVA + AGU adjacent  ->  +15% attack, +10% defense\n\n"
-                        + "Trench: +20% DEF, +15% EVA.  Tent: +5% HP per turn.",
-                    smallStyle);
-                y += 156f;
-                if (GUI.Button(new Rect(12f, y, 116f, 22f), "Hide tips"))
-                {
-                    showHelp = false;
-                }
-            }
-            else if (GUI.Button(new Rect(12f, y, 116f, 22f), "Show tips"))
-            {
-                showHelp = true;
-            }
-        }
-
-        private void DrawUnitPanel(Rect panel)
-        {
-            float y = panel.y + 12f;
-            GUI.Label(new Rect(14f, y, 240f, 22f), "ORDER OF BATTLE", titleStyle);
-            y += 30f;
-
-            y = DrawTeamRows(y, Team.Katipunan, "KATIPUNAN");
-            y += 10f;
-            DrawTeamRows(y, Team.Spanish, "SPANISH");
-        }
-
-        private float DrawTeamRows(float y, Team team, string heading)
-        {
-            GUI.Label(new Rect(14f, y, 240f, 18f), heading, smallStyle);
-            y += 20f;
-
-            foreach (KeyValuePair<int, UnitView> pair in views)
-            {
-                UnitView unit = pair.Value;
-                if (unit.Team != team)
-                {
-                    continue;
-                }
-
-                Rect bar = new Rect(14f, y + 15f, 200f, 7f);
-                Color previous = GUI.color;
-                GUI.color = unit.Alive ? Color.white : new Color(1f, 1f, 1f, 0.35f);
-                GUI.Label(new Rect(14f, y, 240f, 16f), unit.ShortName + "  " + unit.DisplayName, smallStyle);
-                GUI.color = previous;
-
-                DrawPanel(bar, new Color(1f, 1f, 1f, 0.12f));
-                float fraction = unit.MaxHP <= 0f ? 0f : Mathf.Clamp01(unit.CurrentHP / unit.MaxHP);
-                DrawPanel(
-                    new Rect(bar.x, bar.y, bar.width * fraction, bar.height),
-                    team == Team.Katipunan ? KatipunanColor : SpanishColor);
-
-                GUI.Label(new Rect(220f, y + 10f, 44f, 16f), unit.CurrentHP.ToString("0"), smallStyle);
-                y += 28f;
-            }
-
-            return y;
-        }
-
-        private void DrawLog(Rect panel)
-        {
-            GUI.Label(new Rect(panel.x + 12f, panel.y + 8f, 300f, 18f), "FIELD REPORT", smallStyle);
-
-            float y = panel.y + 28f;
-            int start = Mathf.Max(0, ticker.Count - 6);
-            for (int i = start; i < ticker.Count; i++)
-            {
-                GUI.Label(new Rect(panel.x + 12f, y, panel.width - 24f, 18f), ticker[i], smallStyle);
-                y += 19f;
-            }
-        }
-
-        private void DrawResultOverlay()
-        {
-            Rect card = new Rect((Screen.width * 0.5f) - 210f, (Screen.height * 0.5f) - 96f, 420f, 192f);
-            DrawPanel(new Rect(0f, 0f, Screen.width, Screen.height), new Color(0f, 0f, 0f, 0.55f));
-            DrawPanel(card, new Color(0.10f, 0.11f, 0.13f, 0.98f));
-
-            Color previous = GUI.color;
-            GUI.color = result.Outcome == BattleOutcome.Victory ? new Color(0.6f, 0.85f, 0.55f) : AccentColor;
-            GUI.Label(new Rect(card.x, card.y + 22f, card.width, 30f), result.Outcome.ToString().ToUpperInvariant(), centeredStyle);
-            GUI.color = previous;
-
-            GUI.Label(
-                new Rect(card.x, card.y + 62f, card.width, 24f),
-                result.TurnsElapsed + " AI turns   -   " + result.KatipunanAlive + " Katipuneros standing   -   "
-                    + result.SpanishAlive + " Spanish left",
-                centeredStyle);
-
-            GUI.Label(
-                new Rect(card.x, card.y + 88f, card.width, 24f),
-                result.Events.Count + " events replayed from seed " + seed,
-                centeredStyle);
-
-            if (GUI.Button(new Rect(card.x + 30f, card.y + 128f, 170f, 34f), "Same deployment, new seed"))
-            {
-                seed++;
-                BeginAssault();
-            }
-
-            if (GUI.Button(new Rect(card.x + 220f, card.y + 128f, 170f, 34f), "Redeploy"))
-            {
-                EnterDeployment();
-            }
-        }
-
-        /// <summary>Draws unit initials, deployment hints and floating damage numbers over the board.</summary>
-        private void DrawWorldOverlays()
-        {
-            if (Event.current.type != EventType.Repaint)
-            {
-                return;
-            }
-
-            foreach (KeyValuePair<int, UnitView> pair in views)
-            {
-                UnitView unit = pair.Value;
-                if (unit.Root == null || !unit.Alive)
-                {
-                    continue;
-                }
-
-                Vector2 point = WorldToGui(unit.Root.transform.position);
-                GUI.Label(new Rect(point.x - 30f, point.y - 9f, 60f, 18f), unit.ShortName, centeredStyle);
-            }
-
-            foreach (Popup popup in popups)
-            {
-                Vector2 point = WorldToGui(popup.World);
-                float rise = popup.Age * 26f;
-                Color tint = popup.Tint;
-                tint.a = Mathf.Clamp01(1.2f - popup.Age);
-
-                Color previous = GUI.color;
-                GUI.color = tint;
-                GUI.Label(new Rect(point.x - 40f, point.y - 28f - rise, 80f, 20f), popup.Text, centeredStyle);
-                GUI.color = previous;
-            }
-        }
-
-        private Vector2 WorldToGui(Vector3 world)
-        {
-            Vector3 screen = view.WorldToScreenPoint(world);
-            return new Vector2(screen.x, Screen.height - screen.y);
-        }
-
-        private static void DrawPanel(Rect rect, Color color)
-        {
-            Color previous = GUI.color;
-            GUI.color = color;
-            GUI.DrawTexture(rect, PlaceholderArt.WhitePixel);
-            GUI.color = previous;
-        }
-
-        private void EnsureStyles()
-        {
-            if (titleStyle != null)
-            {
-                return;
-            }
-
-            titleStyle = new GUIStyle(GUI.skin.label);
-            titleStyle.fontSize = 13;
-            titleStyle.fontStyle = FontStyle.Bold;
-            titleStyle.normal.textColor = AccentColor;
-
-            labelStyle = new GUIStyle(GUI.skin.label);
-            labelStyle.fontSize = 12;
-            labelStyle.normal.textColor = new Color(0.92f, 0.92f, 0.90f);
-
-            smallStyle = new GUIStyle(GUI.skin.label);
-            smallStyle.fontSize = 10;
-            smallStyle.wordWrap = true;
-            smallStyle.normal.textColor = new Color(0.75f, 0.76f, 0.74f);
-
-            centeredStyle = new GUIStyle(GUI.skin.label);
-            centeredStyle.fontSize = 12;
-            centeredStyle.alignment = TextAnchor.MiddleCenter;
-            centeredStyle.fontStyle = FontStyle.Bold;
-            centeredStyle.normal.textColor = Color.white;
+            UnitPlaced?.Invoke();
         }
 
         private void AutoDeploy()
@@ -1061,16 +1087,27 @@ namespace BinakayanRising.Gameplay
             token.transform.SetParent(unitRoot, false);
 
             SpriteRenderer body = token.AddComponent<SpriteRenderer>();
-            body.sprite = PlaceholderArt.Token;
-            body.color = team == Team.Katipunan ? KatipunanColor : SpanishColor;
+            body.sprite = BoardArt.Token(team);
+            body.color = BoardArt.TokensAreThemed
+                ? Color.white
+                : (team == Team.Katipunan ? KatipunanColor : SpanishColor);
+            body.sortingLayerName = UnitsLayer;
             body.sortingOrder = SortingFor(cell) + 10;
 
-            GameObject ring = new GameObject("Ring");
-            ring.transform.SetParent(token.transform, false);
-            SpriteRenderer ringRenderer = ring.AddComponent<SpriteRenderer>();
-            ringRenderer.sprite = PlaceholderArt.Ring;
-            ringRenderer.color = new Color(0f, 0f, 0f, 0.45f);
-            ringRenderer.sortingOrder = SortingFor(cell) + 9;
+            GameObject shadowObject = new GameObject("Shadow");
+            shadowObject.transform.SetParent(token.transform, false);
+
+            // Dropped below the token's centre. Centred, it reads as a halo drawn around the
+            // piece; offset, it reads as the piece standing on the ground.
+            shadowObject.transform.localPosition = new Vector3(0f, -0.20f, 0f);
+
+            SpriteRenderer shadowRenderer = shadowObject.AddComponent<SpriteRenderer>();
+            shadowRenderer.sprite = BoardArt.Shadow();
+            shadowRenderer.color = BoardArt.ShadowIsThemed
+                ? Color.white
+                : new Color(0f, 0f, 0f, 0.45f);
+            shadowRenderer.sortingLayerName = ShadowsLayer;
+            shadowRenderer.sortingOrder = SortingFor(cell) + 9;
 
             Vector3 world = CellToWorld(cell);
             token.transform.position = world;
@@ -1131,6 +1168,8 @@ namespace BinakayanRising.Gameplay
             {
                 ticker.RemoveAt(0);
             }
+
+            RaiseStateChanged();
         }
 
         private Vector3 CellToWorld(GridCoord cell)
@@ -1140,12 +1179,29 @@ namespace BinakayanRising.Gameplay
         }
 
         /// <summary>
+        /// Sorting orders reserved for each isometric row. Must exceed the number of renderers
+        /// that can stack inside a single cell, and must match
+        /// <see cref="BinakayanRising.Gameplay.Presentation.UnitView"/>'s <c>sortingStep</c> so the
+        /// two rendering paths agree about which row a given order belongs to.
+        /// </summary>
+        private const int SortingStep = 16;
+
+        /// <summary>
         /// Depth order for an isometric grid keys off <c>X + Y</c>, per the projection contract
         /// documented on <see cref="IsoGridLayout"/>. Multiplied so units can slot between tiles.
         /// </summary>
+        /// <remarks>
+        /// The multiplier is the width of one row's window, so every renderer belonging to a cell
+        /// has to fit inside it. It was 4, which was too narrow: a unit sits at <c>+10</c>, so a
+        /// unit on row <c>n</c> scored <c>4n + 10</c> while the tile on row <c>n + 3</c> scored
+        /// <c>4n + 12</c> — the tile won, and the unit was drawn behind ground that is nearer the
+        /// camera than it is. Widening to <see cref="SortingStep"/> gives each row an exclusive
+        /// band and simultaneously reconciles this path with <c>UnitView</c>, which already
+        /// reserved 16 and stacks sprite / health bar / floating text at +0 / +4 / +8 inside it.
+        /// </remarks>
         private static int SortingFor(GridCoord cell)
         {
-            return (cell.X + cell.Y) * 4;
+            return (cell.X + cell.Y) * SortingStep;
         }
 
         private static Color TerrainColor(TerrainType terrain)

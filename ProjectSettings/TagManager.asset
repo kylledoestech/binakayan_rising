@@ -2,7 +2,7 @@
 %TAG !u! tag:unity3d.com,2011:
 --- !u!78 &1
 TagManager:
-  serializedVersion: 2
+  serializedVersion: 3
   tags: []
   layers:
   - Default
@@ -41,3 +41,26 @@ TagManager:
   - name: Default
     uniqueID: 0
     locked: 0
+  - name: Terrain
+    uniqueID: 195779101
+    locked: 0
+  - name: TerrainDecor
+    uniqueID: 1194782239
+    locked: 0
+  - name: Shadows
+    uniqueID: 1013498367
+    locked: 0
+  - name: Units
+    uniqueID: 568576479
+    locked: 0
+  - name: UnitOverlay
+    uniqueID: 292509349
+    locked: 0
+  - name: VFX
+    uniqueID: 591351
+    locked: 0
+  - name: WorldUI
+    uniqueID: 1542120363
+    locked: 0
+  m_RenderingLayers:
+  - Default

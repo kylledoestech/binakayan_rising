@@ -179,5 +179,23 @@ namespace BinakayanRising.Gameplay
             return Sprite.Create(
                 texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), PixelsPerUnit);
         }
+
+        /// <summary>
+        /// Drops the cached sprites so the next play session rebuilds them.
+        /// </summary>
+        /// <remarks>
+        /// The project runs with domain reload disabled, so these statics outlive a play session.
+        /// The textures behind them do not: Unity destroys them when play stops, leaving the cached
+        /// <see cref="Sprite"/> references pointing at dead textures. The result is UI and tiles
+        /// that render correctly the first time Play is pressed and turn invisible the second time.
+        /// </remarks>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        public static void ResetStatics()
+        {
+            tileSprite = null;
+            tokenSprite = null;
+            ringSprite = null;
+            pixelSprite = null;
+        }
     }
 }

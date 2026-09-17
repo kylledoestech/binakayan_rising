@@ -1,0 +1,22 @@
+{
+    "name": "BinakayanRising.Editor",
+    "rootNamespace": "BinakayanRising.EditorTools",
+    "references": [
+        "BinakayanRising.Core",
+        "BinakayanRising.Data",
+        "BinakayanRising.Gameplay",
+        "BinakayanRising.UI",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -4,7 +4,8 @@
     "references": [
         "BinakayanRising.Core",
         "BinakayanRising.Data",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 076d785c36734ef65be4d37f5beb52b3, type: 3}
+  m_Name: ThemeAssets
+  m_EditorClassIdentifier: BinakayanRising.UI::BinakayanRising.UI.Kit.ThemeAssets
+  panel: {fileID: 21300000, guid: cf813d19aa518c08592ff37eb9587c1c, type: 3}
+  panelHeavy: {fileID: 21300000, guid: 484a8b14eeb8958f1aabf9fe21f1f007, type: 3}
+  frameHollow: {fileID: 21300000, guid: 0406bd00163c1c1658237371a10950ca, type: 3}
+  inset: {fileID: 21300000, guid: 8e91bb05bc3bfa1fa8f498cf33070cc5, type: 3}
+  divider: {fileID: 21300000, guid: 624a1d501bb36d1f49b619f1a7d1fffd, type: 3}
+  button: {fileID: 21300000, guid: 900449aecaef70e05a1165792251bfa2, type: 3}
+  buttonPressed: {fileID: 21300000, guid: c7c87226a0ce4e35aa00c147ec95cb68, type: 3}
+  buttonDisabled: {fileID: 21300000, guid: 900449aecaef70e05a1165792251bfa2, type: 3}
+  slot: {fileID: 21300000, guid: 87bc723decaaf65a8ba2abe84065ab6f, type: 3}
+  barTrack: {fileID: 0}
+  barFill: {fileID: 0}
+  checkboxOn: {fileID: 21300000, guid: 235ac15dd09132749b68245a158929a4, type: 3}
+  checkboxOff: {fileID: 21300000, guid: a57bcebf793b13f1484312be57d94db4, type: 3}
+  iconReales: {fileID: 21300000, guid: e6f4bb20285b665459a179577a336959, type: 3}
+  iconRations: {fileID: 21300000, guid: de54f6bd1d33f7c8f94b74e7860eeb97, type: 3}
+  iconScrap: {fileID: 21300000, guid: a5b89d5217f7447218e01466f923a442, type: 3}
+  iconAttack: {fileID: 21300000, guid: 49755f7c18f16a1e883cfde673c7c062, type: 3}
+  iconDefense: {fileID: 21300000, guid: 57dd9486b5aef1f64a0e395a331e63d4, type: 3}
+  iconMovement: {fileID: 21300000, guid: c37526e98757f9f85a9efefdbd23118c, type: 3}
+  iconRange: {fileID: 21300000, guid: f2e2e258f4862668a954e3860dc07685, type: 3}
+  iconBack: {fileID: 21300000, guid: 0183098211be328e0b635902f215c016, type: 3}
+  iconClose: {fileID: 21300000, guid: ac85b15710172338dbdd1849fa112a99, type: 3}
+  iconSettings: {fileID: 21300000, guid: da837b6fb72f4d0fd94be678a9572549, type: 3}
+  iconInfo: {fileID: 21300000, guid: f744734443ba017bb93c2020bb6a531a, type: 3}
+  iconCheck: {fileID: 21300000, guid: 31e850de05bf62ee58c912638848a853, type: 3}
+  iconCross: {fileID: 21300000, guid: ac85b15710172338dbdd1849fa112a99, type: 3}
+  iconStar: {fileID: 21300000, guid: 202c0060a8f23cff3bd53a809c314083, type: 3}
+  displayFont: {fileID: 11400000, guid: d90b2d1c5cd29e65d80ddb87a1f79f13, type: 2}
+  bodyFont: {fileID: 11400000, guid: b67244661a91c031e86f7e92cd8aea4c, type: 2}
+  bodyFontBold: {fileID: 11400000, guid: 6c4d1a245fd118d3abd8523961af3246, type: 2}
+  sfxClick: {fileID: 8300000, guid: 5e7474ec9ee93481a8883a0b96b48b5a, type: 3}
+  sfxHover: {fileID: 8300000, guid: 20161d6bf73ed066ebddf122e86f0738, type: 3}
+  sfxConfirm: {fileID: 8300000, guid: 9c56ccd6576ae391298bdd88d7da0095, type: 3}
+  sfxError: {fileID: 8300000, guid: 9b96ce75f306d0bb4a4437ed25174428, type: 3}
+  sfxOpen: {fileID: 8300000, guid: 39e449eb5245b87b78b93ab6bf4d36f6, type: 3}
+  sfxClose: {fileID: 8300000, guid: 45844315d4024855fa71dc9fcb8e94e9, type: 3}
+  sfxPlace: {fileID: 8300000, guid: 25fef937877b85e97987059ea4da5e89, type: 3}
+  sfxVictory: {fileID: 8300000, guid: b7e50dadd0bfb4ac99f208fb75a77eda, type: 3}
+  sfxQuiz: {fileID: 8300000, guid: b742c8415e2b43f449feac52a5990f09, type: 3}
+  sfxToggle: {fileID: 8300000, guid: 3c8da25e91df36f0ea301ad794f7f896, type: 3}
