@@ -110,6 +110,58 @@ namespace BinakayanRising.UI.Kit
         public AudioClip sfxQuiz;
         public AudioClip sfxToggle;
 
+        [Header("Units — pixel art rendered by Tools/sprites, one entry per archetype")]
+        [Tooltip("Filled from Assets/_Project/Art/Units/<ArchetypeId>/ by Tools → Binakayan Rising → Refresh Unit Art.")]
+        public UnitArt[] units = new UnitArt[0];
+
+        /// <summary>The board figure and HUD portrait for one unit archetype.</summary>
+        [System.Serializable]
+        public struct UnitArt
+        {
+            /// <summary>Matches <c>RosterEntry.ArchetypeId</c> and the art folder name.</summary>
+            public string archetypeId;
+
+            /// <summary>48x64 standing figure, pivoted on its feet.</summary>
+            public Sprite body;
+
+            /// <summary>24x24 head-and-shoulders portrait.</summary>
+            public Sprite portrait;
+        }
+
+        /// <summary>The board figure for an archetype, or null when none was rendered.</summary>
+        public Sprite UnitBody(string archetypeId)
+        {
+            int index = IndexOfUnit(archetypeId);
+            return index < 0 ? null : units[index].body;
+        }
+
+        /// <summary>The HUD portrait for an archetype, or null when none was rendered.</summary>
+        public Sprite UnitPortrait(string archetypeId)
+        {
+            int index = IndexOfUnit(archetypeId);
+            return index < 0 ? null : units[index].portrait;
+        }
+
+        private int IndexOfUnit(string archetypeId)
+        {
+            if (units == null || string.IsNullOrEmpty(archetypeId))
+            {
+                return -1;
+            }
+
+            // Six entries, looked up once when a view is built; a dictionary would be more
+            // code than the scan it replaces and would need rebuilding after every domain reload.
+            for (int i = 0; i < units.Length; i++)
+            {
+                if (string.Equals(units[i].archetypeId, archetypeId, System.StringComparison.Ordinal))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
         /// <summary>
         /// True when the minimum needed to render legible themed UI is present.
         /// </summary>

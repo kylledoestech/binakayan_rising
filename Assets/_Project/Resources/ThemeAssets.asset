@@ -52,3 +52,22 @@ MonoBehaviour:
   sfxVictory: {fileID: 8300000, guid: b7e50dadd0bfb4ac99f208fb75a77eda, type: 3}
   sfxQuiz: {fileID: 8300000, guid: b742c8415e2b43f449feac52a5990f09, type: 3}
   sfxToggle: {fileID: 8300000, guid: 3c8da25e91df36f0ea301ad794f7f896, type: 3}
+  units:
+  - archetypeId: Aguinaldo
+    body: {fileID: 21300000, guid: 7f18ddc4d0ad69b5690995bf9c8bd19a, type: 3}
+    portrait: {fileID: 21300000, guid: 4264f6906b3b4c4e8965a23d44765b79, type: 3}
+  - archetypeId: Engineer
+    body: {fileID: 21300000, guid: 056f97eb2f4020b99a0da77e12087f93, type: 3}
+    portrait: {fileID: 21300000, guid: 93a3d48465283e3cb9dfd22f7fd9e577, type: 3}
+  - archetypeId: Evangelista
+    body: {fileID: 21300000, guid: e4903eed1b03d6e319c096487213af92, type: 3}
+    portrait: {fileID: 21300000, guid: f24e59fe4d9aa28b4873be47773406c8, type: 3}
+  - archetypeId: Marksman
+    body: {fileID: 21300000, guid: 7d5a9bde153ed1425953912001b92c60, type: 3}
+    portrait: {fileID: 21300000, guid: 201157626f979bde98e45c62adb4dc43, type: 3}
+  - archetypeId: SpanishRegular
+    body: {fileID: 21300000, guid: 3df31e18e915a2d68afad904129030b5, type: 3}
+    portrait: {fileID: 21300000, guid: 53ab493d877ad0ceeb7b24146f4fb420, type: 3}
+  - archetypeId: Vanguard
+    body: {fileID: 21300000, guid: 7fcf20d43e667a7c780c294575d62271, type: 3}
+    portrait: {fileID: 21300000, guid: 00ecd9d4e2921f1bfa551a37916cde77, type: 3}

@@ -34,6 +34,15 @@ namespace BinakayanRising.Gameplay
         public static System.Func<Sprite> ShadowProvider;
 
         /// <summary>
+        /// Supplies a standing figure for a unit archetype, pivoted on its feet, or null when
+        /// that archetype has no figure and should keep the team token.
+        /// </summary>
+        public static System.Func<string, Sprite> UnitBodyProvider;
+
+        /// <summary>Supplies the team-coloured ring drawn on the ground under a figure.</summary>
+        public static System.Func<Team, Sprite> TeamRingProvider;
+
+        /// <summary>
         /// True when tiles come with their own colour baked in.
         /// </summary>
         /// <remarks>
@@ -67,6 +76,29 @@ namespace BinakayanRising.Gameplay
             return themed != null ? themed : PlaceholderArt.Token;
         }
 
+        /// <summary>
+        /// The standing figure for an archetype, or null when there is none.
+        /// </summary>
+        /// <remarks>
+        /// Unlike the other lookups this has no placeholder: a figure's pivot is at its feet
+        /// and a token's is at its centre, so the caller has to know which one it got and lay
+        /// the unit out accordingly.
+        /// </remarks>
+        public static Sprite UnitBody(string archetypeId)
+        {
+            return UnitBodyProvider?.Invoke(archetypeId);
+        }
+
+        /// <summary>The ground ring for a side's figures.</summary>
+        public static Sprite TeamRing(Team team)
+        {
+            Sprite themed = TeamRingProvider?.Invoke(team);
+            return themed != null ? themed : PlaceholderArt.Ring;
+        }
+
+        /// <summary>True when the ring comes in its team colour rather than a tintable white.</summary>
+        public static bool TeamRingIsThemed => TeamRingProvider != null;
+
         /// <summary>The marker for a deployable cell.</summary>
         public static Sprite DeployMarker()
         {
@@ -96,6 +128,8 @@ namespace BinakayanRising.Gameplay
             TokenProvider = null;
             DeployMarkerProvider = null;
             ShadowProvider = null;
+            UnitBodyProvider = null;
+            TeamRingProvider = null;
         }
     }
 }

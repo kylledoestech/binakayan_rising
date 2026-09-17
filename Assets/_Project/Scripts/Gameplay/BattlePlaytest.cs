@@ -143,6 +143,18 @@ namespace BinakayanRising.Gameplay
             public Vector3 AnimateTo;
             public float AnimateProgress;
             public Vector3 Lunge;
+
+            /// <summary>True for a standing figure pivoted on its feet; false for a round token.</summary>
+            public bool Figure;
+
+            /// <summary>Figures are drawn facing right; this mirrors them.</summary>
+            public bool FacingLeft;
+
+            /// <summary>Seconds of hit tint left.</summary>
+            public float HitTimer;
+
+            /// <summary>Idle bob cycle position, offset per unit so a line does not bob in step.</summary>
+            public float BobPhase;
         }
 
         private static readonly Color KatipunanColor = new Color32(0x8C, 0x2E, 0x22, 0xFF);
@@ -166,6 +178,17 @@ namespace BinakayanRising.Gameplay
         private const float MinSpeed = 0.25f;
         private const float MaxSpeed = 8f;
         private const float TokenLift = 0.12f;
+
+        // Figure motion. One figure texel is 1/80 of a world unit (the importer's PPU), so the
+        // bob moves exactly one texel and never lands between two.
+        private const float FigureTexel = 1f / 80f;
+        private const float BobHertz = 1.5f;
+        private const float HopHeight = 0.08f;
+        private const float HitSeconds = 0.12f;
+        private const float HitKnockback = 0.04f;
+        private const float DeathSink = 0.1f;
+        private const float HeadClearance = 0.08f;
+        private static readonly Color HitTint = new Color(1f, 0.45f, 0.4f, 1f);
         private const float PopupLifetime = 1.1f;
 
         // World units of breathing room kept between the board's edge and the free screen area.
@@ -324,10 +347,15 @@ namespace BinakayanRising.Gameplay
             /// <summary>Where the unit currently stands, in world space.</summary>
             public readonly Vector3 World;
 
+            /// <summary>
+            /// Just above the top of the unit's sprite, where its name tag and damage numbers go.
+            /// </summary>
+            public readonly Vector3 Head;
+
             /// <summary>Creates a snapshot.</summary>
             public UnitSnapshot(
                 int id, string displayName, string shortName, string archetypeId, int ordinal, Team team,
-                float currentHP, float maxHP, bool alive, Vector3 world)
+                float currentHP, float maxHP, bool alive, Vector3 world, Vector3 head)
             {
                 Id = id;
                 DisplayName = displayName;
@@ -339,6 +367,7 @@ namespace BinakayanRising.Gameplay
                 MaxHP = maxHP;
                 Alive = alive;
                 World = world;
+                Head = head;
             }
 
             /// <summary>Health as a 0..1 fraction, safe when the unit has no maximum.</summary>
@@ -524,7 +553,8 @@ namespace BinakayanRising.Gameplay
                 into.Add(new UnitSnapshot(
                     unit.Id, unit.DisplayName, unit.ShortName, unit.ArchetypeId, unit.Ordinal, unit.Team,
                     unit.CurrentHP, unit.MaxHP, unit.Alive,
-                    unit.Root != null ? unit.Root.transform.position : Vector3.zero));
+                    unit.Root != null ? unit.Root.transform.position : Vector3.zero,
+                    HeadOf(unit)));
             }
         }
 
@@ -1044,6 +1074,8 @@ namespace BinakayanRising.Gameplay
 
                 views.Remove(removeScratch[i]);
             }
+
+            FaceEnemies();
         }
 
         /// <summary>
@@ -1117,6 +1149,8 @@ namespace BinakayanRising.Gameplay
 
                 CreateView(unit.Id, unit.Name, shortName, unit.ArchetypeId, ordinal, unit.Team, unit.BaseStats.MaxHP, startCells[unit.Id]);
             }
+
+            FaceEnemies();
 
             popups.Clear();
             ClearReport();
@@ -1234,6 +1268,7 @@ namespace BinakayanRising.Gameplay
                         actor.AnimateFrom = CellToWorld(battleEvent.From);
                         actor.AnimateTo = CellToWorld(battleEvent.To);
                         actor.AnimateProgress = 0f;
+                        Face(actor, actor.AnimateTo.x - actor.AnimateFrom.x);
                         SetSorting(actor, battleEvent.To);
                     }
 
@@ -1244,6 +1279,7 @@ namespace BinakayanRising.Gameplay
                     {
                         Vector3 toward = (CellToWorld(target.Cell) - CellToWorld(actor.Cell)).normalized;
                         actor.Lunge = toward * 0.18f;
+                        Face(actor, toward.x);
                     }
 
                     break;
@@ -1295,6 +1331,7 @@ namespace BinakayanRising.Gameplay
             }
 
             target.CurrentHP = Mathf.Max(0f, target.CurrentHP - battleEvent.Amount);
+            target.HitTimer = HitSeconds;
             AddPopup(battleEvent.WasCrit ? PopupKind.Critical : PopupKind.Damage, battleEvent.Amount, target);
 
             if (battleEvent.WasCrit && actor != null)
@@ -1328,6 +1365,8 @@ namespace BinakayanRising.Gameplay
 
                 unit.AnimateProgress = Mathf.Min(1f, unit.AnimateProgress + (step / Mathf.Max(MoveSeconds, 0.01f)));
                 unit.Lunge = Vector3.Lerp(unit.Lunge, Vector3.zero, Mathf.Min(1f, step * 8f));
+                unit.HitTimer = Mathf.Max(0f, unit.HitTimer - step);
+                unit.BobPhase = Mathf.Repeat(unit.BobPhase + (step * BobHertz), 1f);
                 ApplyViewTransform(unit);
             }
 
@@ -1355,6 +1394,7 @@ namespace BinakayanRising.Gameplay
                 UnitView unit = pair.Value;
                 unit.AnimateProgress = 1f;
                 unit.Lunge = Vector3.zero;
+                unit.HitTimer = 0f;
                 ApplyViewTransform(unit);
             }
         }
@@ -1367,6 +1407,12 @@ namespace BinakayanRising.Gameplay
             }
 
             Vector3 position = Vector3.Lerp(unit.AnimateFrom, unit.AnimateTo, Smooth(unit.AnimateProgress));
+            if (unit.Figure)
+            {
+                ApplyFigureTransform(unit, position);
+                return;
+            }
+
             unit.Root.transform.position = position + unit.Lunge + new Vector3(0f, TokenLift, 0f);
 
             // A themed token is painted in its own team colour already; only the fallback
@@ -1380,6 +1426,116 @@ namespace BinakayanRising.Gameplay
             }
 
             unit.Body.color = tint;
+        }
+
+        /// <summary>
+        /// Places a standing figure: the root and its ring stay on the ground, and only the
+        /// body hops, bobs, lunges and recoils above them.
+        /// </summary>
+        private void ApplyFigureTransform(UnitView unit, Vector3 ground)
+        {
+            unit.Root.transform.position = ground;
+
+            // Sorted from where the figure stands this frame, not from the cell it is walking to.
+            // Keyed off the destination, a unit stepping past another swapped in front of or
+            // behind it at the first frame of the step instead of as it went by.
+            unit.Body.sortingOrder = SortingForHeight(ground.y) + 10;
+
+            float lift = 0f;
+            if (unit.Alive)
+            {
+                // A small arc over each step, and a one-texel bob while standing.
+                lift += Mathf.Sin(Mathf.PI * unit.AnimateProgress) * HopHeight;
+                lift += unit.BobPhase < 0.5f ? 0f : FigureTexel;
+            }
+            else
+            {
+                lift -= DeathSink;
+            }
+
+            float recoil = unit.HitTimer > 0f
+                ? (unit.FacingLeft ? HitKnockback : -HitKnockback) * (unit.HitTimer / HitSeconds)
+                : 0f;
+            unit.Body.transform.localPosition = unit.Lunge + new Vector3(recoil, lift, 0f);
+            unit.Body.flipX = unit.FacingLeft;
+
+            Color tint = unit.HitTimer > 0f && unit.Alive ? HitTint : Color.white;
+            if (!unit.Alive)
+            {
+                tint = new Color(0.35f, 0.35f, 0.35f, 0.35f);
+            }
+
+            unit.Body.color = tint;
+            if (unit.Shadow != null)
+            {
+                unit.Shadow.color = unit.Alive ? Color.white : new Color(1f, 1f, 1f, 0.35f);
+            }
+        }
+
+        /// <summary>Turns a figure toward a horizontal direction; straight up or down keeps its facing.</summary>
+        private static void Face(UnitView unit, float screenDeltaX)
+        {
+            if (Mathf.Abs(screenDeltaX) > 0.01f)
+            {
+                unit.FacingLeft = screenDeltaX < 0f;
+            }
+        }
+
+        /// <summary>Points every unit at the middle of the opposing side, for the opening stance.</summary>
+        private void FaceEnemies()
+        {
+            float katipunanX = 0f;
+            float spanishX = 0f;
+            int katipunanCount = 0;
+            int spanishCount = 0;
+            foreach (KeyValuePair<int, UnitView> pair in views)
+            {
+                float x = CellToWorld(pair.Value.Cell).x;
+                if (pair.Value.Team == Team.Katipunan)
+                {
+                    katipunanX += x;
+                    katipunanCount++;
+                }
+                else
+                {
+                    spanishX += x;
+                    spanishCount++;
+                }
+            }
+
+            foreach (KeyValuePair<int, UnitView> pair in views)
+            {
+                UnitView unit = pair.Value;
+                bool ours = unit.Team == Team.Katipunan;
+                int enemies = ours ? spanishCount : katipunanCount;
+                if (enemies == 0)
+                {
+                    continue;
+                }
+
+                float enemyX = (ours ? spanishX : katipunanX) / enemies;
+                Face(unit, enemyX - CellToWorld(unit.Cell).x);
+                ApplyViewTransform(unit);
+            }
+        }
+
+        /// <summary>Where a unit's name tag and damage numbers anchor: just over its sprite.</summary>
+        private Vector3 HeadOf(UnitView unit)
+        {
+            if (unit.Root == null)
+            {
+                return CellToWorld(unit.Cell);
+            }
+
+            Vector3 root = unit.Root.transform.position;
+            if (!unit.Figure || unit.Body.sprite == null)
+            {
+                return root;
+            }
+
+            // The sprite's own bounds rather than the renderer's, so the tag does not bob with
+            // the figure or sink when it falls.
+            return new Vector3(root.x, root.y + unit.Body.sprite.bounds.max.y + HeadClearance, root.z);
         }
 
         private static float Smooth(float t)
@@ -1585,6 +1741,13 @@ namespace BinakayanRising.Gameplay
             GameObject token = new GameObject("Unit " + id + " " + displayName);
             token.transform.SetParent(unitRoot, false);
 
+            Sprite figure = BoardArt.UnitBody(archetypeId);
+            if (figure != null)
+            {
+                CreateFigure(token, figure, id, displayName, shortName, archetypeId, ordinal, team, maxHP, cell);
+                return;
+            }
+
             SpriteRenderer body = token.AddComponent<SpriteRenderer>();
             body.sprite = BoardArt.Token(team);
             body.color = BoardArt.TokensAreThemed
@@ -1634,9 +1797,70 @@ namespace BinakayanRising.Gameplay
             views[id] = unit;
         }
 
+        /// <summary>
+        /// Builds a standing figure: a ground ring in the team colour with the body above it.
+        /// </summary>
+        /// <remarks>
+        /// The body is a child rather than a renderer on the root so it can hop, bob and recoil
+        /// while the ring stays planted on the cell.
+        /// </remarks>
+        private void CreateFigure(
+            GameObject root, Sprite figure, int id, string displayName, string shortName, string archetypeId,
+            int ordinal, Team team, float maxHP, GridCoord cell)
+        {
+            GameObject ringObject = new GameObject("Ring");
+            ringObject.transform.SetParent(root.transform, false);
+            SpriteRenderer ring = ringObject.AddComponent<SpriteRenderer>();
+            ring.sprite = BoardArt.TeamRing(team);
+            ring.color = BoardArt.TeamRingIsThemed
+                ? Color.white
+                : (team == Team.Katipunan ? KatipunanColor : SpanishColor);
+            ring.sortingLayerName = ShadowsLayer;
+
+            GameObject bodyObject = new GameObject("Body");
+            bodyObject.transform.SetParent(root.transform, false);
+            SpriteRenderer body = bodyObject.AddComponent<SpriteRenderer>();
+            body.sprite = figure;
+            body.sortingLayerName = UnitsLayer;
+
+            Vector3 world = CellToWorld(cell);
+            UnitView unit = new UnitView
+            {
+                Id = id,
+                DisplayName = displayName,
+                ShortName = shortName,
+                ArchetypeId = archetypeId,
+                Ordinal = ordinal,
+                Team = team,
+                MaxHP = maxHP,
+                CurrentHP = maxHP,
+                Alive = true,
+                Cell = cell,
+                Root = root,
+                Body = body,
+                Shadow = ring,
+                AnimateFrom = world,
+                AnimateTo = world,
+                AnimateProgress = 1f,
+                Lunge = Vector3.zero,
+                Figure = true,
+                BobPhase = Mathf.Repeat(id * 0.37f, 1f),
+            };
+
+            SetSorting(unit, cell);
+            ApplyViewTransform(unit);
+            views[id] = unit;
+        }
+
         private static void SetSorting(UnitView unit, GridCoord cell)
         {
-            unit.Body.sortingOrder = SortingFor(cell) + 10;
+            // A figure's body is sorted every frame from where it stands, in ApplyFigureTransform.
+            // Setting it here too, on a move, would put it on its destination row for one frame.
+            if (!unit.Figure)
+            {
+                unit.Body.sortingOrder = SortingFor(cell) + 10;
+            }
+
             if (unit.Shadow != null)
             {
                 unit.Shadow.sortingOrder = SortingFor(cell) + 9;
@@ -1668,7 +1892,7 @@ namespace BinakayanRising.Gameplay
             {
                 Kind = kind,
                 Amount = amount,
-                World = unit.Root != null ? unit.Root.transform.position : CellToWorld(unit.Cell),
+                World = HeadOf(unit),
                 Age = 0f
             });
         }
@@ -1732,10 +1956,25 @@ namespace BinakayanRising.Gameplay
         /// camera than it is. Widening to <see cref="SortingStep"/> gives each row an exclusive
         /// band and simultaneously reconciles this path with <c>UnitView</c>, which already
         /// reserved 16 and stacks sprite / health bar / floating text at +0 / +4 / +8 inside it.
+        /// <para>
+        /// The key is negated. <see cref="IsoGridLayout"/> opens the grid upward, so a larger
+        /// <c>X + Y</c> is higher on screen and further from the camera, and has to draw first.
+        /// Flat discs never overlapped, so the sign did not show; standing figures do, and with
+        /// it positive the unit behind stood on the head of the unit in front.
+        /// </para>
         /// </remarks>
         private static int SortingFor(GridCoord cell)
         {
-            return (cell.X + cell.Y) * SortingStep;
+            return -(cell.X + cell.Y) * SortingStep;
+        }
+
+        /// <summary>
+        /// <see cref="SortingFor"/> for a point between rows. Equal to it at a cell centre, where
+        /// <c>worldY / (TileHeight / 2)</c> is exactly <c>X + Y</c>.
+        /// </summary>
+        private int SortingForHeight(float worldY)
+        {
+            return -Mathf.RoundToInt(worldY / (layout.TileHeight * 0.5f) * SortingStep);
         }
 
         private static Color TerrainColor(TerrainType terrain)

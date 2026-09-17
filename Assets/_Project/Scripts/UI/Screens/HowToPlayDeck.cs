@@ -30,6 +30,10 @@ namespace BinakayanRising.UI.Screens
         private const float CardHeight = 700f;
         private const float TileSize = 72f;
 
+        // Unit figures are 48x64 pixel art shown at exactly 2x.
+        private const float FigureWidth = 96f;
+        private const float FigureHeight = 128f;
+
         private static readonly TextKey[] Titles =
         {
             TextKey.DeckBattleTitle, TextKey.DeckDeployTitle, TextKey.DeckUnitsTitle, TextKey.DeckTerrainTitle,
@@ -42,6 +46,7 @@ namespace BinakayanRising.UI.Screens
             TextKey.DeckBondsBody, TextKey.DeckCombatBody, TextKey.DeckControlsBody,
         };
 
+        private const int UnitsPage = 2;
         private const int TerrainPage = 3;
 
         private BattleHud hud;
@@ -53,6 +58,7 @@ namespace BinakayanRising.UI.Screens
         private TextMeshProUGUI pageBody;
         private TextMeshProUGUI pageCounter;
         private RectTransform terrainStrip;
+        private RectTransform unitStrip;
         private Image[] dots;
         private Button backButton;
         private Button nextButton;
@@ -179,6 +185,7 @@ namespace BinakayanRising.UI.Screens
 
             pageCounter.SetText("{0} / {1}", page + 1, Titles.Length);
             terrainStrip.gameObject.SetActive(page == TerrainPage);
+            unitStrip.gameObject.SetActive(page == UnitsPage && unitStrip.childCount > 0);
 
             for (int i = 0; i < dots.Length; i++)
             {
@@ -226,6 +233,17 @@ namespace BinakayanRising.UI.Screens
             OneLine(pageTitle, Theme.Type.Heading);
             Fix(pageTitle.rectTransform, 0f, 36f);
 
+            // Your five, then the regular they face. Built only from rendered art: without it the
+            // strip stays empty and hidden, and the page reads as the text it always was.
+            unitStrip = UiKit.Row(column, "Units", Theme.Space.Snug, 0f, TextAnchor.MiddleLeft);
+            Fix(unitStrip, 0f, FigureHeight + 26f);
+            foreach (RosterEntry entry in PlaytestScenario.KatipunanRoster())
+            {
+                AddFigure(unitStrip, entry.ArchetypeId, entry.ShortName, Theme.Revolution);
+            }
+
+            AddFigure(unitStrip, PlaytestScenario.SpanishColumn(1)[0].ArchetypeId, "REG", Theme.Colonial);
+
             terrainStrip = UiKit.Row(column, "Terrain", Theme.Space.Wide, 0f, TextAnchor.MiddleLeft);
             Fix(terrainStrip, 0f, TileSize + 26f);
             AddTile(terrainStrip, TerrainType.Trench, TextKey.TerrainTrench);
@@ -266,6 +284,29 @@ namespace BinakayanRising.UI.Screens
             backButton = UiKit.SealButton(footer, TextKey.DeckBack, () => Turn(-1), 150f, 52f, Theme.Type.Small, "Button Back");
             nextButton = UiKit.SealButton(footer, TextKey.DeckNext, () => Turn(1), 150f, 52f, Theme.Type.Small, "Button Next");
             UiKit.SealButton(footer, TextKey.DeckClose, Close, 150f, 52f, Theme.Type.Small, "Button Close");
+        }
+
+        private static void AddFigure(RectTransform strip, string archetypeId, string shortName, Color labelColor)
+        {
+            ThemeAssets assets = Theme.Assets;
+            Sprite body = assets != null ? assets.UnitBody(archetypeId) : null;
+            if (body == null)
+            {
+                return;
+            }
+
+            RectTransform cell = UiKit.Column(strip, "Unit " + archetypeId, Theme.Space.Hair, 0f, TextAnchor.UpperCenter);
+            Fix(cell, 130f, FigureHeight + 26f);
+
+            Image figure = UiKit.Icon(cell, body, FigureHeight, Color.white);
+            figure.name = "Figure";
+            Fix((RectTransform)figure.transform.parent, FigureWidth, FigureHeight);
+
+            TextMeshProUGUI label = UiKit.Caption(cell, shortName, TextAlignmentOptions.Center);
+            label.fontStyle = FontStyles.Bold;
+            label.color = labelColor;
+            OneLine(label, Theme.Type.Small);
+            Fix(label.rectTransform, 130f, 22f);
         }
 
         private static void AddTile(RectTransform strip, TerrainType terrain, TextKey name)

@@ -31,6 +31,8 @@ namespace BinakayanRising.UI.Board
         private const int TokenSize = 128;
         private const int ShadowWidth = 128;
         private const int ShadowHeight = 44;
+        private const int RingWidth = 88;
+        private const int RingHeight = 44;
 
         /// <summary>Tiles are authored at the scale the board layout already assumes.</summary>
         private const float TilePixelsPerUnit = 128f;
@@ -55,8 +57,15 @@ namespace BinakayanRising.UI.Board
         /// </remarks>
         private const float ShadowPixelsPerUnit = 142f;
 
+        /// <summary>
+        /// Rings are drawn at tile density, so an 88px ring is 0.69 world units across: wider
+        /// than a figure's feet, well inside the cell, and flattened 2:1 like the tile under it.
+        /// </summary>
+        private const float RingPixelsPerUnit = 128f;
+
         private static readonly Dictionary<TerrainType, Sprite> tiles = new Dictionary<TerrainType, Sprite>();
         private static readonly Dictionary<Team, Sprite> tokens = new Dictionary<Team, Sprite>();
+        private static readonly Dictionary<Team, Sprite> rings = new Dictionary<Team, Sprite>();
 
         private static Sprite deployMarker;
         private static Sprite shadow;
@@ -96,6 +105,7 @@ namespace BinakayanRising.UI.Board
         {
             tiles.Clear();
             tokens.Clear();
+            rings.Clear();
             deployMarker = null;
             shadow = null;
 
@@ -103,6 +113,26 @@ namespace BinakayanRising.UI.Board
             BoardArt.TokenProvider = TokenFor;
             BoardArt.DeployMarkerProvider = DeployMarkerSprite;
             BoardArt.ShadowProvider = ShadowSprite;
+            BoardArt.UnitBodyProvider = UnitBodyFor;
+            BoardArt.TeamRingProvider = RingFor;
+        }
+
+        private static Sprite UnitBodyFor(string archetypeId)
+        {
+            ThemeAssets assets = Theme.Assets;
+            return assets != null ? assets.UnitBody(archetypeId) : null;
+        }
+
+        private static Sprite RingFor(Team team)
+        {
+            if (rings.TryGetValue(team, out Sprite cached) && cached != null)
+            {
+                return cached;
+            }
+
+            Sprite built = BuildRing(team);
+            rings[team] = built;
+            return built;
         }
 
         private static Sprite TileFor(TerrainType terrain)
@@ -464,6 +494,55 @@ namespace BinakayanRising.UI.Board
             }
 
             return Finish(pixels, ShadowWidth, ShadowHeight, ShadowPixelsPerUnit);
+        }
+
+        /// <summary>
+        /// A flattened ring in the side's colour, with a faint shadow inside it.
+        /// </summary>
+        /// <remarks>
+        /// A figure has no team colour of its own beyond its clothes, and a Katipunero's white
+        /// camisa and a regular's pale rayadillo are close at a glance. The ring answers "whose
+        /// is this" from anywhere on the board, and its shadow fill replaces the soft blob the
+        /// round tokens stand on.
+        /// </remarks>
+        private static Sprite BuildRing(Team team)
+        {
+            bool katipunan = team == Team.Katipunan;
+            Color face = katipunan ? Blend(Theme.Revolution, Color.white, 0.18f) : Theme.ColonialLight;
+            Color edge = katipunan ? Theme.RevolutionDark : Theme.Colonial;
+
+            var pixels = new Color[RingWidth * RingHeight];
+            float halfWidth = RingWidth * 0.5f;
+            float halfHeight = RingHeight * 0.5f;
+            float feather = 2.5f / RingWidth;
+
+            for (int y = 0; y < RingHeight; y++)
+            {
+                for (int x = 0; x < RingWidth; x++)
+                {
+                    float nx = ((x + 0.5f) - halfWidth) / halfWidth;
+                    float ny = ((y + 0.5f) - halfHeight) / halfHeight;
+                    float radius = Mathf.Sqrt((nx * nx) + (ny * ny));
+
+                    // Ground shadow under the feet, strongest in the middle.
+                    Color color = new Color(0f, 0f, 0f, Mathf.InverseLerp(0.8f, 0.1f, radius) * 0.35f);
+
+                    // The band: team colour, lit along its far edge, with a dark lip outside.
+                    float band = Mathf.InverseLerp(0.70f, 0.70f + feather, radius)
+                               * Mathf.InverseLerp(1f, 1f - feather, radius);
+                    if (band > 0f)
+                    {
+                        float lift = Mathf.Clamp01((ny + 1f) * 0.5f);
+                        Color ring = radius > 0.9f ? edge : Blend(face, Theme.Parchment, lift * 0.25f);
+                        color = Color.Lerp(color, ring, band);
+                        color.a = Mathf.Max(color.a, band);
+                    }
+
+                    pixels[(y * RingWidth) + x] = color;
+                }
+            }
+
+            return Finish(pixels, RingWidth, RingHeight, RingPixelsPerUnit);
         }
 
         // ------------------------------------------------------------------ helpers

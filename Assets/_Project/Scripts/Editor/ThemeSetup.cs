@@ -35,6 +35,7 @@ namespace BinakayanRising.EditorTools
         private const string FontRoot = "Assets/_Project/Fonts";
         private const string ResourceRoot = "Assets/_Project/Resources";
         private const string ThemeAssetPath = ResourceRoot + "/ThemeAssets.asset";
+        private const string UnitArtRoot = ArtRoot + "/Units";
 
         /// <summary>
         /// Sampling size for the SDF atlas. Large enough that Cinzel's thin serifs survive, small
@@ -335,6 +336,8 @@ namespace BinakayanRising.EditorTools
             theme.sfxQuiz = Load<AudioClip>($"{ArtRoot}/Sfx/ui_quiz.ogg");
             theme.sfxToggle = Load<AudioClip>($"{ArtRoot}/Sfx/ui_toggle.ogg");
 
+            AssignUnitArt(theme);
+
             if (isNew)
             {
                 AssetDatabase.CreateAsset(theme, ThemeAssetPath);
@@ -342,6 +345,55 @@ namespace BinakayanRising.EditorTools
 
             EditorUtility.SetDirty(theme);
             ReportMissing(theme);
+        }
+
+        /// <summary>
+        /// Re-reads the unit sprites into the existing theme asset without re-baking fonts.
+        /// </summary>
+        /// <remarks>
+        /// Run this after <c>Tools/sprites/run.sh</c>. The full rebuild also works, but it bakes
+        /// every font atlas again, which is minutes of work for a change that touches none.
+        /// </remarks>
+        [MenuItem("Tools/Binakayan Rising/Refresh Unit Art", priority = 23)]
+        public static void RefreshUnitArt()
+        {
+            var theme = AssetDatabase.LoadAssetAtPath<ThemeAssets>(ThemeAssetPath);
+            if (theme == null)
+            {
+                Debug.LogWarning($"ThemeSetup: no theme asset at {ThemeAssetPath}. Run Rebuild Theme Assets first.");
+                return;
+            }
+
+            AssignUnitArt(theme);
+            EditorUtility.SetDirty(theme);
+            AssetDatabase.SaveAssets();
+            Debug.Log($"ThemeSetup: {theme.units.Length} unit art sets assigned.");
+        }
+
+        /// <summary>
+        /// Fills <see cref="ThemeAssets.units"/> from one folder per archetype under the art root.
+        /// </summary>
+        /// <remarks>
+        /// The folder name is the archetype id, the same id the sprite pipeline writes, so a new
+        /// unit needs no code here — rendering it into its own folder is enough.
+        /// </remarks>
+        private static void AssignUnitArt(ThemeAssets theme)
+        {
+            var entries = new List<ThemeAssets.UnitArt>();
+            if (AssetDatabase.IsValidFolder(UnitArtRoot))
+            {
+                foreach (string folder in AssetDatabase.GetSubFolders(UnitArtRoot).OrderBy(f => f, StringComparer.Ordinal))
+                {
+                    entries.Add(new ThemeAssets.UnitArt
+                    {
+                        archetypeId = Path.GetFileName(folder),
+                        body = Sprite(folder + "/body.png"),
+                        portrait = Sprite(folder + "/portrait.png"),
+                    });
+                }
+            }
+
+            theme.units = entries.ToArray();
         }
 
         /// <summary>

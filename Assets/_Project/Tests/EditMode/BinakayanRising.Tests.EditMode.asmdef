@@ -5,7 +5,9 @@
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "BinakayanRising.Core",
-        "BinakayanRising.Data"
+        "BinakayanRising.Data",
+        "BinakayanRising.Gameplay",
+        "BinakayanRising.UI"
     ],
     "includePlatforms": [
         "Editor"

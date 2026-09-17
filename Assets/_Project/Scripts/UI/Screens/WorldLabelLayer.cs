@@ -5,6 +5,7 @@ using BinakayanRising.Gameplay;
 using BinakayanRising.UI.Kit;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace BinakayanRising.UI.Screens
 {
@@ -42,12 +43,12 @@ namespace BinakayanRising.UI.Screens
             var layer = canvas.gameObject.AddComponent<WorldLabelLayer>();
             layer.battle = battle;
             layer.canvas = canvas;
-            layer.nameLabels = new WorldLabelPool(canvas, "Unit Labels", Theme.Type.Small, Theme.Parchment);
+            layer.nameLabels = new WorldLabelPool(canvas, "Unit Labels", Theme.Type.Small, Theme.Parchment, plated: true);
 
             // Damage numbers are set two steps larger than the names they fly off. At body size
             // over a painted board they are gone before the eye finds them, which is the whole
             // point of a damage number.
-            layer.popupLabels = new WorldLabelPool(canvas, "Popups", Theme.Type.Heading, Theme.GoldBright);
+            layer.popupLabels = new WorldLabelPool(canvas, "Popups", Theme.Type.Heading, Theme.GoldBright, plated: false);
             return layer;
         }
 
@@ -71,7 +72,9 @@ namespace BinakayanRising.UI.Screens
                     continue;
                 }
 
-                Vector3 screen = camera.WorldToScreenPoint(unit.World);
+                // Over the head: a figure's name across its chest hides the outfit that tells
+                // units apart. For a round token, Head is its centre, as the label always was.
+                Vector3 screen = camera.WorldToScreenPoint(unit.Head);
                 if (screen.z < 0f)
                 {
                     continue;
@@ -135,12 +138,25 @@ namespace BinakayanRising.UI.Screens
     /// Each slot remembers what it last showed, so text is only re-set when it changes. A TMP
     /// label regenerates its mesh on every text assignment, even an identical one formatted fresh.
     /// </para>
+    /// <para>
+    /// A plated pool sets each label on a dark pill. Unit figures stand close enough that a name
+    /// tag often lands on the figure behind, and an outline alone cannot hold parchment type
+    /// against a white shirt. The pills share their own root under the labels, so the pool
+    /// still draws in two batches however many units are on the field.
+    /// </para>
     /// </remarks>
     internal sealed class WorldLabelPool
     {
+        private const float PlateHeight = 20f;
+
+        // The project blends in linear space, which lightens a dark overlay: 0.9 here covers
+        // like about 0.8 would in sRGB. Measured off a white shirt, 0.75 left the name unreadable.
+        private static readonly Color PlateColor = new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, 0.9f);
+
         private sealed class Slot
         {
             public TextMeshProUGUI Label;
+            public Image Plate;
             public string Text;
             public BattlePlaytest.PopupKind Kind;
             public float Amount;
@@ -148,6 +164,7 @@ namespace BinakayanRising.UI.Screens
         }
 
         private readonly RectTransform root;
+        private readonly RectTransform plates;
         private readonly Canvas canvas;
         private readonly List<Slot> slots = new List<Slot>();
         private readonly float size;
@@ -155,9 +172,14 @@ namespace BinakayanRising.UI.Screens
         private Material outlineMaterial;
         private int used;
 
-        public WorldLabelPool(Canvas canvas, string name, float size, Color defaultColor)
+        public WorldLabelPool(Canvas canvas, string name, float size, Color defaultColor, bool plated)
         {
             this.canvas = canvas;
+            if (plated)
+            {
+                plates = UiKit.Stretch(UiKit.NewRect(canvas.transform, name + " Plates"));
+            }
+
             root = UiKit.NewRect(canvas.transform, name);
             UiKit.Stretch(root);
             this.size = size;
@@ -178,6 +200,13 @@ namespace BinakayanRising.UI.Screens
                 slot.Text = text;
                 slot.Version = -1;
                 slot.Label.text = text;
+
+                // Measured only when the text changes: preferredWidth runs a layout pass.
+                if (slot.Plate != null)
+                {
+                    slot.Plate.rectTransform.sizeDelta = new Vector2(
+                        slot.Label.preferredWidth + (Theme.Space.Tight * 2f), PlateHeight);
+                }
             }
         }
 
@@ -220,11 +249,8 @@ namespace BinakayanRising.UI.Screens
         {
             for (int i = used; i < slots.Count; i++)
             {
-                GameObject go = slots[i].Label.gameObject;
-                if (go.activeSelf)
-                {
-                    go.SetActive(false);
-                }
+                SetActive(slots[i].Label, false);
+                SetActive(slots[i].Plate, false);
             }
         }
 
@@ -251,24 +277,55 @@ namespace BinakayanRising.UI.Screens
                 label.rectTransform.pivot = new Vector2(0.5f, 0.5f);
 
                 slot = new Slot { Label = label };
+                if (plates != null)
+                {
+                    slot.Plate = NewPlate();
+                }
+
                 slots.Add(slot);
             }
 
-            if (!slot.Label.gameObject.activeSelf)
-            {
-                slot.Label.gameObject.SetActive(true);
-            }
-
+            SetActive(slot.Label, true);
+            SetActive(slot.Plate, true);
             slot.Label.color = color;
 
             // WorldToScreenPoint returns device pixels, but the canvas scales itself to a
             // 1920x1080 reference. Placing raw pixels into a scaled canvas puts every label at
             // the wrong spot on any display that is not exactly the reference size.
             float scale = canvas != null && canvas.scaleFactor > 0f ? canvas.scaleFactor : 1f;
-            slot.Label.rectTransform.anchoredPosition = new Vector2(
+            var position = new Vector2(
                 Mathf.Round(screenPoint.x / scale), Mathf.Round((screenPoint.y / scale) + rise));
+            slot.Label.rectTransform.anchoredPosition = position;
+            if (slot.Plate != null)
+            {
+                slot.Plate.rectTransform.anchoredPosition = position;
+            }
+
             used++;
             return slot;
+        }
+
+        private Image NewPlate()
+        {
+            RectTransform rect = UiKit.NewRect(plates, "Plate");
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.zero;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+
+            var plate = rect.gameObject.AddComponent<Image>();
+            plate.sprite = Theme.BarFill;
+            plate.type = Image.Type.Sliced;
+            plate.color = PlateColor;
+            plate.raycastTarget = false;
+            return plate;
+        }
+
+        private static void SetActive(Component component, bool active)
+        {
+            if (component != null && component.gameObject.activeSelf != active)
+            {
+                component.gameObject.SetActive(active);
+            }
         }
 
         /// <summary>

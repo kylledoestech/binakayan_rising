@@ -44,12 +44,25 @@ namespace BinakayanRising.EditorTools
         private const float BoardPixelsPerUnit = 128f;
 
         /// <summary>
+        /// Unit bodies are 64 pixels tall; at 80 PPU a figure stands 0.8 world units, most of a
+        /// tile's width, which keeps a hat from reaching into the row of cells behind it.
+        /// </summary>
+        private const float UnitBodyPixelsPerUnit = 80f;
+
+        /// <summary>
+        /// Where a body sprite's ground point sits, as a fraction of its 48x64 canvas. It must
+        /// match <c>GROUND_PIXEL</c> in <c>Tools/sprites/build_and_render.py</c>, which renders
+        /// every figure with its feet on exactly this pixel so a unit stands on its cell centre.
+        /// </summary>
+        private static readonly Vector2 UnitBodyPivot = new Vector2(24f / 48f, 5f / 64f);
+
+        /// <summary>
         /// Bumped whenever the rules below change, so Unity reimports the art they apply to
         /// instead of keeping settings baked by an older version.
         /// </summary>
         public override uint GetVersion()
         {
-            return 3;
+            return 4;
         }
 
         private void OnPreprocessTexture()
@@ -63,8 +76,13 @@ namespace BinakayanRising.EditorTools
 
             importer.textureType = TextureImporterType.Sprite;
             importer.spriteImportMode = SpriteImportMode.Single;
-            importer.spritePixelsPerUnit = IsBoardArt(assetPath) ? BoardPixelsPerUnit : UiPixelsPerUnit;
-            importer.filterMode = FilterMode.Bilinear;
+            importer.spritePixelsPerUnit = IsUnitBody(assetPath)
+                ? UnitBodyPixelsPerUnit
+                : IsBoardArt(assetPath) ? BoardPixelsPerUnit : UiPixelsPerUnit;
+
+            // Unit sprites are pixel art: bilinear filtering would blur each texel into its
+            // neighbours and turn the one-pixel outline into a soft brown halo.
+            importer.filterMode = IsUnitArt(assetPath) ? FilterMode.Point : FilterMode.Bilinear;
             importer.wrapMode = TextureWrapMode.Clamp;
             importer.mipmapEnabled = false;
             importer.npotScale = TextureImporterNPOTScale.None;
@@ -109,6 +127,16 @@ namespace BinakayanRising.EditorTools
             return path.StartsWith(ArtRoot + "Board/", StringComparison.Ordinal);
         }
 
+        private static bool IsUnitArt(string path)
+        {
+            return path.StartsWith(ArtRoot + "Units/", StringComparison.Ordinal);
+        }
+
+        private static bool IsUnitBody(string path)
+        {
+            return IsUnitArt(path) && path.EndsWith("/body.png", StringComparison.Ordinal);
+        }
+
         /// <summary>
         /// Moves a sprite's pivot off centre where the consuming code requires it.
         /// </summary>
@@ -117,9 +145,17 @@ namespace BinakayanRising.EditorTools
         /// along X to show remaining health, so the fill has to grow from its left edge. With the
         /// default centre pivot the bar drains symmetrically from the middle outward, which looks
         /// deliberate enough that it can survive review without anyone spotting it as a bug.
+        /// Unit bodies pivot on their feet, so placing one at a cell centre stands it on the tile.
         /// </remarks>
         private static void ApplyPivotOverride(string path, TextureImporterSettings settings)
         {
+            if (IsUnitBody(path))
+            {
+                settings.spriteAlignment = (int)SpriteAlignment.Custom;
+                settings.spritePivot = UnitBodyPivot;
+                return;
+            }
+
             bool isLeftPivoted = path.EndsWith("/bar_fill.png", StringComparison.Ordinal)
                               || path.EndsWith("/barFill.png", StringComparison.Ordinal);
 

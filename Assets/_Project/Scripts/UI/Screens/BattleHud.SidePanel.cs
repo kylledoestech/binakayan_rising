@@ -11,6 +11,9 @@ namespace BinakayanRising.UI.Screens
 {
     public sealed partial class BattleHud
     {
+        /// <summary>Portraits are 24px art shown at exactly 2x, so every texel stays square.</summary>
+        private const float PortraitSize = 48f;
+
         private readonly List<RosterRow> rosterRows = new List<RosterRow>();
         private readonly List<OrderRow> katipunanRows = new List<OrderRow>();
         private readonly List<OrderRow> spanishRows = new List<OrderRow>();
@@ -51,6 +54,7 @@ namespace BinakayanRising.UI.Screens
         {
             public GameObject Root;
             public CanvasGroup Group;
+            public Image Portrait;
             public TextMeshProUGUI Name;
             public TextMeshProUGUI Health;
             public BarView Bar;
@@ -184,10 +188,16 @@ namespace BinakayanRising.UI.Screens
                 Activated("roster." + captured);
             });
 
-            RectTransform column = UiKit.Column(rect, "Text", 2f, 0f, TextAnchor.MiddleLeft);
-            UiKit.Stretch(column);
-            column.GetComponent<VerticalLayoutGroup>().padding = new RectOffset(
-                (int)Theme.Space.Base, (int)Theme.Space.Base, (int)Theme.Space.Tight, (int)Theme.Space.Tight);
+            RectTransform line = UiKit.Row(rect, "Line", Theme.Space.Snug, 0f, TextAnchor.MiddleLeft);
+            UiKit.Stretch(line);
+            line.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(
+                (int)Theme.Space.Tight, (int)Theme.Space.Base, (int)Theme.Space.Hair, (int)Theme.Space.Hair);
+
+            Image portrait = Portrait(line);
+            SetPortrait(portrait, entry.ArchetypeId, Team.Katipunan);
+
+            RectTransform column = UiKit.Column(line, "Text", 2f, 0f, TextAnchor.MiddleLeft);
+            Element(column).flexibleWidth = 1f;
             ExpandChildren(column);
 
             TextMeshProUGUI name = UiKit.Body(column, string.Empty, Theme.Type.Body, TextAlignmentOptions.Left);
@@ -199,6 +209,36 @@ namespace BinakayanRising.UI.Screens
             FixHeight(stats.rectTransform, 18f);
 
             return new RosterRow { Id = entry.Id, Button = button, Rim = rim, Name = name, Stats = stats };
+        }
+
+        /// <summary>An empty portrait frame of fixed size, filled by <see cref="SetPortrait"/>.</summary>
+        private static Image Portrait(Transform parent)
+        {
+            Image image = UiKit.Icon(parent, null, PortraitSize, Color.white);
+            image.name = "Portrait";
+            RectTransform frame = (RectTransform)image.transform.parent;
+            FixWidth(frame, PortraitSize);
+            FixHeight(frame, PortraitSize);
+            return image;
+        }
+
+        /// <summary>
+        /// Shows a unit's portrait, or a small diamond in its side's colour when none was rendered.
+        /// </summary>
+        /// <remarks>
+        /// Pooled order rows are rebound to different units each battle, so this sets every
+        /// property the fallback changes, not only the sprite.
+        /// </remarks>
+        private static void SetPortrait(Image image, string archetypeId, Team team)
+        {
+            ThemeAssets assets = Theme.Assets;
+            Sprite sprite = assets != null ? assets.UnitPortrait(archetypeId) : null;
+            bool drawn = sprite != null;
+
+            image.sprite = sprite;
+            image.color = drawn ? Color.white : (team == Team.Katipunan ? Theme.Revolution : Theme.Colonial);
+            image.rectTransform.localRotation = drawn ? Quaternion.identity : Quaternion.Euler(0f, 0f, 45f);
+            image.rectTransform.localScale = drawn ? Vector3.one : Vector3.one * 0.5f;
         }
 
         private void AutoDeploy()
@@ -338,6 +378,7 @@ namespace BinakayanRising.UI.Screens
                 row.ShownFraction = -1f;
                 row.ShownAlive = -1;
                 row.Name.text = unit.ShortName + "  " + BattleText.UnitName(unit.ArchetypeId, unit.Ordinal, unit.DisplayName);
+                SetPortrait(row.Portrait, unit.ArchetypeId, unit.Team);
                 if (!row.Root.activeSelf)
                 {
                     row.Root.SetActive(true);
@@ -365,10 +406,14 @@ namespace BinakayanRising.UI.Screens
         private OrderRow BuildOrderRow(Transform parent, Color barColor)
         {
             RectTransform row = UiKit.NewRect(parent, "Unit");
-            FixHeight(row, 44f);
+            FixHeight(row, 52f);
 
-            RectTransform column = UiKit.Column(row, "Text", 2f, 0f, TextAnchor.UpperLeft);
-            UiKit.Stretch(column);
+            RectTransform line = UiKit.Row(row, "Line", Theme.Space.Tight, 0f, TextAnchor.MiddleLeft);
+            UiKit.Stretch(line);
+            Image portrait = Portrait(line);
+
+            RectTransform column = UiKit.Column(line, "Text", 2f, 0f, TextAnchor.UpperLeft);
+            Element(column).flexibleWidth = 1f;
             ExpandChildren(column);
 
             RectTransform header = UiKit.Row(column, "Header", Theme.Space.Tight, 0f, TextAnchor.MiddleLeft);
@@ -383,13 +428,14 @@ namespace BinakayanRising.UI.Screens
             health.color = Theme.InkSoft;
             FixWidth(health.rectTransform, 56f);
 
-            BarView bar = UiKit.Bar(column, SidePanelWidth - 72f, 12f, barColor);
+            BarView bar = UiKit.Bar(column, SidePanelWidth - 72f - PortraitSize - Theme.Space.Tight, 12f, barColor);
             FixHeight(RectOf(bar), 12f);
 
             return new OrderRow
             {
                 Root = row.gameObject,
                 Group = UiKit.Group(row.gameObject),
+                Portrait = portrait,
                 Name = name,
                 Health = health,
                 Bar = bar,
