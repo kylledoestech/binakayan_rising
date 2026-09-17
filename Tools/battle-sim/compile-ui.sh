@@ -83,7 +83,8 @@ write_rsp() {
         # Analyzers are Unity's source generators; they need the editor's build context and
         # only emit code we do not depend on for a type check.
         grep -E '^-(r:|define:|langversion:|nullable:|unsafe|nostdlib|noconfig|deterministic|optimize|target:|warn|nowarn|debug)' "$TEMPLATE" \
-            | grep -v '^-refout:' || true
+            | grep -v '^-refout:' \
+            | grep -v '^-r:.*BinakayanRising\.' || true
 
         echo "-target:library"
         echo "-out:\"$out\""
@@ -137,15 +138,26 @@ compile() {
 SRC="$PROJECT_ROOT/Assets/_Project/Scripts"
 status=0
 
+# Core and Data are rebuilt from source rather than borrowed from the template's cached
+# reference assemblies: those are only as new as the last editor compile, so anything added to
+# Core since then would look missing to every assembly above it.
 SIBLINGS=()
+rsp=$(write_rsp BinakayanRising.Core "$OUT_DIR/BinakayanRising.Core.dll" "$SRC/Core")
+compile "Core" "$rsp" || status=1
+
+SIBLINGS=("$OUT_DIR/BinakayanRising.Core.dll")
+rsp=$(write_rsp BinakayanRising.Data "$OUT_DIR/BinakayanRising.Data.dll" "$SRC/Data")
+compile "Data" "$rsp" || status=1
+
+SIBLINGS=("$OUT_DIR/BinakayanRising.Core.dll" "$OUT_DIR/BinakayanRising.Data.dll")
 rsp=$(write_rsp BinakayanRising.Gameplay "$OUT_DIR/BinakayanRising.Gameplay.dll" "$SRC/Gameplay")
 compile "Gameplay" "$rsp" || status=1
 
-SIBLINGS=("$OUT_DIR/BinakayanRising.Gameplay.dll")
+SIBLINGS=("$OUT_DIR/BinakayanRising.Core.dll" "$OUT_DIR/BinakayanRising.Data.dll" "$OUT_DIR/BinakayanRising.Gameplay.dll")
 rsp=$(write_rsp BinakayanRising.UI "$OUT_DIR/BinakayanRising.UI.dll" "$SRC/UI")
 compile "UI" "$rsp" || status=1
 
-SIBLINGS=("$OUT_DIR/BinakayanRising.Gameplay.dll" "$OUT_DIR/BinakayanRising.UI.dll")
+SIBLINGS=("$OUT_DIR/BinakayanRising.Core.dll" "$OUT_DIR/BinakayanRising.Data.dll" "$OUT_DIR/BinakayanRising.Gameplay.dll" "$OUT_DIR/BinakayanRising.UI.dll")
 rsp=$(write_rsp BinakayanRising.Editor "$OUT_DIR/BinakayanRising.Editor.dll" "$SRC/Editor")
 compile "Editor" "$rsp" || status=1
 

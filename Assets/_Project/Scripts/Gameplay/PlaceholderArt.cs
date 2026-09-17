@@ -88,12 +88,6 @@ namespace BinakayanRising.Gameplay
             }
         }
 
-        /// <summary>A 1x1 white texture, for <see cref="GUI.DrawTexture(Rect, Texture)"/> in the HUD.</summary>
-        public static Texture2D WhitePixel
-        {
-            get { return Pixel.texture; }
-        }
-
         private static Texture2D NewTexture(int width, int height)
         {
             Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false);

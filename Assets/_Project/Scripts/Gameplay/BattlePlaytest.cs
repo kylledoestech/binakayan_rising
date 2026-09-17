@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using BinakayanRising.Core.Combat;
 using BinakayanRising.Core.Grid;
+using BinakayanRising.Gameplay.Presentation;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 #if UNITY_EDITOR
@@ -13,7 +13,7 @@ namespace BinakayanRising.Gameplay
 {
     /// <summary>
     /// A playable prototype of a full mission: the Deployment phase, then the autonomous Combat
-    /// phase, rendered with procedurally generated placeholder art.
+    /// phase, rendered with the board art registered through <see cref="BoardArt"/>.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -30,10 +30,10 @@ namespace BinakayanRising.Gameplay
     /// that way: presentation reads the log, it never asks the simulation a question mid-animation.
     /// </para>
     /// <para>
-    /// <b>Placeholder-grade on purpose.</b> Art is generated at runtime by
-    /// <see cref="PlaceholderArt"/> and the HUD is IMGUI, so the whole slice runs with no imported
-    /// assets, no prefabs, no Canvas and no scene wiring. Replace both when the real presentation
-    /// layer lands.
+    /// <b>Language-free on purpose.</b> The field report and floating numbers are recorded as
+    /// structured entries — a kind plus the units involved — never as sentences. The interface
+    /// turns them into text in the player's language, so switching language mid-battle re-renders
+    /// the whole report rather than leaving half of it in the old one.
     /// </para>
     /// </remarks>
     [AddComponentMenu("Binakayan Rising/Battle Playtest")]
@@ -47,12 +47,76 @@ namespace BinakayanRising.Gameplay
             Finished
         }
 
+        /// <summary>What a floating number over a unit is reporting.</summary>
+        public enum PopupKind
+        {
+            Damage,
+            Critical,
+            Heal,
+            Dodge,
+            Miss
+        }
+
+        /// <summary>What a field report line narrates.</summary>
+        public enum FieldReportKind
+        {
+            AssaultBegan,
+            UnitRouted,
+            CriticalHit,
+            BattleResolved
+        }
+
+        /// <summary>One field report line, recorded as data for the interface to phrase.</summary>
+        public readonly struct FieldReportEntry
+        {
+            /// <summary>What happened.</summary>
+            public readonly FieldReportKind Kind;
+
+            /// <summary>AI turn it happened on.</summary>
+            public readonly int Turn;
+
+            /// <summary>Archetype of the acting unit, or null.</summary>
+            public readonly string ActorArchetypeId;
+
+            /// <summary>Numbering among same-archetype units (Spanish regulars), 0 when unnumbered.</summary>
+            public readonly int ActorOrdinal;
+
+            /// <summary>Archetype of the unit acted upon, or null.</summary>
+            public readonly string TargetArchetypeId;
+
+            /// <summary>Numbering of the unit acted upon.</summary>
+            public readonly int TargetOrdinal;
+
+            /// <summary>Battle outcome, for <see cref="FieldReportKind.BattleResolved"/>.</summary>
+            public readonly BattleOutcome Outcome;
+
+            /// <summary>Turns the battle lasted, for <see cref="FieldReportKind.BattleResolved"/>.</summary>
+            public readonly int TurnsElapsed;
+
+            /// <summary>Creates an entry.</summary>
+            public FieldReportEntry(
+                FieldReportKind kind, int turn,
+                string actorArchetypeId, int actorOrdinal,
+                string targetArchetypeId, int targetOrdinal,
+                BattleOutcome outcome, int turnsElapsed)
+            {
+                Kind = kind;
+                Turn = turn;
+                ActorArchetypeId = actorArchetypeId;
+                ActorOrdinal = actorOrdinal;
+                TargetArchetypeId = targetArchetypeId;
+                TargetOrdinal = targetOrdinal;
+                Outcome = outcome;
+                TurnsElapsed = turnsElapsed;
+            }
+        }
+
         /// <summary>Screen-space feedback tied to a world position, e.g. a damage number.</summary>
         private struct Popup
         {
-            public string Text;
+            public PopupKind Kind;
+            public float Amount;
             public Vector3 World;
-            public Color Tint;
             public float Age;
         }
 
@@ -65,6 +129,8 @@ namespace BinakayanRising.Gameplay
             public int Id;
             public string DisplayName;
             public string ShortName;
+            public string ArchetypeId;
+            public int Ordinal;
             public Team Team;
             public float MaxHP;
             public float CurrentHP;
@@ -72,6 +138,7 @@ namespace BinakayanRising.Gameplay
             public GridCoord Cell;
             public GameObject Root;
             public SpriteRenderer Body;
+            public SpriteRenderer Shadow;
             public Vector3 AnimateFrom;
             public Vector3 AnimateTo;
             public float AnimateProgress;
@@ -80,6 +147,7 @@ namespace BinakayanRising.Gameplay
 
         private static readonly Color KatipunanColor = new Color32(0x8C, 0x2E, 0x22, 0xFF);
         private static readonly Color SpanishColor = new Color32(0x2E, 0x4A, 0x6B, 0xFF);
+        private static readonly Color BackdropColor = new Color32(0x17, 0x19, 0x1C, 0xFF);
 
         // Sorting layers, so the board stacks by role rather than by whoever happened to be
         // spawned last. Everything used to sit on Default and rely on sortingOrder alone, which
@@ -88,8 +156,6 @@ namespace BinakayanRising.Gameplay
         private const string TerrainDecorLayer = "TerrainDecor";
         private const string ShadowsLayer = "Shadows";
         private const string UnitsLayer = "Units";
-        private static readonly Color PanelColor = new Color(0.07f, 0.08f, 0.09f, 0.88f);
-        private static readonly Color AccentColor = new Color(0.95f, 0.78f, 0.35f);
 
         private const float MoveSeconds = 0.16f;
         private const float AttackSeconds = 0.12f;
@@ -97,15 +163,29 @@ namespace BinakayanRising.Gameplay
         private const float DeathSeconds = 0.30f;
         private const float TurnSeconds = 0.10f;
 
+        private const float MinSpeed = 0.25f;
+        private const float MaxSpeed = 8f;
+        private const float TokenLift = 0.12f;
+        private const float PopupLifetime = 1.1f;
+
+        // World units of breathing room kept between the board's edge and the free screen area.
+        private const float BoardPadding = 0.6f;
+
+        private const int ReportCapacity = 64;
+
         private readonly Dictionary<int, UnitView> views = new Dictionary<int, UnitView>();
         private readonly List<Popup> popups = new List<Popup>();
-        private readonly List<string> ticker = new List<string>();
         private readonly Dictionary<int, GridCoord> placements = new Dictionary<int, GridCoord>();
+        private readonly FieldReportEntry[] report = new FieldReportEntry[ReportCapacity];
+        private readonly HashSet<int> desiredScratch = new HashSet<int>();
+        private readonly List<int> removeScratch = new List<int>();
 
         private IsoGridLayout layout;
         private BattleGrid grid;
         private List<RosterEntry> roster;
         private Camera view;
+        private BattleCameraController cameraController;
+        private bool addedCameraController;
         private Transform boardRoot;
         private Transform unitRoot;
         private readonly List<SpriteRenderer> deployHighlights = new List<SpriteRenderer>();
@@ -117,11 +197,23 @@ namespace BinakayanRising.Gameplay
         private float eventDuration;
         private int currentTurn;
         private int seed = 1896;
+        private int resultSeed = 1896;
         private int spanishCount = 6;
         private float speed = 1f;
         private int selectedSlot = -1;
         private bool showHelp = true;
+        private bool paused;
+        private bool skipRequested;
+        private bool boardInputLocked;
 
+        private int reportStart;
+        private int reportCount;
+        private int reportVersion;
+
+        private Rect boardWorldRect;
+        private Rect deployZoneWorldRect;
+        private Rect boardSafeArea = new Rect(0f, 0f, 1f, 1f);
+        private float framedAspect;
 
         /// <summary>
         /// Drops the prototype into whatever scene is running, so that pressing Play is all it takes
@@ -151,7 +243,7 @@ namespace BinakayanRising.Gameplay
         /// The check spans every <c>BinakayanRising.*</c> namespace, not just Gameplay. A scene
         /// driven by a UI screen — the styleguide harness, or any authored screen — is just as
         /// driven as one running the battle prototype, and bootstrapping the prototype on top of
-        /// it draws the legacy HUD over whatever that scene was actually for.
+        /// it draws the battle HUD over whatever that scene was actually for.
         /// </remarks>
         private static bool SceneAlreadyDriven()
         {
@@ -185,7 +277,6 @@ namespace BinakayanRising.Gameplay
                 return;
             }
 
-
             GameObject host = new GameObject("Binakayan Rising Playtest");
             host.AddComponent<BattlePlaytest>();
             Undo.RegisterCreatedObjectUndo(host, "Add Battle Playtest");
@@ -206,11 +297,17 @@ namespace BinakayanRising.Gameplay
             /// <summary>Simulation id.</summary>
             public readonly int Id;
 
-            /// <summary>Full name, for the order-of-battle list.</summary>
+            /// <summary>Authored English name, for logs and as a fallback.</summary>
             public readonly string DisplayName;
 
             /// <summary>Abbreviation, for the board token label.</summary>
             public readonly string ShortName;
+
+            /// <summary>Archetype, which the interface maps to a localized name.</summary>
+            public readonly string ArchetypeId;
+
+            /// <summary>Numbering among same-archetype units, 0 when unnumbered.</summary>
+            public readonly int Ordinal;
 
             /// <summary>Which side the unit fights for.</summary>
             public readonly Team Team;
@@ -229,12 +326,14 @@ namespace BinakayanRising.Gameplay
 
             /// <summary>Creates a snapshot.</summary>
             public UnitSnapshot(
-                int id, string displayName, string shortName, Team team,
+                int id, string displayName, string shortName, string archetypeId, int ordinal, Team team,
                 float currentHP, float maxHP, bool alive, Vector3 world)
             {
                 Id = id;
                 DisplayName = displayName;
                 ShortName = shortName;
+                ArchetypeId = archetypeId;
+                Ordinal = ordinal;
                 Team = team;
                 CurrentHP = currentHP;
                 MaxHP = maxHP;
@@ -249,24 +348,24 @@ namespace BinakayanRising.Gameplay
         /// <summary>A floating damage or status number, copied out for the HUD to read.</summary>
         public readonly struct PopupSnapshot
         {
-            /// <summary>What the number says.</summary>
-            public readonly string Text;
+            /// <summary>What the number reports.</summary>
+            public readonly PopupKind Kind;
+
+            /// <summary>Damage or healing amount; unused for dodges and misses.</summary>
+            public readonly float Amount;
 
             /// <summary>Where it is anchored, in world space.</summary>
             public readonly Vector3 World;
 
-            /// <summary>Colour, before the age fade is applied.</summary>
-            public readonly Color Tint;
-
-            /// <summary>Seconds since the popup appeared.</summary>
+            /// <summary>Seconds of replay time since the popup appeared.</summary>
             public readonly float Age;
 
             /// <summary>Creates a snapshot.</summary>
-            public PopupSnapshot(string text, Vector3 world, Color tint, float age)
+            public PopupSnapshot(PopupKind kind, float amount, Vector3 world, float age)
             {
-                Text = text;
+                Kind = kind;
+                Amount = amount;
                 World = world;
-                Tint = tint;
                 Age = age;
             }
         }
@@ -290,16 +389,19 @@ namespace BinakayanRising.Gameplay
         public static System.Func<GameObject, Component> HudFactory;
 
         /// <summary>
-        /// Raised when something the interface draws has structurally changed — the phase, the
-        /// roster selection, the log, the result.
+        /// Raised when something structural changed — phase, selection, deployment, seed, speed,
+        /// the tips toggle. Not raised for field report lines; see <see cref="FieldReportAppended"/>.
         /// </summary>
-        /// <remarks>
-        /// Per-frame values such as health and unit positions are deliberately not announced here.
-        /// They change on almost every frame of a replay, so the HUD polls
-        /// <see cref="GetUnits"/> instead and this event stays a rebuild signal rather than a
-        /// firehose.
-        /// </remarks>
         public event System.Action StateChanged;
+
+        /// <summary>Raised when the phase changes, with the new phase.</summary>
+        public event System.Action<Phase> PhaseChanged;
+
+        /// <summary>Raised when the selected roster slot changes, with the new slot.</summary>
+        public event System.Action<int> SelectionChanged;
+
+        /// <summary>Raised when placements or the Spanish column change.</summary>
+        public event System.Action DeploymentChanged;
 
         /// <summary>Raised when a unit is set down on the board, for placement feedback.</summary>
         /// <remarks>
@@ -308,16 +410,28 @@ namespace BinakayanRising.Gameplay
         /// </remarks>
         public event System.Action UnitPlaced;
 
+        /// <summary>Raised when a placed unit is lifted off the board, with its id.</summary>
+        public event System.Action<int> UnitLifted;
+
+        /// <summary>Raised when a line is added to the field report.</summary>
+        public event System.Action FieldReportAppended;
+
+        /// <summary>Raised when the replay speed changes, with the new speed.</summary>
+        public event System.Action<float> SpeedChanged;
+
         /// <summary>Which stage of the mission is running.</summary>
         public Phase CurrentPhase => phase;
 
         /// <summary>Seed the next assault will be resolved from.</summary>
         public int Seed => seed;
 
+        /// <summary>Seed the current or most recent battle was resolved from.</summary>
+        public int ResultSeed => resultSeed;
+
         /// <summary>Size of the Spanish column the next assault will face.</summary>
         public int SpanishCount => spanishCount;
 
-        /// <summary>Replay rate. Zero means resolve the whole battle instantly.</summary>
+        /// <summary>Replay rate multiplier.</summary>
         public float Speed => speed;
 
         /// <summary>AI turn currently being replayed.</summary>
@@ -329,14 +443,20 @@ namespace BinakayanRising.Gameplay
         /// <summary>Whether the Kapatiran bond tips are expanded.</summary>
         public bool ShowHelp => showHelp;
 
+        /// <summary>True while the replay is frozen, e.g. under a tutorial card.</summary>
+        public bool Paused => paused;
+
+        /// <summary>True while board clicks are ignored.</summary>
+        public bool BoardInputLocked => boardInputLocked;
+
+        /// <summary>True while zoom and pan are ignored.</summary>
+        public bool CameraInputLocked => cameraController != null && cameraController.InputLocked;
+
         /// <summary>The resolved battle, once one exists.</summary>
         public BattleResult Result => result;
 
         /// <summary>The Katipunan roster available for deployment.</summary>
         public IReadOnlyList<RosterEntry> Roster => roster;
-
-        /// <summary>Most recent field-report lines, oldest first.</summary>
-        public IReadOnlyList<string> Ticker => ticker;
 
         /// <summary>How many roster units are standing on the board.</summary>
         public int PlacementCount => placements.Count;
@@ -344,8 +464,45 @@ namespace BinakayanRising.Gameplay
         /// <summary>The camera framing the board, for world-to-screen conversion.</summary>
         public Camera BoardCamera => view;
 
+        /// <summary>World-space bounds of every tile.</summary>
+        public Rect BoardWorldRect => boardWorldRect;
+
+        /// <summary>World-space bounds of every deployable tile.</summary>
+        public Rect DeployZoneWorldRect => deployZoneWorldRect;
+
+        /// <summary>How many field report lines are held, up to 64.</summary>
+        public int FieldReportCount => reportCount;
+
+        /// <summary>Increments whenever the field report changes.</summary>
+        public int FieldReportVersion => reportVersion;
+
         /// <summary>True when the given roster unit has been placed.</summary>
         public bool IsPlaced(int unitId) => placements.ContainsKey(unitId);
+
+        /// <summary>A field report line, 0 being the oldest held.</summary>
+        public FieldReportEntry GetFieldReport(int index)
+        {
+            return report[(reportStart + index) % ReportCapacity];
+        }
+
+        /// <summary>Where a roster unit is placed, if it is.</summary>
+        public bool TryGetPlacement(int unitId, out GridCoord cell)
+        {
+            return placements.TryGetValue(unitId, out cell);
+        }
+
+        /// <summary>The world-space centre of a cell, if it is on the map.</summary>
+        public bool TryGetCellWorld(GridCoord cell, out Vector3 world)
+        {
+            if (grid == null || !grid.InBounds(cell))
+            {
+                world = Vector3.zero;
+                return false;
+            }
+
+            world = CellToWorld(cell);
+            return true;
+        }
 
         /// <summary>Copies the current unit states into <paramref name="into"/>.</summary>
         /// <remarks>
@@ -365,7 +522,7 @@ namespace BinakayanRising.Gameplay
             {
                 UnitView unit = pair.Value;
                 into.Add(new UnitSnapshot(
-                    unit.Id, unit.DisplayName, unit.ShortName, unit.Team,
+                    unit.Id, unit.DisplayName, unit.ShortName, unit.ArchetypeId, unit.Ordinal, unit.Team,
                     unit.CurrentHP, unit.MaxHP, unit.Alive,
                     unit.Root != null ? unit.Root.transform.position : Vector3.zero));
             }
@@ -383,9 +540,11 @@ namespace BinakayanRising.Gameplay
             for (int i = 0; i < popups.Count; i++)
             {
                 Popup popup = popups[i];
-                into.Add(new PopupSnapshot(popup.Text, popup.World, popup.Tint, popup.Age));
+                into.Add(new PopupSnapshot(popup.Kind, popup.Amount, popup.World, popup.Age));
             }
         }
+
+        // ------------------------------------------------------------------ commands
 
         /// <summary>Sets the seed for the next assault.</summary>
         public void SetSeed(int value)
@@ -399,19 +558,26 @@ namespace BinakayanRising.Gameplay
             RaiseStateChanged();
         }
 
-        /// <summary>Sets the replay rate. Zero resolves the remaining events immediately.</summary>
+        /// <summary>Sets the replay rate, clamped to a sensible range. Use <see cref="RequestSkip"/> to jump to the end.</summary>
         public void SetSpeed(float value)
         {
-            if (Mathf.Approximately(speed, value))
+            float clamped = Mathf.Clamp(value, MinSpeed, MaxSpeed);
+            if (Mathf.Approximately(speed, clamped))
             {
                 return;
             }
 
-            speed = value;
+            speed = clamped;
+            SpeedChanged?.Invoke(speed);
             RaiseStateChanged();
         }
 
         /// <summary>Sets the size of the Spanish column, clamped to what the map can hold.</summary>
+        /// <remarks>
+        /// Outside deployment the new size is only stored; it takes effect the next time a column
+        /// is spawned. Rebuilding the board here would yank the player out of a battle or off the
+        /// outcome card.
+        /// </remarks>
         public void SetSpanishCount(int value)
         {
             int clamped = Mathf.Clamp(value, 1, 14);
@@ -422,20 +588,26 @@ namespace BinakayanRising.Gameplay
 
             spanishCount = clamped;
 
-            // The opposing column is spawned as part of entering deployment, so changing its size
-            // has to rebuild the board or the number and the board disagree.
-            EnterDeployment();
+            if (phase == Phase.Deployment)
+            {
+                SyncDeploymentViews();
+                DeploymentChanged?.Invoke();
+            }
+
+            RaiseStateChanged();
         }
 
-        /// <summary>Selects a roster slot for placement.</summary>
+        /// <summary>Selects a roster slot for placement, or -1 for none.</summary>
         public void SelectSlot(int index)
         {
-            if (selectedSlot == index)
+            int clamped = roster == null || index < 0 || index >= roster.Count ? -1 : index;
+            if (selectedSlot == clamped)
             {
                 return;
             }
 
-            selectedSlot = index;
+            selectedSlot = clamped;
+            SelectionChanged?.Invoke(selectedSlot);
             RaiseStateChanged();
         }
 
@@ -451,29 +623,168 @@ namespace BinakayanRising.Gameplay
             RaiseStateChanged();
         }
 
-        /// <summary>Returns to deployment, clearing any resolved battle.</summary>
+        /// <summary>Returns to deployment, clearing any resolved battle but keeping placements.</summary>
         public void RequestRedeploy()
         {
             EnterDeployment();
         }
 
         /// <summary>Resolves and begins replaying the battle.</summary>
-        public void RequestAssault()
+        /// <returns>False when no unit is placed, which would be an instant defeat.</returns>
+        public bool RequestAssault()
         {
-            BeginAssault();
+            return BeginAssault();
         }
 
-        /// <summary>Fills every empty deployment slot automatically.</summary>
+        /// <summary>Places every unit still in reserve on a free deployable tile.</summary>
+        /// <remarks>Units the player already placed stay where they are.</remarks>
         public void RequestAutoDeploy()
         {
+            if (phase != Phase.Deployment)
+            {
+                EnterDeployment();
+            }
+
             AutoDeploy();
         }
 
-        /// <summary>Replays the same formation against a fresh seed.</summary>
+        /// <summary>Replays the same formation against the next seed.</summary>
         public void RequestNewSeed()
         {
             seed++;
             BeginAssault();
+        }
+
+        /// <summary>Places the selected roster unit on a cell.</summary>
+        /// <returns>True when a unit was placed.</returns>
+        public bool RequestPlace(GridCoord cell)
+        {
+            if (phase != Phase.Deployment || grid == null || !grid.IsDeployable(cell)
+                || selectedSlot < 0 || selectedSlot >= roster.Count || IsOccupied(cell))
+            {
+                return false;
+            }
+
+            placements[roster[selectedSlot].Id] = cell;
+            SetSelectionSilently(NextUnplacedSlot(selectedSlot));
+            SyncDeploymentViews();
+
+            UnitPlaced?.Invoke();
+            DeploymentChanged?.Invoke();
+            SelectionChanged?.Invoke(selectedSlot);
+            RaiseStateChanged();
+            return true;
+        }
+
+        /// <summary>Lifts the unit standing on a cell back into reserve and selects it.</summary>
+        /// <returns>True when a unit was lifted.</returns>
+        public bool RequestLift(GridCoord cell)
+        {
+            if (phase != Phase.Deployment)
+            {
+                return false;
+            }
+
+            int liftedId = -1;
+            foreach (KeyValuePair<int, GridCoord> placement in placements)
+            {
+                if (placement.Value == cell)
+                {
+                    liftedId = placement.Key;
+                    break;
+                }
+            }
+
+            if (liftedId < 0)
+            {
+                return false;
+            }
+
+            placements.Remove(liftedId);
+            SetSelectionSilently(IndexOfEntry(liftedId));
+            SyncDeploymentViews();
+
+            UnitLifted?.Invoke(liftedId);
+            DeploymentChanged?.Invoke();
+            SelectionChanged?.Invoke(selectedSlot);
+            RaiseStateChanged();
+            return true;
+        }
+
+        /// <summary>Lifts every unit off the board and clears the selection.</summary>
+        public void RequestClearDeployment()
+        {
+            if (phase != Phase.Deployment)
+            {
+                EnterDeployment();
+            }
+
+            placements.Clear();
+            SetSelectionSilently(-1);
+            SyncDeploymentViews();
+
+            DeploymentChanged?.Invoke();
+            SelectionChanged?.Invoke(selectedSlot);
+            RaiseStateChanged();
+        }
+
+        /// <summary>Jumps the running replay straight to its result. A one-shot, not a speed.</summary>
+        public void RequestSkip()
+        {
+            if (phase == Phase.Combat)
+            {
+                skipRequested = true;
+            }
+        }
+
+        /// <summary>Freezes or resumes the replay and its animations.</summary>
+        public void SetPaused(bool value)
+        {
+            paused = value;
+        }
+
+        /// <summary>Ignores board clicks while true, e.g. while a modal is open.</summary>
+        public void SetBoardInputLocked(bool locked)
+        {
+            boardInputLocked = locked;
+        }
+
+        /// <summary>Ignores zoom and pan input while true.</summary>
+        public void SetCameraInputLocked(bool locked)
+        {
+            if (cameraController != null)
+            {
+                cameraController.SetInputLocked(locked);
+            }
+        }
+
+        /// <summary>
+        /// Tells the board which part of the screen is not covered by interface, in 0..1 viewport
+        /// coordinates, and reframes the camera onto it.
+        /// </summary>
+        public void SetBoardSafeArea(Rect viewport01)
+        {
+            const float Tolerance = 0.002f;
+            if (Mathf.Abs(viewport01.x - boardSafeArea.x) < Tolerance
+                && Mathf.Abs(viewport01.y - boardSafeArea.y) < Tolerance
+                && Mathf.Abs(viewport01.width - boardSafeArea.width) < Tolerance
+                && Mathf.Abs(viewport01.height - boardSafeArea.height) < Tolerance)
+            {
+                return;
+            }
+
+            boardSafeArea = viewport01;
+            FrameBoard(true);
+        }
+
+        /// <summary>Fits the whole board into the safe area and resets zoom and pan.</summary>
+        public void FrameBoard(bool snap)
+        {
+            if (cameraController != null)
+            {
+                cameraController.FrameBounds(boardWorldRect, boardSafeArea, BoardPadding, snap);
+                framedAspect = view != null ? view.aspect : 0f;
+            }
         }
 
         private void RaiseStateChanged()
@@ -481,17 +792,22 @@ namespace BinakayanRising.Gameplay
             StateChanged?.Invoke();
         }
 
+        // ------------------------------------------------------------------ lifecycle
+
         private void Awake()
         {
             layout = new IsoGridLayout(1f, 0.5f);
             grid = PlaytestScenario.CreateGrid();
             roster = PlaytestScenario.KatipunanRoster();
 
-            BuildCamera();
             BuildBoard();
+            BuildCamera();
+
             // Start ready to play. Players can still lift, rearrange, or redeploy every unit,
             // but pressing Play no longer opens on an empty battlefield.
+            EnterDeployment();
             AutoDeploy();
+            SetSelectionSilently(roster.Count > 0 ? 0 : -1);
 
             // Built last: the HUD reads the board, the roster and the camera as it builds itself,
             // so all three have to exist before it runs.
@@ -509,10 +825,15 @@ namespace BinakayanRising.Gameplay
             {
                 Destroy(unitRoot.gameObject);
             }
+
+            if (addedCameraController && cameraController != null)
+            {
+                Destroy(cameraController);
+            }
         }
 
         /// <summary>
-        /// Creates or reuses an orthographic camera framed on the whole board. Reusing an existing
+        /// Creates or reuses an orthographic camera and gives it zoom and pan. Reusing an existing
         /// camera means the prototype drops into a scene that already has one without producing two.
         /// </summary>
         private void BuildCamera()
@@ -528,44 +849,49 @@ namespace BinakayanRising.Gameplay
 
             view.orthographic = true;
             view.clearFlags = CameraClearFlags.SolidColor;
-            view.backgroundColor = new Color(0.09f, 0.10f, 0.11f);
+            view.backgroundColor = BackdropColor;
 
-            Vector3 min = new Vector3(float.MaxValue, float.MaxValue, 0f);
-            Vector3 max = new Vector3(float.MinValue, float.MinValue, 0f);
+            // A first framing before the controller exists, because the controller reads the
+            // camera's size and position in its Awake and clamps its zoom around them.
+            float aspect = view.aspect <= 0f ? 16f / 9f : view.aspect;
+            view.orthographicSize = Mathf.Max(
+                (boardWorldRect.height * 0.5f) + BoardPadding,
+                ((boardWorldRect.width * 0.5f) + BoardPadding) / aspect);
+            view.transform.position = new Vector3(boardWorldRect.center.x, boardWorldRect.center.y, -10f);
 
-            for (int y = 0; y < grid.Height; y++)
+            cameraController = view.GetComponent<BattleCameraController>();
+            if (cameraController == null)
             {
-                for (int x = 0; x < grid.Width; x++)
-                {
-                    Vector3 world = CellToWorld(new GridCoord(x, y));
-                    min = Vector3.Min(min, world);
-                    max = Vector3.Max(max, world);
-                }
+                cameraController = view.gameObject.AddComponent<BattleCameraController>();
+                addedCameraController = true;
             }
 
-            Vector3 centre = (min + max) * 0.5f;
-            float halfHeight = ((max.y - min.y) * 0.5f) + 1.2f;
-            float halfWidth = ((max.x - min.x) * 0.5f) + 1.2f;
-            float aspect = view.aspect <= 0f ? 16f / 9f : view.aspect;
-
-            view.orthographicSize = Mathf.Max(halfHeight, halfWidth / aspect);
-            view.transform.position = new Vector3(centre.x + 1.6f, centre.y, -10f);
+            FrameBoard(true);
         }
 
-        /// <summary>Instantiates one tinted diamond per cell, plus a highlight overlay per deployable cell.</summary>
+        /// <summary>Instantiates one tile per cell, plus a highlight overlay per deployable cell.</summary>
         private void BuildBoard()
         {
             boardRoot = new GameObject("Board").transform;
             unitRoot = new GameObject("Units").transform;
+
+            Vector2 boardMin = new Vector2(float.MaxValue, float.MaxValue);
+            Vector2 boardMax = new Vector2(float.MinValue, float.MinValue);
+            Vector2 zoneMin = boardMin;
+            Vector2 zoneMax = boardMax;
 
             for (int y = 0; y < grid.Height; y++)
             {
                 for (int x = 0; x < grid.Width; x++)
                 {
                     GridCoord cell = new GridCoord(x, y);
+                    Vector3 world = CellToWorld(cell);
+                    boardMin = Vector2.Min(boardMin, world);
+                    boardMax = Vector2.Max(boardMax, world);
+
                     GameObject tile = new GameObject("Tile " + x + "," + y);
                     tile.transform.SetParent(boardRoot, false);
-                    tile.transform.position = CellToWorld(cell);
+                    tile.transform.position = world;
 
                     TerrainType terrain = grid.GetTerrain(cell);
 
@@ -584,9 +910,12 @@ namespace BinakayanRising.Gameplay
                         continue;
                     }
 
+                    zoneMin = Vector2.Min(zoneMin, world);
+                    zoneMax = Vector2.Max(zoneMax, world);
+
                     GameObject highlight = new GameObject("Deployable " + x + "," + y);
                     highlight.transform.SetParent(boardRoot, false);
-                    highlight.transform.position = CellToWorld(cell);
+                    highlight.transform.position = world;
 
                     SpriteRenderer highlightRenderer = highlight.AddComponent<SpriteRenderer>();
                     highlightRenderer.sprite = BoardArt.DeployMarker();
@@ -598,6 +927,15 @@ namespace BinakayanRising.Gameplay
                     deployHighlights.Add(highlightRenderer);
                 }
             }
+
+            // Cell positions are tile centres; a tile reaches half its width and height beyond.
+            Vector2 halfTile = new Vector2(layout.TileWidth * 0.5f, layout.TileHeight * 0.5f);
+            boardWorldRect = Rect.MinMaxRect(
+                boardMin.x - halfTile.x, boardMin.y - halfTile.y, boardMax.x + halfTile.x, boardMax.y + halfTile.y);
+            deployZoneWorldRect = zoneMax.x < zoneMin.x
+                ? boardWorldRect
+                : Rect.MinMaxRect(
+                    zoneMin.x - halfTile.x, zoneMin.y - halfTile.y, zoneMax.x + halfTile.x, zoneMax.y + halfTile.y);
         }
 
         /// <summary>Shows or hides the markers over every deployable cell.</summary>
@@ -612,45 +950,114 @@ namespace BinakayanRising.Gameplay
             }
         }
 
-        /// <summary>Resets to an empty deployment, clearing any units left over from a previous battle.</summary>
+        // ------------------------------------------------------------------ phases
+
+        /// <summary>
+        /// Enters deployment. Coming back from a battle rebuilds every token at full health; within
+        /// deployment only the tokens that changed are touched.
+        /// </summary>
         private void EnterDeployment()
         {
+            Phase previous = phase;
+            bool rebuild = previous != Phase.Deployment || views.Count == 0;
+
             phase = Phase.Deployment;
             result = null;
             replayIndex = 0;
             currentTurn = 0;
             eventTimer = 0f;
             eventDuration = 0f;
-            selectedSlot = roster.Count > 0 ? 0 : -1;
+            skipRequested = false;
 
             popups.Clear();
-            ticker.Clear();
-            ClearViews();
-            ShowDeployHighlights(true);
+            ClearReport();
 
-            foreach (CombatUnit spanish in PlaytestScenario.SpanishColumn(spanishCount))
+            if (rebuild)
             {
-                CreateView(spanish.Id, spanish.Name, "REG", Team.Spanish, spanish.BaseStats.MaxHP, spanish.Position);
+                ClearViews();
+            }
+
+            ShowDeployHighlights(true);
+            SyncDeploymentViews();
+
+            if (previous != Phase.Deployment)
+            {
+                PhaseChanged?.Invoke(phase);
+            }
+
+            DeploymentChanged?.Invoke();
+            RaiseStateChanged();
+        }
+
+        /// <summary>
+        /// Brings the tokens on the board in line with the Spanish column and the placements,
+        /// creating, moving and destroying only what differs.
+        /// </summary>
+        /// <remarks>
+        /// Every placement used to tear down and respawn every token, which on a full board meant
+        /// forty-odd GameObjects and renderers churned per click.
+        /// </remarks>
+        private void SyncDeploymentViews()
+        {
+            desiredScratch.Clear();
+
+            List<CombatUnit> column = PlaytestScenario.SpanishColumn(spanishCount);
+            for (int i = 0; i < column.Count; i++)
+            {
+                CombatUnit spanish = column[i];
+                desiredScratch.Add(spanish.Id);
+                UpsertView(
+                    spanish.Id, spanish.Name, "REG", spanish.ArchetypeId, SpanishOrdinal(spanish.Id),
+                    Team.Spanish, spanish.BaseStats.MaxHP, spanish.Position);
             }
 
             foreach (KeyValuePair<int, GridCoord> placement in placements)
             {
                 RosterEntry entry;
-                if (TryGetEntry(placement.Key, out entry))
+                if (!TryGetEntry(placement.Key, out entry))
                 {
-                    CreateView(entry.Id, entry.DisplayName, entry.ShortName, Team.Katipunan, entry.Stats.MaxHP, placement.Value);
+                    continue;
+                }
+
+                desiredScratch.Add(entry.Id);
+                UpsertView(
+                    entry.Id, entry.DisplayName, entry.ShortName, entry.ArchetypeId, 0,
+                    Team.Katipunan, entry.Stats.MaxHP, placement.Value);
+            }
+
+            removeScratch.Clear();
+            foreach (KeyValuePair<int, UnitView> pair in views)
+            {
+                if (!desiredScratch.Contains(pair.Key))
+                {
+                    removeScratch.Add(pair.Key);
                 }
             }
 
-            RaiseStateChanged();
+            for (int i = 0; i < removeScratch.Count; i++)
+            {
+                UnitView stale = views[removeScratch[i]];
+                if (stale.Root != null)
+                {
+                    Destroy(stale.Root);
+                }
+
+                views.Remove(removeScratch[i]);
+            }
         }
 
         /// <summary>
         /// Hands the deployment to the resolver, which runs the entire battle to completion
         /// immediately, then rewinds the view so the log can be replayed.
         /// </summary>
-        private void BeginAssault()
+        private bool BeginAssault()
         {
+            // Guarded here and not only by the button, because a hotkey reaches this too.
+            if (placements.Count == 0)
+            {
+                return false;
+            }
+
             // The deployment zone is an instruction, not scenery. Left lit through the replay it
             // keeps telling the player to place units on a board they can no longer place on.
             ShowDeployHighlights(false);
@@ -694,48 +1101,67 @@ namespace BinakayanRising.Gameplay
                 kapatiran: new KapatiranResolver(PlaytestScenario.Bonds()));
 
             result = simulator.RunToCompletion();
+            resultSeed = seed;
 
             ClearViews();
             foreach (CombatUnit unit in units)
             {
                 string shortName = "REG";
+                int ordinal = SpanishOrdinal(unit.Id);
                 RosterEntry entry;
                 if (TryGetEntry(unit.Id, out entry))
                 {
                     shortName = entry.ShortName;
+                    ordinal = 0;
                 }
 
-                CreateView(unit.Id, unit.Name, shortName, unit.Team, unit.BaseStats.MaxHP, startCells[unit.Id]);
+                CreateView(unit.Id, unit.Name, shortName, unit.ArchetypeId, ordinal, unit.Team, unit.BaseStats.MaxHP, startCells[unit.Id]);
             }
 
             popups.Clear();
-            ticker.Clear();
+            ClearReport();
             replayIndex = 0;
             currentTurn = 0;
             eventTimer = 0f;
             eventDuration = 0f;
+            skipRequested = false;
             phase = Phase.Combat;
-            Log("The Spanish column advances on the trench line.");
+            AppendReport(new FieldReportEntry(
+                FieldReportKind.AssaultBegan, 0, null, 0, null, 0, BattleOutcome.InProgress, 0));
+
+            PhaseChanged?.Invoke(phase);
             RaiseStateChanged();
+            return true;
         }
 
         private void Update()
         {
-            HandleBoardInput();
-            AdvanceAnimations();
+            // A resized window changes how much board fits, so the framing is redone. Safe-area
+            // fractions alone do not catch this: scaling a window uniformly leaves them unchanged.
+            if (view != null && Mathf.Abs(view.aspect - framedAspect) > 0.01f)
+            {
+                FrameBoard(true);
+            }
 
-            if (phase != Phase.Combat || result == null)
+            HandleBoardInput();
+
+            float rate = paused ? 0f : (phase == Phase.Combat ? speed : 1f);
+            AdvanceAnimations(Time.deltaTime * rate);
+
+            if (paused || phase != Phase.Combat || result == null)
             {
                 return;
             }
 
-            if (speed <= 0f)
+            if (skipRequested)
             {
+                skipRequested = false;
                 while (replayIndex < result.Events.Count)
                 {
                     ApplyEvent(result.Events[replayIndex++]);
                 }
 
+                SettleAnimations();
                 FinishReplay();
                 return;
             }
@@ -760,7 +1186,10 @@ namespace BinakayanRising.Gameplay
         private void FinishReplay()
         {
             phase = Phase.Finished;
-            Log("Battle resolved: " + result.Outcome + " after " + result.TurnsElapsed + " AI turns.");
+            AppendReport(new FieldReportEntry(
+                FieldReportKind.BattleResolved, currentTurn, null, 0, null, 0, result.Outcome, result.TurnsElapsed));
+
+            PhaseChanged?.Invoke(phase);
             RaiseStateChanged();
         }
 
@@ -805,7 +1234,7 @@ namespace BinakayanRising.Gameplay
                         actor.AnimateFrom = CellToWorld(battleEvent.From);
                         actor.AnimateTo = CellToWorld(battleEvent.To);
                         actor.AnimateProgress = 0f;
-                        actor.Body.sortingOrder = SortingFor(battleEvent.To) + 10;
+                        SetSorting(actor, battleEvent.To);
                     }
 
                     break;
@@ -827,7 +1256,7 @@ namespace BinakayanRising.Gameplay
                     if (actor != null)
                     {
                         actor.CurrentHP = Mathf.Min(actor.MaxHP, actor.CurrentHP + battleEvent.Amount);
-                        AddPopup("+" + battleEvent.Amount.ToString("0"), actor, new Color(0.55f, 0.85f, 0.55f));
+                        AddPopup(PopupKind.Heal, battleEvent.Amount, actor);
                     }
 
                     break;
@@ -837,7 +1266,9 @@ namespace BinakayanRising.Gameplay
                     {
                         actor.Alive = false;
                         actor.CurrentHP = 0f;
-                        Log(actor.DisplayName + " is routed.");
+                        AppendReport(new FieldReportEntry(
+                            FieldReportKind.UnitRouted, currentTurn, actor.ArchetypeId, actor.Ordinal,
+                            null, 0, BattleOutcome.InProgress, 0));
                     }
 
                     break;
@@ -853,33 +1284,39 @@ namespace BinakayanRising.Gameplay
 
             if (battleEvent.WasEvaded)
             {
-                AddPopup("DODGE", target, new Color(0.65f, 0.80f, 0.95f));
+                AddPopup(PopupKind.Dodge, 0f, target);
                 return;
             }
 
             if (battleEvent.WasMissed)
             {
-                AddPopup("MISS", target, new Color(0.70f, 0.70f, 0.70f));
+                AddPopup(PopupKind.Miss, 0f, target);
                 return;
             }
 
             target.CurrentHP = Mathf.Max(0f, target.CurrentHP - battleEvent.Amount);
-
-            AddPopup(
-                battleEvent.Amount.ToString("0.#") + (battleEvent.WasCrit ? "!" : string.Empty),
-                target,
-                battleEvent.WasCrit ? new Color(1f, 0.72f, 0.25f) : new Color(1f, 0.45f, 0.40f));
+            AddPopup(battleEvent.WasCrit ? PopupKind.Critical : PopupKind.Damage, battleEvent.Amount, target);
 
             if (battleEvent.WasCrit && actor != null)
             {
-                Log(actor.DisplayName + " lands a critical hit on " + target.DisplayName + ".");
+                AppendReport(new FieldReportEntry(
+                    FieldReportKind.CriticalHit, currentTurn, actor.ArchetypeId, actor.Ordinal,
+                    target.ArchetypeId, target.Ordinal, BattleOutcome.InProgress, 0));
             }
         }
 
         /// <summary>Drives movement lerps, attack lunges, death fades and popup lifetimes.</summary>
-        private void AdvanceAnimations()
+        /// <param name="step">Seconds to advance, already scaled by the replay speed.</param>
+        /// <remarks>
+        /// Scaled by the replay speed in both directions. It used to be floored at 1x, so at 0.5x a
+        /// unit finished its step in half the time the replay gave it and then stood still waiting.
+        /// </remarks>
+        private void AdvanceAnimations(float step)
         {
-            float step = Time.deltaTime * Mathf.Max(speed, 1f);
+            if (step <= 0f)
+            {
+                return;
+            }
 
             foreach (KeyValuePair<int, UnitView> pair in views)
             {
@@ -890,29 +1327,15 @@ namespace BinakayanRising.Gameplay
                 }
 
                 unit.AnimateProgress = Mathf.Min(1f, unit.AnimateProgress + (step / Mathf.Max(MoveSeconds, 0.01f)));
-                Vector3 position = Vector3.Lerp(unit.AnimateFrom, unit.AnimateTo, Smooth(unit.AnimateProgress));
-
                 unit.Lunge = Vector3.Lerp(unit.Lunge, Vector3.zero, Mathf.Min(1f, step * 8f));
-                unit.Root.transform.position = position + unit.Lunge + new Vector3(0f, 0.12f, 0f);
-
-                // A themed token is painted in its own team colour already; only the fallback
-                // white disc needs one multiplied over it.
-                Color tint = BoardArt.TokensAreThemed
-                    ? Color.white
-                    : (unit.Team == Team.Katipunan ? KatipunanColor : SpanishColor);
-                if (!unit.Alive)
-                {
-                    tint = new Color(tint.r * 0.35f, tint.g * 0.35f, tint.b * 0.35f, 0.35f);
-                }
-
-                unit.Body.color = tint;
+                ApplyViewTransform(unit);
             }
 
             for (int i = popups.Count - 1; i >= 0; i--)
             {
                 Popup popup = popups[i];
-                popup.Age += Time.deltaTime;
-                if (popup.Age > 1.1f)
+                popup.Age += step;
+                if (popup.Age > PopupLifetime)
                 {
                     popups.RemoveAt(i);
                 }
@@ -923,52 +1346,85 @@ namespace BinakayanRising.Gameplay
             }
         }
 
+        /// <summary>Snaps every token to where its animation would end, for a skipped replay.</summary>
+        private void SettleAnimations()
+        {
+            popups.Clear();
+            foreach (KeyValuePair<int, UnitView> pair in views)
+            {
+                UnitView unit = pair.Value;
+                unit.AnimateProgress = 1f;
+                unit.Lunge = Vector3.zero;
+                ApplyViewTransform(unit);
+            }
+        }
+
+        private void ApplyViewTransform(UnitView unit)
+        {
+            if (unit.Root == null)
+            {
+                return;
+            }
+
+            Vector3 position = Vector3.Lerp(unit.AnimateFrom, unit.AnimateTo, Smooth(unit.AnimateProgress));
+            unit.Root.transform.position = position + unit.Lunge + new Vector3(0f, TokenLift, 0f);
+
+            // A themed token is painted in its own team colour already; only the fallback
+            // white disc needs one multiplied over it.
+            Color tint = BoardArt.TokensAreThemed
+                ? Color.white
+                : (unit.Team == Team.Katipunan ? KatipunanColor : SpanishColor);
+            if (!unit.Alive)
+            {
+                tint = new Color(tint.r * 0.35f, tint.g * 0.35f, tint.b * 0.35f, 0.35f);
+            }
+
+            unit.Body.color = tint;
+        }
+
         private static float Smooth(float t)
         {
             return t * t * (3f - (2f * t));
         }
 
+        // ------------------------------------------------------------------ input
+
         /// <summary>
-        /// Turns a click on the board into a placement, ignoring clicks that landed on the HUD.
+        /// Turns a click on the board into a placement or a lift, ignoring clicks that landed on
+        /// the interface.
         /// </summary>
         /// <remarks>
-        /// <para>
-        /// The interface is asked whether it consumed the pointer, rather than the board testing
-        /// the click against a list of hardcoded panel rectangles as the IMGUI version did. That
-        /// old approach silently broke every time a panel moved or resized, because the rectangle
-        /// it tested and the rectangle it drew were two separate numbers that had to be kept
-        /// in agreement by hand.
-        /// </para>
-        /// <para>
-        /// <see cref="EventSystem.current"/> may legitimately be null — the offline harness runs
-        /// this component with no interface at all — so a missing event system means "nothing is
-        /// covering the board", not an error.
-        /// </para>
+        /// Left click lifts a placed unit or places the selected one; right click only lifts. The
+        /// interface is asked whether it covers the pointer through <see cref="UiPointer"/> rather
+        /// than the board testing hardcoded panel rectangles, which silently broke every time a
+        /// panel moved.
         /// </remarks>
         private void HandleBoardInput()
         {
-            if (phase != Phase.Deployment)
+            if (phase != Phase.Deployment || boardInputLocked || view == null)
             {
                 return;
             }
 
             Mouse mouse = Mouse.current;
-            if (mouse == null || !mouse.leftButton.wasPressedThisFrame)
+            if (mouse == null)
             {
                 return;
             }
 
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
-            {
-                return;
-            }
-
-            if (view == null)
+            bool left = mouse.leftButton.wasPressedThisFrame;
+            bool right = mouse.rightButton.wasPressedThisFrame;
+            if (!left && !right)
             {
                 return;
             }
 
             Vector2 screen = mouse.position.ReadValue();
+            if (UiPointer.IsOverUi(screen))
+            {
+                return;
+            }
+
             Vector3 world = view.ScreenToWorldPoint(new Vector3(screen.x, screen.y, 0f));
             GridCoord cell = layout.WorldToCell(new IsoVector(world.x, world.y));
 
@@ -977,54 +1433,34 @@ namespace BinakayanRising.Gameplay
                 return;
             }
 
-            TryPlaceOrLift(cell);
-        }
-
-        /// <summary>Places the selected roster unit, or lifts one already standing on the cell.</summary>
-        private void TryPlaceOrLift(GridCoord cell)
-        {
-            foreach (KeyValuePair<int, GridCoord> placement in placements)
-            {
-                if (placement.Value == cell)
-                {
-                    int liftedId = placement.Key;
-                    placements.Remove(liftedId);
-                    selectedSlot = IndexOfEntry(liftedId);
-                    EnterDeployment();
-                    return;
-                }
-            }
-
-            if (!grid.IsDeployable(cell) || selectedSlot < 0 || selectedSlot >= roster.Count)
+            if (RequestLift(cell) || right)
             {
                 return;
             }
 
-            placements[roster[selectedSlot].Id] = cell;
-            selectedSlot = NextUnplacedSlot(selectedSlot);
-            EnterDeployment();
-            UnitPlaced?.Invoke();
+            RequestPlace(cell);
         }
 
+        // ------------------------------------------------------------------ deployment helpers
+
+        /// <summary>Fills unplaced roster units into free deployable cells, trench first.</summary>
         private void AutoDeploy()
         {
-            placements.Clear();
-
             List<GridCoord> cells = new List<GridCoord>();
             for (int y = 0; y < grid.Height; y++)
             {
                 for (int x = 0; x < grid.Width; x++)
                 {
                     GridCoord cell = new GridCoord(x, y);
-                    if (grid.IsDeployable(cell))
+                    if (grid.IsDeployable(cell) && !IsOccupied(cell))
                     {
                         cells.Add(cell);
                     }
                 }
             }
 
-            // Deploy down the trench so the two bonded pairs land adjacent to one another, which is
-            // the arrangement the Kapatiran rules reward.
+            // Walking the free cells in grid order deploys down the trench, so the two bonded pairs
+            // land adjacent to one another — the arrangement the Kapatiran rules reward.
             int index = 0;
             foreach (RosterEntry entry in roster)
             {
@@ -1033,10 +1469,37 @@ namespace BinakayanRising.Gameplay
                     break;
                 }
 
+                if (placements.ContainsKey(entry.Id))
+                {
+                    continue;
+                }
+
                 placements[entry.Id] = cells[index++];
             }
 
-            EnterDeployment();
+            SyncDeploymentViews();
+            UnitPlaced?.Invoke();
+            DeploymentChanged?.Invoke();
+            RaiseStateChanged();
+        }
+
+        private bool IsOccupied(GridCoord cell)
+        {
+            foreach (KeyValuePair<int, GridCoord> placement in placements)
+            {
+                if (placement.Value == cell)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Changes the selection without announcing it, for callers that announce once at the end.</summary>
+        private void SetSelectionSilently(int index)
+        {
+            selectedSlot = roster == null || index < 0 || index >= roster.Count ? -1 : index;
         }
 
         private int NextUnplacedSlot(int from)
@@ -1081,7 +1544,43 @@ namespace BinakayanRising.Gameplay
             return false;
         }
 
-        private void CreateView(int id, string displayName, string shortName, Team team, float maxHP, GridCoord cell)
+        /// <summary>Spanish regulars are numbered from id 10, matching their authored names.</summary>
+        private static int SpanishOrdinal(int id)
+        {
+            return id >= 10 ? id - 9 : 0;
+        }
+
+        // ------------------------------------------------------------------ views
+
+        private void UpsertView(
+            int id, string displayName, string shortName, string archetypeId, int ordinal,
+            Team team, float maxHP, GridCoord cell)
+        {
+            UnitView existing;
+            if (!views.TryGetValue(id, out existing) || existing.Root == null)
+            {
+                CreateView(id, displayName, shortName, archetypeId, ordinal, team, maxHP, cell);
+                return;
+            }
+
+            if (existing.Cell == cell)
+            {
+                return;
+            }
+
+            Vector3 world = CellToWorld(cell);
+            existing.Cell = cell;
+            existing.AnimateFrom = world;
+            existing.AnimateTo = world;
+            existing.AnimateProgress = 1f;
+            existing.Lunge = Vector3.zero;
+            SetSorting(existing, cell);
+            ApplyViewTransform(existing);
+        }
+
+        private void CreateView(
+            int id, string displayName, string shortName, string archetypeId, int ordinal,
+            Team team, float maxHP, GridCoord cell)
         {
             GameObject token = new GameObject("Unit " + id + " " + displayName);
             token.transform.SetParent(unitRoot, false);
@@ -1092,7 +1591,6 @@ namespace BinakayanRising.Gameplay
                 ? Color.white
                 : (team == Team.Katipunan ? KatipunanColor : SpanishColor);
             body.sortingLayerName = UnitsLayer;
-            body.sortingOrder = SortingFor(cell) + 10;
 
             GameObject shadowObject = new GameObject("Shadow");
             shadowObject.transform.SetParent(token.transform, false);
@@ -1107,16 +1605,16 @@ namespace BinakayanRising.Gameplay
                 ? Color.white
                 : new Color(0f, 0f, 0f, 0.45f);
             shadowRenderer.sortingLayerName = ShadowsLayer;
-            shadowRenderer.sortingOrder = SortingFor(cell) + 9;
 
             Vector3 world = CellToWorld(cell);
-            token.transform.position = world;
 
-            views[id] = new UnitView
+            UnitView unit = new UnitView
             {
                 Id = id,
                 DisplayName = displayName,
                 ShortName = shortName,
+                ArchetypeId = archetypeId,
+                Ordinal = ordinal,
                 Team = team,
                 MaxHP = maxHP,
                 CurrentHP = maxHP,
@@ -1124,11 +1622,25 @@ namespace BinakayanRising.Gameplay
                 Cell = cell,
                 Root = token,
                 Body = body,
+                Shadow = shadowRenderer,
                 AnimateFrom = world,
                 AnimateTo = world,
                 AnimateProgress = 1f,
                 Lunge = Vector3.zero
             };
+
+            SetSorting(unit, cell);
+            ApplyViewTransform(unit);
+            views[id] = unit;
+        }
+
+        private static void SetSorting(UnitView unit, GridCoord cell)
+        {
+            unit.Body.sortingOrder = SortingFor(cell) + 10;
+            if (unit.Shadow != null)
+            {
+                unit.Shadow.sortingOrder = SortingFor(cell) + 9;
+            }
         }
 
         private void ClearViews()
@@ -1150,26 +1662,48 @@ namespace BinakayanRising.Gameplay
             return views.TryGetValue(id, out found) ? found : null;
         }
 
-        private void AddPopup(string text, UnitView unit, Color tint)
+        private void AddPopup(PopupKind kind, float amount, UnitView unit)
         {
             popups.Add(new Popup
             {
-                Text = text,
+                Kind = kind,
+                Amount = amount,
                 World = unit.Root != null ? unit.Root.transform.position : CellToWorld(unit.Cell),
-                Tint = tint,
                 Age = 0f
             });
         }
 
-        private void Log(string message)
+        // ------------------------------------------------------------------ field report
+
+        /// <summary>Adds a line to the fixed-size report, overwriting the oldest once full.</summary>
+        private void AppendReport(FieldReportEntry entry)
         {
-            ticker.Add("T" + currentTurn + "  " + message);
-            if (ticker.Count > 64)
+            if (reportCount < ReportCapacity)
             {
-                ticker.RemoveAt(0);
+                report[(reportStart + reportCount) % ReportCapacity] = entry;
+                reportCount++;
+            }
+            else
+            {
+                report[reportStart] = entry;
+                reportStart = (reportStart + 1) % ReportCapacity;
             }
 
-            RaiseStateChanged();
+            reportVersion++;
+            FieldReportAppended?.Invoke();
+        }
+
+        private void ClearReport()
+        {
+            if (reportCount == 0)
+            {
+                return;
+            }
+
+            reportStart = 0;
+            reportCount = 0;
+            reportVersion++;
+            FieldReportAppended?.Invoke();
         }
 
         private Vector3 CellToWorld(GridCoord cell)

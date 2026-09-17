@@ -109,7 +109,7 @@ namespace BinakayanRising.Gameplay
         {
             return new List<RosterEntry>
             {
-                new RosterEntry(1, "Caviteno Marksman", "MRK", "Marksman",
+                new RosterEntry(1, "Caviteño Marksman", "MRK", "Marksman",
                     new UnitStats(90f, 14f, 4f, 0.05f, 0.75f, 2f, 0.15f, 0f)),
                 new RosterEntry(2, "Trench Engineer", "ENG", "Engineer",
                     new UnitStats(110f, 10f, 12f, 0.05f, 0.85f, 1f, 0.05f, 0f)),
@@ -201,7 +201,11 @@ namespace BinakayanRising.Gameplay
                 AllowDiagonalMovement = false,
                 StackingPolicy = ModifierStackingPolicy.AdditivePercent,
                 MitigationMode = DamageMitigationMode.Subtractive,
-                LogModifierEvents = false
+                LogModifierEvents = false,
+
+                // Trenches and tents are Katipunan works. A regular who reaches an empty one should
+                // not inherit its cover or its healing.
+                SpanishReceivesTerrainBonuses = false
             };
         }
     }

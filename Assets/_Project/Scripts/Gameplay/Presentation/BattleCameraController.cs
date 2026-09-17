@@ -26,6 +26,11 @@ namespace BinakayanRising.Gameplay.Presentation
     /// makes a wheel zoom feel like it is examining a spot rather than the screen centre.
     /// </para>
     /// <para>
+    /// Wheel zoom and drag pan are ignored while the cursor is over interface, asked through
+    /// <see cref="UiPointer"/>: scrolling a panel's list should scroll the list, not the battlefield
+    /// behind it.
+    /// </para>
+    /// <para>
     /// TODO(design): not specified in capstone document. Zoom range, pan speed, edge-pan margin and
     /// the smoothing rates are all feel settings the document does not state; every one is a
     /// serialized field.
@@ -251,6 +256,72 @@ namespace BinakayanRising.Gameplay.Presentation
             MoveTo(centre, snap);
         }
 
+        /// <summary>
+        /// Zooms and centres so a world rectangle fits inside the part of the screen the interface
+        /// leaves free, then bounds zoom and pan around that framing.
+        /// </summary>
+        /// <param name="worldRect">What must be fully visible, in world units.</param>
+        /// <param name="safeViewport">
+        /// The uncovered part of the screen in 0..1 viewport coordinates, origin bottom-left.
+        /// </param>
+        /// <param name="padding">World units of margin kept around <paramref name="worldRect"/>.</param>
+        /// <param name="snap">Jump there immediately instead of gliding.</param>
+        /// <remarks>
+        /// Framing on the screen centre put the board under whichever panel covered that side.
+        /// Here the camera is offset so the board's centre lands on the free area's centre, and
+        /// sized so the board's larger dimension fills that area rather than the whole screen.
+        /// </remarks>
+        public void FrameBounds(Rect worldRect, Rect safeViewport, float padding, bool snap)
+        {
+            if (targetCamera == null || worldRect.width <= 0f || worldRect.height <= 0f)
+            {
+                return;
+            }
+
+            float aspect = targetCamera.aspect > 0f ? targetCamera.aspect : 16f / 9f;
+
+            // A sliver of free screen would demand an absurd zoom-out; below a fifth of the screen
+            // the interface is simply allowed to overlap.
+            float safeWidth = Mathf.Clamp(safeViewport.width, 0.2f, 1f);
+            float safeHeight = Mathf.Clamp(safeViewport.height, 0.2f, 1f);
+            float safeCentreX = Mathf.Clamp01(safeViewport.x + (safeViewport.width * 0.5f));
+            float safeCentreY = Mathf.Clamp01(safeViewport.y + (safeViewport.height * 0.5f));
+
+            float size = Mathf.Max(
+                (worldRect.height + (2f * padding)) / (2f * safeHeight),
+                (worldRect.width + (2f * padding)) / (2f * aspect * safeWidth));
+
+            // The world point at viewport v sits at centre + (v - 0.5) * 2 * size * (aspect, 1), so
+            // shifting the camera by the opposite amount lands the board on the free area's centre.
+            Vector2 centre = worldRect.center;
+            Vector3 position = new Vector3(
+                centre.x - ((safeCentreX - 0.5f) * 2f * size * aspect),
+                centre.y - ((safeCentreY - 0.5f) * 2f * size),
+                targetCamera.transform.position.z);
+
+            SetZoomLimits(Mathf.Max(1f, size * 0.35f), size * 1.3f);
+
+            panBounds = Rect.MinMaxRect(
+                Mathf.Min(worldRect.xMin, position.x),
+                Mathf.Min(worldRect.yMin, position.y),
+                Mathf.Max(worldRect.xMax, position.x),
+                Mathf.Max(worldRect.yMax, position.y));
+
+            dragging = false;
+            SetZoom(size, snap);
+            MoveTo(position, snap);
+        }
+
+        /// <summary>Sets the closest and furthest zoom, clamping the current zoom into range.</summary>
+        /// <param name="minSize">Smallest orthographic size.</param>
+        /// <param name="maxSize">Largest orthographic size; raised to <paramref name="minSize"/> if lower.</param>
+        public void SetZoomLimits(float minSize, float maxSize)
+        {
+            minOrthographicSize = Mathf.Max(0.01f, minSize);
+            maxOrthographicSize = Mathf.Max(minOrthographicSize, maxSize);
+            targetSize = Mathf.Clamp(targetSize, minOrthographicSize, maxOrthographicSize);
+        }
+
         /// <summary>Sets the world-space rectangle the camera centre may travel inside.</summary>
         /// <param name="bounds">Rectangle in world units.</param>
         public void SetPanBounds(Rect bounds)
@@ -301,6 +372,12 @@ namespace BinakayanRising.Gameplay.Presentation
                 return;
             }
 
+            Vector2 cursor = mouse.position.ReadValue();
+            if (UiPointer.IsOverUi(cursor))
+            {
+                return;
+            }
+
             // The Input System reports raw wheel deltas, which are 120 per notch on Windows and
             // roughly 1 per notch elsewhere. Normalising to a sign keeps one notch feeling the same
             // on every platform.
@@ -316,11 +393,18 @@ namespace BinakayanRising.Gameplay.Presentation
 
             if (zoomTowardCursor && targetCamera != null)
             {
-                Vector3 cursorBefore = ScreenToWorld(mouse.position.ReadValue());
+                // Worked against the target framing rather than the live camera, which is still
+                // gliding: writing the new size straight onto the camera made every notch a jump
+                // and left the smoothing with nothing to do.
+                Rect pixels = targetCamera.pixelRect;
+                float aspect = pixels.height > 0f ? pixels.width / pixels.height : targetCamera.aspect;
+                Vector2 offset = new Vector2(
+                    ((cursor.x - pixels.x) / Mathf.Max(1f, pixels.width) - 0.5f) * 2f * aspect,
+                    ((cursor.y - pixels.y) / Mathf.Max(1f, pixels.height) - 0.5f) * 2f);
+
+                Vector3 anchor = targetPosition + (Vector3)(offset * previousSize);
                 targetSize = newSize;
-                targetCamera.orthographicSize = newSize;
-                Vector3 cursorAfter = ScreenToWorld(mouse.position.ReadValue());
-                MoveTo(targetPosition + (cursorBefore - cursorAfter));
+                MoveTo(anchor - (Vector3)(offset * newSize));
             }
             else
             {
@@ -354,6 +438,13 @@ namespace BinakayanRising.Gameplay.Presentation
 
             if (button.wasPressedThisFrame)
             {
+                // A drag that starts on a panel belongs to the panel.
+                if (UiPointer.IsOverUi(mouse.position.ReadValue()))
+                {
+                    dragging = false;
+                    return;
+                }
+
                 dragging = true;
                 dragWorldAnchor = ScreenToWorld(mouse.position.ReadValue());
                 return;
@@ -378,7 +469,10 @@ namespace BinakayanRising.Gameplay.Presentation
                 delta = -delta;
             }
 
-            MoveTo(targetPosition + delta);
+            // Snapped, not glided. The cursor is converted through the live camera, so while the
+            // camera lagged behind its target the same delta was added again every frame and the
+            // board raced away from the cursor.
+            MoveTo(targetPosition + delta, snap: true);
         }
 
         private void ReadEdgePan()

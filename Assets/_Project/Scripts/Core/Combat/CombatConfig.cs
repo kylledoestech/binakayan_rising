@@ -65,6 +65,7 @@ namespace BinakayanRising.Core.Combat
         private bool applyAccuracyRoll = true;
         private BattleOutcome mutualAnnihilationOutcome = BattleOutcome.Draw;
         private bool logModifierEvents = true;
+        private bool spanishReceivesTerrainBonuses = true;
 
         /// <summary>
         /// Hard cap on AI turns. When a battle reaches it, the outcome is
@@ -252,6 +253,24 @@ namespace BinakayanRising.Core.Combat
             set { logModifierEvents = value; }
         }
 
+        /// <summary>
+        /// When false, Spanish units standing on fortified terrain gain none of its benefits: no
+        /// positive stat modifiers and no regeneration. Penalties such as the Coastal Shallows still
+        /// apply to them.
+        /// </summary>
+        /// <remarks>
+        /// TODO(design): not specified in capstone document. Table 2 lists terrain effects without
+        /// saying who they apply to. Trenches and encampment tents are Katipunan works, so a Spanish
+        /// regular climbing into an empty trench and inheriting its cover reads as a bug to players.
+        /// Default true (terrain is neutral), which is what every existing test assumes; the playtest
+        /// scenario turns it off.
+        /// </remarks>
+        public bool SpanishReceivesTerrainBonuses
+        {
+            get { return spanishReceivesTerrainBonuses; }
+            set { spanishReceivesTerrainBonuses = value; }
+        }
+
         /// <summary>Returns an independent copy, so a caller can tweak one battle without affecting others.</summary>
         public CombatConfig Clone()
         {
@@ -267,7 +286,8 @@ namespace BinakayanRising.Core.Combat
                 applyEvasionRoll = applyEvasionRoll,
                 applyAccuracyRoll = applyAccuracyRoll,
                 mutualAnnihilationOutcome = mutualAnnihilationOutcome,
-                logModifierEvents = logModifierEvents
+                logModifierEvents = logModifierEvents,
+                spanishReceivesTerrainBonuses = spanishReceivesTerrainBonuses
             };
         }
     }

@@ -155,7 +155,7 @@ namespace BinakayanRising.EditorTools
 
             foreach (string family in new[]
             {
-                "Cinzel-Bold", "Cinzel-Black",
+                "Cinzel-Bold",
                 "Spectral-Regular", "Spectral-Bold",
             })
             {
@@ -322,6 +322,8 @@ namespace BinakayanRising.EditorTools
             theme.bodyFontBold = Find(fonts, "Spectral-Bold SDF")
                              ?? Load<TMP_FontAsset>($"{FontRoot}/Spectral-Bold SDF.asset");
 
+            LinkDisplayFallback(theme.displayFont, theme.bodyFontBold);
+
             theme.sfxClick = Load<AudioClip>($"{ArtRoot}/Sfx/ui_click.ogg");
             theme.sfxHover = Load<AudioClip>($"{ArtRoot}/Sfx/ui_hover.ogg");
             theme.sfxConfirm = Load<AudioClip>($"{ArtRoot}/Sfx/ui_confirm.ogg");
@@ -340,6 +342,34 @@ namespace BinakayanRising.EditorTools
 
             EditorUtility.SetDirty(theme);
             ReportMissing(theme);
+        }
+
+        /// <summary>
+        /// Lets the display face borrow symbols it was never drawn with from the body face.
+        /// </summary>
+        /// <remarks>
+        /// Cinzel is a titling face with no check mark, arrows or stars, so baking those characters
+        /// into its atlas finds nothing. Spectral has them. With Spectral Bold as a fallback, a ✓
+        /// inside a Cinzel label draws from Spectral instead of as an empty box. Public so the
+        /// link can be restored without re-baking every atlas.
+        /// </remarks>
+        public static void LinkDisplayFallback(TMP_FontAsset display, TMP_FontAsset fallback)
+        {
+            if (display == null || fallback == null || display == fallback)
+            {
+                return;
+            }
+
+            if (display.fallbackFontAssetTable == null)
+            {
+                display.fallbackFontAssetTable = new List<TMP_FontAsset>();
+            }
+
+            if (!display.fallbackFontAssetTable.Contains(fallback))
+            {
+                display.fallbackFontAssetTable.Add(fallback);
+                EditorUtility.SetDirty(display);
+            }
         }
 
         /// <summary>Names every unresolved reference, so a typo in a path is loud rather than blank.</summary>

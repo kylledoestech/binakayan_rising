@@ -11,7 +11,7 @@ fi
 echo "== strict Core build (netstandard 2.1, no engine references, warnings as errors) =="
 "$DOTNET" "$CSC" -nologo -noconfig -nostdlib+ -langversion:7.3 -warnaserror+ -warn:4 \
     -target:library -out:"$OUT_DIR/BinakayanRising.Core.dll" -r:"$NETSTANDARD_REF" \
-    "$CORE_SRC"/Grid/*.cs "$CORE_SRC"/Combat/*.cs
+    "$CORE_SRC"/Grid/*.cs "$CORE_SRC"/Combat/*.cs "$CORE_SRC"/Localization/*.cs
 echo "   OK - Core compiles with zero warnings and zero UnityEngine dependencies"
 echo
 
@@ -21,8 +21,10 @@ cp -f "$NUNIT_DLL" "$OUT_DIR/"
 compile_netfx "$OUT_DIR/EditModeTests.exe" \
     "$CORE_SRC"/Grid/*.cs \
     "$CORE_SRC"/Combat/*.cs \
+    "$CORE_SRC"/Localization/*.cs \
     "$TEST_SRC"/Grid/*.cs \
     "$TEST_SRC"/Combat/*.cs \
+    "$TEST_SRC"/Localization/*.cs \
     "$PROJECT_ROOT/Tools/battle-sim/OfflineNUnitRunner.cs"
 
 exec "$MONO" "$OUT_DIR/EditModeTests.exe"

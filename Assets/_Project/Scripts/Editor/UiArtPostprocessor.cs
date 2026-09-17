@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using UnityEditor;
 using UnityEngine;
 
@@ -22,6 +23,11 @@ namespace BinakayanRising.EditorTools
     /// horizontal strips and slice only on X. Deriving the value from the texture instead of
     /// hardcoding 16 or 32 means the rule survives Kenney re-exporting the pack at another size.
     /// </para>
+    /// <para>
+    /// The RPG pack's buttons and insets are not square and not symmetric — a button carries an
+    /// 8-pixel drop shadow under it and 4 pixels of bevel on top — so their borders are measured
+    /// from the pixels instead: see <see cref="MeasureBorder"/>.
+    /// </para>
     /// </remarks>
     public sealed class UiArtPostprocessor : AssetPostprocessor
     {
@@ -36,6 +42,15 @@ namespace BinakayanRising.EditorTools
         /// fallback tiles different sizes on the same grid.
         /// </summary>
         private const float BoardPixelsPerUnit = 128f;
+
+        /// <summary>
+        /// Bumped whenever the rules below change, so Unity reimports the art they apply to
+        /// instead of keeping settings baked by an older version.
+        /// </summary>
+        public override uint GetVersion()
+        {
+            return 3;
+        }
 
         private void OnPreprocessTexture()
         {
@@ -70,6 +85,15 @@ namespace BinakayanRising.EditorTools
             importer.ReadTextureSettings(settingsForMesh);
             settingsForMesh.spriteMeshType = SpriteMeshType.FullRect;
             ApplyPivotOverride(assetPath, settingsForMesh);
+
+            // The border has to be in place before the sprite is built. Set after import, in
+            // OnPostprocessTexture, it only reaches the .meta and the sprite keeps a zero border
+            // until something happens to reimport the file a second time.
+            if (TryGetSliceBorder(assetPath, out Vector4 border))
+            {
+                settingsForMesh.spriteBorder = border;
+            }
+
             importer.SetTextureSettings(settingsForMesh);
 
             // The project renders in Linear colour space. Compressing UI art costs more in
@@ -78,28 +102,6 @@ namespace BinakayanRising.EditorTools
             var settings = importer.GetDefaultPlatformTextureSettings();
             settings.textureCompression = TextureImporterCompression.Uncompressed;
             importer.SetPlatformTextureSettings(settings);
-        }
-
-        /// <summary>
-        /// Sets the 9-slice border after import, when the texture's real dimensions are known.
-        /// </summary>
-        private void OnPostprocessTexture(Texture2D texture)
-        {
-            if (!assetPath.StartsWith(ArtRoot, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            if (!TryGetSliceBorder(assetPath, texture, out Vector4 border))
-            {
-                return;
-            }
-
-            var importer = (TextureImporter)assetImporter;
-            if (importer.spriteBorder != border)
-            {
-                importer.spriteBorder = border;
-            }
         }
 
         private static bool IsBoardArt(string path)
@@ -137,16 +139,45 @@ namespace BinakayanRising.EditorTools
         /// Icons, unit tokens and terrain tiles must never be sliced — stretching their interior
         /// would distort the artwork rather than the frame around it.
         /// </remarks>
-        private static bool TryGetSliceBorder(string path, Texture2D texture, out Vector4 border)
+        private static bool TryGetSliceBorder(string path, out Vector4 border)
         {
             border = Vector4.zero;
 
             bool isFrame = path.StartsWith(ArtRoot + "UI/Frames/", StringComparison.Ordinal)
                         || path.StartsWith(ArtRoot + "UI/FramesDouble/", StringComparison.Ordinal);
-            if (!isFrame)
+            bool isMeasured = IsMeasuredSlice(path);
+            if (!isFrame && !isMeasured)
             {
                 return false;
             }
+
+            // Preprocessing runs before Unity has decoded the file, so the source PNG is read
+            // directly. LoadImage yields RGBA32 rows bottom-up, the same layout GetPixels32 has.
+            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            try
+            {
+                if (!texture.LoadImage(File.ReadAllBytes(path)))
+                {
+                    return false;
+                }
+
+                return isMeasured ? TryMeasure(texture, out border) : TryThirds(path, texture, out border);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(texture);
+            }
+        }
+
+        private static bool TryMeasure(Texture2D texture, out Vector4 border)
+        {
+            border = MeasureBorder(texture);
+            return true;
+        }
+
+        private static bool TryThirds(string path, Texture2D texture, out Vector4 border)
+        {
+            border = Vector4.zero;
 
             // Dividers are wide, short strips: they tile horizontally and must keep their
             // full height, so the vertical border stays zero.
@@ -161,6 +192,147 @@ namespace BinakayanRising.EditorTools
             float inset = Mathf.Floor(Mathf.Min(texture.width, texture.height) / 3f);
             border = new Vector4(inset, inset, inset, inset);
             return true;
+        }
+
+        private static bool IsMeasuredSlice(string path)
+        {
+            const string Rpg = ArtRoot + "UI/Rpg/";
+            return path.StartsWith(Rpg + "button", StringComparison.Ordinal)
+                || path.StartsWith(Rpg + "panelInset", StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// Measures how far in from each edge a sprite stops being edge art, and returns that as its
+        /// 9-slice border (left, bottom, right, top).
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>Bands.</b> Walking in from an edge along the quarter lines, the border starts where the
+        /// sprite's interior colour starts. Quarter lines rather than the centre line, because the
+        /// beige inset has a crack drawn at its top centre that is not part of the edge.
+        /// </para>
+        /// <para>
+        /// <b>Corners.</b> A rounded corner reaches further along the outer rows than the band does:
+        /// the button's top row only turns opaque six pixels in, past its four-pixel bevel. Every
+        /// row inside the top and bottom bands (and a few rows beyond) is compared against the same
+        /// row at the quarter line, and the side border grows to hold the last pixel that differs.
+        /// Columns are treated the same way for the top and bottom borders.
+        /// </para>
+        /// <para>
+        /// One pixel of margin is added so bilinear filtering at the seam samples uniform texels.
+        /// </para>
+        /// </remarks>
+        private static Vector4 MeasureBorder(Texture2D texture)
+        {
+            const int CornerSlack = 3;
+
+            int width = texture.width;
+            int height = texture.height;
+            Color32[] pixels = texture.GetPixels32();
+
+            // Texture rows run bottom-up.
+            Color32 interior = pixels[(height / 2 * width) + (width / 4)];
+            int qx0 = width / 4;
+            int qx1 = (3 * width) / 4;
+            int qy0 = height / 4;
+            int qy1 = (3 * height) / 4;
+
+            int top = Mathf.Max(Band(pixels, width, qx0, height - 1, 0, -1, height, interior), Band(pixels, width, qx1, height - 1, 0, -1, height, interior));
+            int bottom = Mathf.Max(Band(pixels, width, qx0, 0, 0, 1, height, interior), Band(pixels, width, qx1, 0, 0, 1, height, interior));
+            int left = Mathf.Max(Band(pixels, width, 0, qy0, 1, 0, width, interior), Band(pixels, width, 0, qy1, 1, 0, width, interior));
+            int right = Mathf.Max(Band(pixels, width, width - 1, qy0, -1, 0, width, interior), Band(pixels, width, width - 1, qy1, -1, 0, width, interior));
+
+            int maxX = width / 3;
+            int maxY = height / 3;
+
+            // Corners are looked for only near the bands, so the small nicks the pack draws along
+            // the middle of an edge stay in the stretched strip where they belong.
+            int bandTop = top;
+            int bandBottom = bottom;
+            int bandLeft = left;
+            int bandRight = right;
+            int reachX = Mathf.Min(maxX, Mathf.Max(bandLeft, bandRight) + CornerSlack);
+            int reachY = Mathf.Min(maxY, Mathf.Max(bandTop, bandBottom) + CornerSlack);
+
+            for (int i = 0; i < reachY; i++)
+            {
+                if (i < bandTop + CornerSlack)
+                {
+                    int row = height - 1 - i;
+                    left = Mathf.Max(left, Reach(pixels, width, 0, row, 1, 0, Mathf.Min(maxX, bandLeft + CornerSlack), pixels[(row * width) + qx0]));
+                    right = Mathf.Max(right, Reach(pixels, width, width - 1, row, -1, 0, Mathf.Min(maxX, bandRight + CornerSlack), pixels[(row * width) + qx1]));
+                }
+
+                if (i < bandBottom + CornerSlack)
+                {
+                    left = Mathf.Max(left, Reach(pixels, width, 0, i, 1, 0, Mathf.Min(maxX, bandLeft + CornerSlack), pixels[(i * width) + qx0]));
+                    right = Mathf.Max(right, Reach(pixels, width, width - 1, i, -1, 0, Mathf.Min(maxX, bandRight + CornerSlack), pixels[(i * width) + qx1]));
+                }
+            }
+
+            for (int i = 0; i < reachX; i++)
+            {
+                if (i < bandLeft + CornerSlack)
+                {
+                    top = Mathf.Max(top, Reach(pixels, width, i, height - 1, 0, -1, Mathf.Min(maxY, bandTop + CornerSlack), pixels[(qy1 * width) + i]));
+                    bottom = Mathf.Max(bottom, Reach(pixels, width, i, 0, 0, 1, Mathf.Min(maxY, bandBottom + CornerSlack), pixels[(qy0 * width) + i]));
+                }
+
+                if (i < bandRight + CornerSlack)
+                {
+                    int column = width - 1 - i;
+                    top = Mathf.Max(top, Reach(pixels, width, column, height - 1, 0, -1, Mathf.Min(maxY, bandTop + CornerSlack), pixels[(qy1 * width) + column]));
+                    bottom = Mathf.Max(bottom, Reach(pixels, width, column, 0, 0, 1, Mathf.Min(maxY, bandBottom + CornerSlack), pixels[(qy0 * width) + column]));
+                }
+            }
+
+            return new Vector4(
+                Mathf.Min(left + 1, maxX),
+                Mathf.Min(bottom + 1, maxY),
+                Mathf.Min(right + 1, maxX),
+                Mathf.Min(top + 1, maxY));
+        }
+
+        /// <summary>Steps from an edge until the interior colour; returns how many steps that took.</summary>
+        private static int Band(Color32[] pixels, int width, int x, int y, int dx, int dy, int limit, Color32 interior)
+        {
+            int steps = 0;
+            while (steps < limit / 2 && !Same(pixels[(y * width) + x], interior))
+            {
+                x += dx;
+                y += dy;
+                steps++;
+            }
+
+            return steps;
+        }
+
+        /// <summary>
+        /// Returns one past the furthest pixel, within <paramref name="limit"/> steps of the edge,
+        /// that differs from <paramref name="reference"/>.
+        /// </summary>
+        private static int Reach(Color32[] pixels, int width, int x, int y, int dx, int dy, int limit, Color32 reference)
+        {
+            int reach = 0;
+            for (int step = 0; step < limit; step++)
+            {
+                if (!Same(pixels[((y + (dy * step)) * width) + x + (dx * step)], reference))
+                {
+                    reach = step + 1;
+                }
+            }
+
+            return reach;
+        }
+
+        private static bool Same(Color32 a, Color32 b)
+        {
+            // Tight: the button bevel is 233 against a 229 face, so a looser match reads the bevel as face.
+            const int Tolerance = 2;
+            return Mathf.Abs(a.r - b.r) <= Tolerance
+                && Mathf.Abs(a.g - b.g) <= Tolerance
+                && Mathf.Abs(a.b - b.b) <= Tolerance
+                && Mathf.Abs(a.a - b.a) <= Tolerance;
         }
     }
 }

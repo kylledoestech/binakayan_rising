@@ -67,6 +67,7 @@ namespace BinakayanRising.Core.Combat
         private readonly int maxTurns;
         private readonly bool allowDiagonals;
         private readonly bool logModifierEvents;
+        private readonly bool spanishTerrainBonuses;
         private readonly BattleOutcome mutualAnnihilationOutcome;
 
         private int turnNumber;
@@ -134,6 +135,7 @@ namespace BinakayanRising.Core.Combat
             maxTurns = this.config.MaxTurns;
             allowDiagonals = this.config.AllowDiagonalMovement;
             logModifierEvents = this.config.LogModifierEvents;
+            spanishTerrainBonuses = this.config.SpanishReceivesTerrainBonuses;
             mutualAnnihilationOutcome = this.config.MutualAnnihilationOutcome;
 
             unitsInIdOrder = BuildUnitArray(units);
@@ -373,9 +375,16 @@ namespace BinakayanRising.Core.Combat
 
                 TerrainType terrainType = grid.GetTerrain(unit.Position);
                 IReadOnlyList<StatModifier> modifiers = terrain.GetModifiers(terrainType);
+                bool bonusesAllowed = ReceivesTerrainBonuses(unit);
 
                 for (int m = 0; m < modifiers.Count; m++)
                 {
+                    // Every stat reads higher-is-better, so a positive delta is always a benefit.
+                    if (!bonusesAllowed && (modifiers[m].PercentDelta > 0f || modifiers[m].FlatDelta > 0f))
+                    {
+                        continue;
+                    }
+
                     unit.Modifiers.Add(modifiers[m]);
                     if (logModifierEvents)
                     {
@@ -405,6 +414,15 @@ namespace BinakayanRising.Core.Combat
         }
 
         /// <summary>
+        /// False for a Spanish unit when <see cref="CombatConfig.SpanishReceivesTerrainBonuses"/> is
+        /// off. Penalties are filtered by the caller, not here, so they still land.
+        /// </summary>
+        private bool ReceivesTerrainBonuses(CombatUnit unit)
+        {
+            return spanishTerrainBonuses || unit.Team != Team.Spanish;
+        }
+
+        /// <summary>
         /// Applies the document's "+5% HP regeneration per AI turn" terrain effect.
         /// </summary>
         /// <remarks>
@@ -420,6 +438,11 @@ namespace BinakayanRising.Core.Combat
             {
                 CombatUnit unit = livingScratch[i];
                 if (!unit.IsAlive || !grid.InBounds(unit.Position))
+                {
+                    continue;
+                }
+
+                if (!ReceivesTerrainBonuses(unit))
                 {
                     continue;
                 }

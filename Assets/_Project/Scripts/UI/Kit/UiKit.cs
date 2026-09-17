@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using BinakayanRising.Core.Localization;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -29,6 +31,9 @@ namespace BinakayanRising.UI.Kit
     /// </remarks>
     public static class UiKit
     {
+        // One engraved material per source font material, shared by every engraved label.
+        private static readonly Dictionary<Material, Material> EngravedMaterials = new Dictionary<Material, Material>();
+
         // ------------------------------------------------------------------ roots
 
         /// <summary>
@@ -42,13 +47,22 @@ namespace BinakayanRising.UI.Kit
         /// <see cref="RenderTexture"/>. Taking it as a parameter keeps capture and play on one code
         /// path rather than two that can drift.
         /// </param>
+        /// <param name="raycaster">
+        /// False for a canvas that only displays, such as floating world labels. A canvas without a
+        /// raycaster is skipped entirely by the event system instead of being tested and missed.
+        /// </param>
         public static Canvas Screen(
             string name,
             int sortOrder,
             RenderMode renderMode = RenderMode.ScreenSpaceOverlay,
-            Camera worldCamera = null)
+            Camera worldCamera = null,
+            bool raycaster = true)
         {
-            var go = new GameObject(name, typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            var go = new GameObject(name, typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+            if (raycaster)
+            {
+                go.AddComponent<GraphicRaycaster>();
+            }
 
             var canvas = go.GetComponent<Canvas>();
             canvas.renderMode = renderMode;
@@ -62,10 +76,10 @@ namespace BinakayanRising.UI.Kit
             var scaler = go.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = Theme.ReferenceResolution;
-            // Balance width and height so neither a narrow window nor a short one wins outright.
-            // The old HUD pinned everything to raw pixels and rendered at a quarter scale on 4K.
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
+            // Expand scales by whichever axis is tighter, so the canvas is never smaller than the
+            // reference in either direction. A 50/50 match let a 4:3 or 5:4 window shrink the
+            // canvas below 1920 wide, and the full-width top bar ran off the right edge.
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
             scaler.referencePixelsPerUnit = 100f;
 
             return canvas;
@@ -139,12 +153,16 @@ namespace BinakayanRising.UI.Kit
         }
 
         /// <summary>A recessed well, for list backgrounds and stat readouts.</summary>
-        public static RectTransform Well(Transform parent, string name)
+        /// <param name="blocksClicks">
+        /// True when the well floats over the board on its own, so a click or a wheel over it
+        /// belongs to it rather than falling through to the battlefield.
+        /// </param>
+        public static RectTransform Well(Transform parent, string name, bool blocksClicks = false)
         {
             RectTransform root = NewRect(parent, name);
             Image image = AddImage(root, "Fill", Theme.Panel, Theme.ParchmentDeep);
             image.type = Image.Type.Sliced;
-            image.raycastTarget = false;
+            image.raycastTarget = blocksClicks;
             Stretch(image.rectTransform);
             return root;
         }
@@ -280,41 +298,119 @@ namespace BinakayanRising.UI.Kit
         /// Gives text a dark rim and a soft drop shadow so it stays legible over textured parchment.
         /// </summary>
         /// <remarks>
-        /// Mutates a material instance, not the shared font material, so one engraved title does
-        /// not restyle every other label sharing the same font asset.
+        /// <para>
+        /// Every engraved label shares one material per font, built on first use. The previous
+        /// version read <c>fontMaterial</c> and set <c>outlineWidth</c>, and each of those quietly
+        /// clones the material for that one label: every rebuild of a panel leaked a fresh set of
+        /// materials, and every engraved label was its own draw call.
+        /// </para>
+        /// <para>
+        /// The shared material is a copy, never the font asset's own, so plain labels using the
+        /// same font stay unengraved.
+        /// </para>
         /// </remarks>
         private static void ApplyEngraving(TextMeshProUGUI label)
         {
-            label.outlineWidth = 0.18f;
-            label.outlineColor = Theme.RevolutionDark;
-
-            Material material = label.fontMaterial;
-            if (material == null)
+            Material source = label.fontSharedMaterial;
+            if (source == null)
             {
                 return;
             }
 
-            material.EnableKeyword("UNDERLAY_ON");
-            material.SetColor(TMPro.ShaderUtilities.ID_UnderlayColor, new Color(0f, 0f, 0f, 0.45f));
-            material.SetFloat(TMPro.ShaderUtilities.ID_UnderlayOffsetX, 0.6f);
-            material.SetFloat(TMPro.ShaderUtilities.ID_UnderlayOffsetY, -0.6f);
-            material.SetFloat(TMPro.ShaderUtilities.ID_UnderlaySoftness, 0.15f);
+            Material engraved;
+            if (!EngravedMaterials.TryGetValue(source, out engraved) || engraved == null)
+            {
+                ShaderUtilities.GetShaderPropertyIDs();
+                engraved = new Material(source)
+                {
+                    name = source.name + " (Engraved)",
+                    hideFlags = HideFlags.DontSave,
+                };
+
+                engraved.EnableKeyword(ShaderUtilities.Keyword_Outline);
+                engraved.SetFloat(ShaderUtilities.ID_OutlineWidth, 0.18f);
+                engraved.SetColor(ShaderUtilities.ID_OutlineColor, Theme.RevolutionDark);
+
+                engraved.EnableKeyword(ShaderUtilities.Keyword_Underlay);
+                engraved.SetColor(ShaderUtilities.ID_UnderlayColor, new Color(0f, 0f, 0f, 0.45f));
+                engraved.SetFloat(ShaderUtilities.ID_UnderlayOffsetX, 0.6f);
+                engraved.SetFloat(ShaderUtilities.ID_UnderlayOffsetY, -0.6f);
+                engraved.SetFloat(ShaderUtilities.ID_UnderlaySoftness, 0.15f);
+
+                EngravedMaterials[source] = engraved;
+            }
+
+            label.fontSharedMaterial = engraved;
+
+            // Glyph quads are sized from the material the mesh was built with; an outline added
+            // afterwards is clipped at the glyph edge until the padding is recomputed.
+            label.UpdateMeshPadding();
+        }
+
+        /// <summary>Binds a label to a string key so it re-renders when the language changes.</summary>
+        public static LocalizedText Localize(TextMeshProUGUI label, TextKey key)
+        {
+            LocalizedText localized = label.GetComponent<LocalizedText>();
+            if (localized == null)
+            {
+                localized = label.gameObject.AddComponent<LocalizedText>();
+            }
+
+            localized.Bind(label, key);
+            return localized;
+        }
+
+        /// <summary>Drops the shared engraved materials so a second play session rebuilds them.</summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            foreach (KeyValuePair<Material, Material> pair in EngravedMaterials)
+            {
+                if (pair.Value != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(pair.Value);
+                }
+            }
+
+            EngravedMaterials.Clear();
         }
 
         // ------------------------------------------------------------------ controls
 
         /// <summary>
+        /// A wax-seal button whose label follows the current language.
+        /// </summary>
+        public static Button SealButton(
+            Transform parent,
+            TextKey label,
+            UnityAction onClick,
+            float width = 260f,
+            float height = 64f,
+            float textSize = 0f,
+            string name = null)
+        {
+            Button button = SealButton(parent, Loc.Get(label), onClick, width, height, textSize, name ?? "Button " + label);
+            Localize(button.GetComponentInChildren<TextMeshProUGUI>(), label);
+            return button;
+        }
+
+        /// <summary>
         /// A wax-seal button: ornate plate, engraved caps, hover and press feedback, click sound.
         /// </summary>
+        /// <param name="name">
+        /// Object name. Defaults to one derived from the label, which is fine for symbols but not
+        /// for words: a localized label would give the same button a different name per language.
+        /// </param>
         public static Button SealButton(
             Transform parent,
             string label,
             UnityAction onClick,
             float width = 260f,
             float height = 64f,
-            float textSize = 0f)
+            float textSize = 0f,
+            string name = null)
         {
-            RectTransform root = NewRect(parent, "Button " + label);
+            RectTransform root = NewRect(parent, name ?? "Button " + label);
             SetSize(root, width, height);
 
             Image face = AddImage(root, "Face", Theme.Button, Theme.Revolution);
@@ -329,11 +425,23 @@ namespace BinakayanRising.UI.Kit
 
             // Display type is set in caps with wide tracking, so a compact button needs to be
             // told a smaller size or the label wraps mid-word — "REDEPLOY" becomes "REDEPL/OY".
-            TextMeshProUGUI text = Display(root, label, textSize > 0f ? textSize : Theme.Type.Heading);
+            float size = textSize > 0f ? textSize : Theme.Type.Heading;
+            TextMeshProUGUI text = Display(root, label, size);
             text.textWrappingMode = TextWrappingModes.NoWrap;
             text.color = Theme.Parchment;
             Stretch(text.rectTransform);
-            text.margin = new Vector4(Theme.Space.Snug, 0f, Theme.Space.Snug, 0f);
+
+            // The gold rim eats most of a wide plate's 16px frame border, so a long label keeps
+            // clear of it; compact symbol buttons cannot spare that much.
+            float inset = width >= 160f ? Theme.Space.Base : Theme.Space.Tight;
+            text.margin = new Vector4(inset, 0f, inset, 0f);
+
+            // Filipino labels run noticeably longer than English ones — "Ipuwesto Muli" against
+            // "Redeploy" — so the label shrinks to fit its plate rather than spilling past it.
+            text.enableAutoSizing = true;
+            text.fontSizeMax = size;
+            text.fontSizeMin = Mathf.Max(9f, size * 0.6f);
+            text.overflowMode = TextOverflowModes.Ellipsis;
 
             var button = root.gameObject.AddComponent<Button>();
             button.targetGraphic = face;
@@ -354,6 +462,49 @@ namespace BinakayanRising.UI.Kit
             }
 
             root.gameObject.AddComponent<UiButtonFeel>();
+            return button;
+        }
+
+        /// <summary>
+        /// A full-width list row that can be clicked: a parchment fill that darkens on hover, and a
+        /// frame whose tint the caller drives to show selection.
+        /// </summary>
+        /// <param name="rim">The frame image, for selection tinting.</param>
+        /// <remarks>
+        /// The roster used a hollow <see cref="Frame"/> with a <see cref="Button"/> on it. Every
+        /// graphic in a frame has raycasts off, so the button had nothing to be hit through and
+        /// clicking a unit in the roster did nothing at all. Here the fill is the hit area.
+        /// </remarks>
+        public static Button SelectableRow(Transform parent, string name, out Image rim)
+        {
+            RectTransform root = NewRect(parent, name);
+
+            Image fill = AddImage(root, "Fill", Theme.Panel, Theme.ParchmentDeep);
+            fill.type = Image.Type.Sliced;
+            fill.raycastTarget = true;
+            Stretch(fill.rectTransform);
+
+            rim = AddImage(root, "Rim", Theme.FrameHollow, Theme.ParchmentDeep);
+            rim.type = Image.Type.Sliced;
+            rim.raycastTarget = false;
+            Stretch(rim.rectTransform);
+
+            var button = root.gameObject.AddComponent<Button>();
+            button.targetGraphic = fill;
+            button.transition = Selectable.Transition.ColorTint;
+
+            // The tint multiplies alpha too, so the resting row is a faint wash and hover firms it
+            // up — a hover state that does not need a second sprite.
+            var colors = button.colors;
+            colors.normalColor = new Color(1f, 1f, 1f, 0.35f);
+            colors.highlightedColor = new Color(1f, 1f, 1f, 0.85f);
+            colors.pressedColor = new Color(0.85f, 0.85f, 0.85f, 1f);
+            colors.selectedColor = colors.normalColor;
+            colors.disabledColor = new Color(1f, 1f, 1f, 0.15f);
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
+
+            root.gameObject.AddComponent<UiRowFeel>();
             return button;
         }
 
@@ -584,8 +735,20 @@ namespace BinakayanRising.UI.Kit
     /// Adds the small motions that make a button feel pressed rather than merely clicked.
     /// </summary>
     /// <remarks>
-    /// A scale punch on hover and a downward nudge on press cost nothing and are most of the
-    /// difference between UI that reads as a prototype and UI that reads as a product.
+    /// <para>
+    /// A scale punch on hover and press costs nothing and is most of the difference between UI that
+    /// reads as a prototype and UI that reads as a product.
+    /// </para>
+    /// <para>
+    /// Scale only. The press used to nudge <c>anchoredPosition</c> down two units, but every button
+    /// here lives in a layout group, which owns that position: the nudge fought the layout and a
+    /// button could be left permanently offset.
+    /// </para>
+    /// <para>
+    /// Releasing clears the event system's selection. A clicked uGUI button otherwise stays
+    /// selected, and the UI module's Submit action — bound to Space — would press it again the
+    /// next time Space was used as the Begin Assault hotkey.
+    /// </para>
     /// </remarks>
     public sealed class UiButtonFeel : MonoBehaviour,
         IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler, IPointerUpHandler
@@ -593,25 +756,16 @@ namespace BinakayanRising.UI.Kit
         private const float HoverScale = 1.04f;
         private const float PressScale = 0.97f;
 
-        private RectTransform rect;
-        private Vector2 restingPosition;
-        private bool captured;
+        private Selectable selectable;
 
         private void Awake()
         {
-            rect = (RectTransform)transform;
-            restingPosition = rect.anchoredPosition;
-            captured = true;
+            selectable = GetComponent<Selectable>();
         }
 
-        private void OnEnable()
+        private void OnDisable()
         {
-            // Layout groups move the rect after Awake, so re-read the resting position once the
-            // first layout pass has run. Otherwise the press nudge drifts the button permanently.
-            if (rect != null)
-            {
-                restingPosition = rect.anchoredPosition;
-            }
+            Scale(1f);
         }
 
         public void OnPointerEnter(PointerEventData eventData)
@@ -628,7 +782,6 @@ namespace BinakayanRising.UI.Kit
         public void OnPointerExit(PointerEventData eventData)
         {
             Scale(1f);
-            Restore();
         }
 
         public void OnPointerDown(PointerEventData eventData)
@@ -639,37 +792,59 @@ namespace BinakayanRising.UI.Kit
             }
 
             Scale(PressScale);
-            if (rect != null && captured)
-            {
-                rect.anchoredPosition = restingPosition + new Vector2(0f, -2f);
-            }
-
             UiSfx.Play(UiSfx.Cue.Click);
         }
 
         public void OnPointerUp(PointerEventData eventData)
         {
-            Scale(HoverScale);
-            Restore();
-        }
-
-        private void Restore()
-        {
-            if (rect != null && captured)
-            {
-                rect.anchoredPosition = restingPosition;
-            }
+            Scale(eventData != null && eventData.hovered.Contains(gameObject) ? HoverScale : 1f);
+            UiRowFeel.ReleaseSelection(gameObject);
         }
 
         private bool IsInteractable()
         {
-            var selectable = GetComponent<Selectable>();
             return selectable == null || selectable.IsInteractable();
         }
 
         private void Scale(float factor)
         {
             transform.localScale = new Vector3(factor, factor, 1f);
+        }
+    }
+
+    /// <summary>
+    /// Click sound and selection release for list rows, which tint rather than scale.
+    /// </summary>
+    public sealed class UiRowFeel : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
+    {
+        private Selectable selectable;
+
+        private void Awake()
+        {
+            selectable = GetComponent<Selectable>();
+        }
+
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            if (selectable == null || selectable.IsInteractable())
+            {
+                UiSfx.Play(UiSfx.Cue.Click);
+            }
+        }
+
+        public void OnPointerUp(PointerEventData eventData)
+        {
+            ReleaseSelection(gameObject);
+        }
+
+        /// <summary>Deselects <paramref name="owner"/> if the event system still has it selected.</summary>
+        public static void ReleaseSelection(GameObject owner)
+        {
+            EventSystem eventSystem = EventSystem.current;
+            if (eventSystem != null && eventSystem.currentSelectedGameObject == owner)
+            {
+                eventSystem.SetSelectedGameObject(null);
+            }
         }
     }
 }

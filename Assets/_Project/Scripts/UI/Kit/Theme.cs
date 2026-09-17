@@ -85,6 +85,32 @@ namespace BinakayanRising.UI.Kit
         /// <summary>Sky behind the board. A warm dusk, not a neutral grey.</summary>
         public static readonly Color Backdrop = new Color32(0x24, 0x1D, 0x18, 0xFF);
 
+        /// <summary>
+        /// The tutorial's dimming layer. Lighter than <see cref="Scrim"/>: the player still has to
+        /// read the board through it, just not act on it.
+        /// </summary>
+        public static readonly Color SpotlightScrim = new Color32(0x0E, 0x0B, 0x08, 0xA8);
+
+        /// <summary>The pulsing rim drawn around whatever the tutorial is pointing at.</summary>
+        public static readonly Color SpotlightRing = new Color32(0xF0, 0xD2, 0x64, 0xFF);
+
+        // ------------------------------------------------------------------ canvas order
+
+        /// <summary>
+        /// Sorting orders for the screen-space canvases, bottom to top.
+        /// </summary>
+        /// <remarks>
+        /// World labels sit under the HUD so panels and the outcome scrim cover them; the tutorial
+        /// sits over the HUD so its scrim can dim it; the How-to-Play deck sits over both.
+        /// </remarks>
+        public static class Layer
+        {
+            public const int WorldLabels = 90;
+            public const int Hud = 100;
+            public const int Tutorial = 200;
+            public const int Deck = 210;
+        }
+
         // ------------------------------------------------------------------ type
 
         /// <summary>
