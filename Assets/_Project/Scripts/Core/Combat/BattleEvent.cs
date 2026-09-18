@@ -58,7 +58,10 @@ namespace BinakayanRising.Core.Combat
         TurnEnded = 7,
 
         /// <summary>The battle reached a terminal outcome.</summary>
-        BattleEnded = 8
+        BattleEnded = 8,
+
+        /// <summary>A unit restored health to an ally instead of attacking.</summary>
+        UnitHealed = 9
     }
 
     /// <summary>
@@ -247,6 +250,18 @@ namespace BinakayanRising.Core.Combat
         public static BattleEvent HpRegenerated(int turn, int unitId, float healed, string terrainName)
         {
             return new BattleEvent(turn, BattleEventType.HpRegenerated, unitId, NoUnit, GridCoord.Zero, GridCoord.Zero, healed, false, false, false, terrainName);
+        }
+
+        /// <summary>A healer restored an ally's health in place of its attack.</summary>
+        /// <param name="turn">Turn number.</param>
+        /// <param name="healerId">Unit that healed.</param>
+        /// <param name="targetId">Ally healed.</param>
+        /// <param name="healed">Health actually restored.</param>
+        /// <param name="from">Healer's cell.</param>
+        /// <param name="to">Ally's cell.</param>
+        public static BattleEvent UnitHealed(int turn, int healerId, int targetId, float healed, GridCoord from, GridCoord to)
+        {
+            return new BattleEvent(turn, BattleEventType.UnitHealed, healerId, targetId, from, to, healed, false, false, false, null);
         }
 
         /// <summary>A unit stepped one cell.</summary>

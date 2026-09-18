@@ -462,6 +462,197 @@ def build_spanish_regular(kit):
     rifle(kit, (0.35, -1.2, 0.08), (0.4, -1.22, 3.65))
 
 
+def build_field_medic(kit):
+    """A volunteer medic: white headcloth, a red armband, a satchel, a roll of bandage in hand."""
+    hands, skin, ink = base_figure(kit, {
+        "shirt": "#EFEADF",
+        "trousers": "#5E5446",
+        "barefoot": True,
+        "right_hand": (0.95, 0.75, 1.9),
+        "left_hand": (0.95, 0.2, 1.95),
+    })
+    kit.begin("cloth")
+    kit.cone(kit.material("headcloth", "#F4F0E6"), 1.3, 1.26, 0.42, (0.0, 0.0, HEAD_Z + 0.5))
+    kit.begin("detail")
+    # On the near arm, just below the shoulder, where the camera sees it.
+    shoulder = Vector(mirror(SHOULDER, -1))
+    arm = hands[-1] - shoulder
+    kit.rod(kit.material("armband", KATIPUNAN_RED), shoulder + arm * 0.18, shoulder + arm * 0.36, 0.29)
+    leather = kit.material("leather", "#6A4327", flat=True)
+    # Strap from the far shoulder down to the satchel on the near hip.
+    kit.slab(leather, (0.62, 0.55, 2.7), (0.62, -0.75, 1.45), 0.16, 0.06)
+    kit.begin("satchel", outlined=True)
+    kit.box(kit.material("satchel", "#8C6A42"), (0.55, 0.3, 0.6), (0.2, -1.02, 1.3))
+    kit.begin("prop", outlined=True)
+    near = hands[-1]
+    far = hands[1]
+    kit.rod(kit.material("bandage", "#F4F0E6", flat=True), near + Vector((0.12, 0.1, 0.0)),
+            far + Vector((0.12, -0.1, 0.0)), 0.22)
+
+
+def build_magdalo_infantry(kit):
+    """A Magdalo soldier of Kawit: a red camisa, a straw hat, a bamboo lance held upright."""
+    hands, skin, ink = base_figure(kit, {
+        "shirt": "#A8352A",
+        "trousers": "#E6DDC8",
+        "barefoot": True,
+        "right_hand": (0.6, 1.45, 1.95),
+    })
+    hat_brimmed(kit, "straw", "#D8BD78", "#1E1612", brim=1.45, crown=0.92, crown_depth=0.5)
+    kit.begin("prop", outlined=True)
+    hand = hands[-1]
+    # Leaning out from the body, so the shaft passes beside the big head rather than over the face.
+    along = Vector((0.1, -0.2, 1.0)).normalized()
+    butt = hand - along * 1.75
+    head = hand + along * 3.0
+    kit.rod(kit.material("bamboo", "#B59A52", flat=True), butt, head, 0.09)
+    kit.slab(kit.material("steel", STEEL, flat=True), head, head + along * 0.7, 0.26, 0.05)
+
+
+def build_magdiwang_infantry(kit):
+    """A Magdiwang soldier of Noveleta: an indigo camisa, a red headband, a carbine across the chest."""
+    base_figure(kit, {
+        "shirt": "#3E5A8A",
+        "trousers": "#E6DDC8",
+        "barefoot": True,
+        "right_hand": (0.95, 0.85, 1.6),
+        "left_hand": (0.95, 0.15, 2.35),
+    })
+    headband(kit, KATIPUNAN_RED)
+    rifle(kit, (1.0, -1.15, 1.25), (1.05, 0.85, 3.1))
+
+
+# ----------------------------------------------------------------------------- camp people
+
+
+def bun(kit, ink):
+    kit.begin("hair")
+    # High on the back of the head, so it clears the crown in the camera's view.
+    kit.ball(ink, 0.6, (-0.75, 0.0, HEAD_Z + 1.2))
+    kit.box(kit.material("pin", "#C9A13B", flat=True), (0.14, 1.1, 0.12), (-0.7, 0.0, HEAD_Z + 1.25))
+
+
+def moustache(kit, ink):
+    kit.begin("face")
+    kit.box(ink, (0.12, 0.8, 0.18), (1.14, 0.0, HEAD_Z - 0.52))
+
+
+def build_tomas(kit):
+    """The aide: no hat, a clean camisa, the camp ledger held to his chest."""
+    base_figure(kit, {
+        "shirt": "#EFEADF",
+        "trousers": "#3E3A34",
+        "shoes": "#2B2119",
+        "hair": "parted",
+        "right_hand": (0.9, 0.75, 1.95),
+        "left_hand": (0.9, 0.3, 2.0),
+    })
+    neckerchief(kit, KATIPUNAN_RED)
+    kit.begin("prop", outlined=True)
+    kit.box(kit.material("ledger", "#6A4327"), (0.3, 1.1, 1.3), (1.05, -0.25, 2.05))
+    kit.box(kit.material("pages", "#E9E2D0", flat=True), (0.32, 1.0, 0.12), (1.06, -0.25, 2.62))
+
+
+def build_farmer(kit):
+    """Aling Ines: baro and saya, hair in a bun, a sickle in hand and a basket of palay."""
+    hands, skin, ink = base_figure(kit, {
+        "shirt": "#E8D9B8",
+        "trousers": "#8A3B2E",
+        "barefoot": True,
+        "right_hand": (0.7, 1.15, 1.7),
+        "left_hand": (0.25, 1.15, 1.45),
+    })
+    kit.begin("skirt")
+    saya = kit.material("saya", "#8A3B2E")
+    height = TORSO_BOTTOM + 0.1
+    kit.cone(saya, 1.15, 0.74, height, (0.0, 0.0, 0.18 + height * 0.5), scale=(0.9, 1.0, 1.0))
+    kit.cone(kit.material("tapis", "#3A2E2A"), 0.95, 0.8, 0.55, (0.1, 0.0, TORSO_BOTTOM + 0.05), scale=(0.9, 1.02, 1.0))
+    bun(kit, ink)
+    kit.begin("prop", outlined=True)
+    wood = kit.material("wood", WOOD, flat=True)
+    steel = kit.material("steel", STEEL, flat=True)
+    hand = hands[-1]
+    kit.rod(wood, hand + Vector((0.0, 0.0, -0.3)), hand + Vector((0.25, 0.0, 0.5)), 0.08)
+    # The sickle's hook: short slabs round a quarter circle.
+    centre = hand + Vector((0.75, 0.0, 0.75))
+    points = [centre + Vector((-0.5 * math.cos(a), 0.0, -0.5 * math.sin(a)))
+              for a in (math.radians(d) for d in (-40.0, 20.0, 80.0, 140.0))]
+    for a, b in zip(points, points[1:]):
+        kit.slab(steel, a, b, 0.14, 0.05)
+    kit.begin("basket", outlined=True)
+    far = hands[1]
+    kit.cone(kit.material("basket", "#A8793D"), 0.55, 0.75, 0.6,
+             (far.x - 0.1, far.y + 0.3, far.z + 0.1))
+    kit.ball(kit.material("palay", "#E1CC8C"), 0.55, (far.x - 0.1, far.y + 0.3, far.z + 0.35), scale=(1.0, 1.0, 0.5))
+
+
+def build_miner(kit):
+    """Mang Andoy: rolled sleeves, a smith's apron, a pick on his shoulder."""
+    hands, skin, ink = base_figure(kit, {
+        "shirt": "#B8A88A",
+        "trousers": "#4A3F33",
+        "shoes": "#3A2A1E",
+        "rolled_sleeves": True,
+        "right_hand": (0.55, 1.2, 2.05),
+    })
+    headband(kit, "#5C5854", tails=False)
+    moustache(kit, ink)
+    kit.begin("detail")
+    kit.box(kit.material("apron", "#5B3A22"), (0.14, 1.2, 1.9), (0.72, 0.0, 1.75))
+    kit.begin("prop", outlined=True)
+    wood = kit.material("wood", WOOD, flat=True)
+    steel = kit.material("steel", STEEL, flat=True)
+    grip = hands[-1]
+    # The head rides above and behind his own, where the big chibi head cannot hide it.
+    top = Vector((-0.5, -1.15, 5.9))
+    kit.rod(wood, grip + Vector((0.3, -0.05, -0.55)), top, 0.1)
+    along = (top - grip).normalized()
+    across = Vector((along.z, 0.0, -along.x)).normalized()
+    kit.rod(steel, top, top + across * 1.2, 0.16, end_radius=0.05)
+    kit.rod(steel, top, top - across * 1.0, 0.16, end_radius=0.06)
+
+
+def build_trader(kit):
+    """Ka Tasyo: a long camisa de chino, buntal hat, a purse of coin in hand."""
+    hands, skin, ink = base_figure(kit, {
+        "shirt": "#D8CBA8",
+        "shirt_stripe": "#B8A77E",
+        "trousers": "#6E5A44",
+        "shoes": "#2B2119",
+        "torso_bottom": 0.8,
+        "hem": 0.95,
+        "right_hand": (0.8, 1.05, 1.8),
+    })
+    moustache(kit, ink)
+    hat_brimmed(kit, "buntal", "#E1CC8C", "#2E241A", brim=1.45, crown=0.9, crown_depth=0.5)
+    kit.begin("prop", outlined=True)
+    hand = hands[-1]
+    kit.ball(kit.material("purse", "#7A5634"), 0.42, (hand.x + 0.1, hand.y - 0.1, hand.z - 0.5), scale=(1.0, 1.0, 1.15))
+    kit.ball(kit.material("coin", "#C9A13B", flat=True), 0.16, (hand.x + 0.1, hand.y - 0.1, hand.z - 0.02))
+
+
+def build_drill_sergeant(kit):
+    """Sarhento Dimas: his old rayadillo under a Katipunan kerchief, a rattan cane."""
+    hands, skin, ink = base_figure(kit, {
+        "shirt": "#D9E1E6",
+        "shirt_stripe": "#56779C",
+        "trousers": "#D9E1E6",
+        "trousers_stripe": "#56779C",
+        "shoes": "#3B2A1D",
+        "right_hand": (0.85, 1.15, 2.0),
+        "left_hand": (-0.2, 0.95, 1.5),
+    })
+    neckerchief(kit, KATIPUNAN_RED)
+    moustache(kit, ink)
+    kit.begin("detail")
+    kit.box(kit.material("leather", "#5B3A22", flat=True), (0.96, 1.5, 0.2), (0.0, 0.0, TORSO_BOTTOM + 0.12))
+    hat_brimmed(kit, "straw", "#E1CC8C", KATIPUNAN_RED, brim=1.35, crown=0.95, crown_depth=0.45)
+    kit.begin("prop", outlined=True)
+    hand = hands[-1]
+    kit.rod(kit.material("rattan", "#A8793D", flat=True), hand + Vector((-0.2, 0.05, 0.6)),
+            hand + Vector((0.7, -0.25, -1.6)), 0.08)
+
+
 # Folder names are the archetype ids used by PlaytestScenario, so Unity can find each set.
 UNITS = [
     ("Marksman", build_marksman),
@@ -470,4 +661,13 @@ UNITS = [
     ("Aguinaldo", build_aguinaldo),
     ("Vanguard", build_vanguard),
     ("SpanishRegular", build_spanish_regular),
+    ("FieldMedic", build_field_medic),
+    ("MagdaloInfantry", build_magdalo_infantry),
+    ("MagdiwangInfantry", build_magdiwang_infantry),
+    # Camp people. Their folders are the ids in Core/Content/Characters.cs.
+    ("Tomas", build_tomas),
+    ("Farmer", build_farmer),
+    ("Miner", build_miner),
+    ("Trader", build_trader),
+    ("DrillSergeant", build_drill_sergeant),
 ]

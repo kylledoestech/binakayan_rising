@@ -483,6 +483,11 @@ namespace BinakayanRising.Core.Combat
                     continue;
                 }
 
+                if (unit.HealPower > 0f && TryHealAlly(unit, turnEvents))
+                {
+                    continue;
+                }
+
                 CombatUnit target = SelectTargetFor(unit);
                 if (target == null)
                 {
@@ -501,6 +506,60 @@ namespace BinakayanRising.Core.Combat
                     AdvanceToward(unit, target, range, turnEvents);
                 }
             }
+        }
+
+        /// <summary>
+        /// A healer's turn: restore the most wounded ally in reach, if any is hurt enough to be
+        /// worth it. Returns false when there is no such ally, and the healer fights instead.
+        /// </summary>
+        /// <remarks>
+        /// Reach is the healer's attack range. The ally with the lowest share of its Max HP wins,
+        /// the lower id breaking ties, so the choice uses no dice and a battle with a healer stays
+        /// as reproducible as one without. The healer does not heal itself. The ally's Healing
+        /// Received multiplier applies, which is where Table 3's Vanguard and Field Medic bond
+        /// pays off.
+        /// </remarks>
+        private bool TryHealAlly(CombatUnit healer, List<BattleEvent> turnEvents)
+        {
+            float reach = healer.GetEffectiveStat(StatKind.AttackRange);
+            CombatUnit patient = null;
+            float lowest = config.HealBelowFraction;
+
+            for (int i = 0; i < unitsInIdOrder.Length; i++)
+            {
+                CombatUnit ally = unitsInIdOrder[i];
+                if (ally == healer || !ally.IsAlive || ally.Team != healer.Team)
+                {
+                    continue;
+                }
+
+                if (DistanceBetween(healer.Position, ally.Position) > reach)
+                {
+                    continue;
+                }
+
+                float max = ally.GetEffectiveStat(StatKind.MaxHP);
+                float share = max > 0f ? ally.CurrentHP / max : 1f;
+                if (share < lowest)
+                {
+                    lowest = share;
+                    patient = ally;
+                }
+            }
+
+            if (patient == null)
+            {
+                return false;
+            }
+
+            float healed = patient.Heal(healer.HealPower * patient.GetEffectiveStat(StatKind.HealingReceived));
+            if (healed <= 0f)
+            {
+                return false;
+            }
+
+            Emit(turnEvents, BattleEvent.UnitHealed(turnNumber, healer.Id, patient.Id, healed, healer.Position, patient.Position));
+            return true;
         }
 
         /// <summary>Builds the living-enemy candidate list in id order and delegates to the strategy.</summary>

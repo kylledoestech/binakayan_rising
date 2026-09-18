@@ -54,7 +54,9 @@ mkdir -p "$OUT_DIR"
 
 # ---------------------------------------------------------------- template
 
-TEMPLATE="$(ls -t "$PROJECT_ROOT"/Library/Bee/artifacts/*.dag/BinakayanRising.Gameplay.rsp 2>/dev/null | head -1 || true)"
+# Only the editor graph's file (*E.dag) will do: a player build leaves a *P.dag beside it with
+# no UnityEditor references, and picking that one fails every Editor assembly.
+TEMPLATE="$(ls -t "$PROJECT_ROOT"/Library/Bee/artifacts/*E.dag/BinakayanRising.Gameplay.rsp 2>/dev/null | head -1 || true)"
 if [[ -z "$TEMPLATE" ]]; then
     echo "error: no cached compiler response file found." >&2
     echo "       Open the project in Unity once so it generates" >&2

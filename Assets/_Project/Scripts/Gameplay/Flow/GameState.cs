@@ -90,6 +90,12 @@ namespace BinakayanRising.Gameplay.Flow
         Victory = 10,
 
         /// <summary>Defeat overlay, raised when the end-of-turn HP check wipes out the player's roster.</summary>
-        Defeat = 11
+        Defeat = 11,
+
+        /// <summary>
+        /// Not in Figure 2: the Armory, where the player sees what they own and equips and
+        /// reforges weapons. A leaf of the Encampment, like the Farm/Mine screen.
+        /// </summary>
+        Inventory = 12
     }
 }

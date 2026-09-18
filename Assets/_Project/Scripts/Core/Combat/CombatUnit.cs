@@ -50,6 +50,7 @@ namespace BinakayanRising.Core.Combat
         private GridCoord position;
         private bool alive;
         private float movementCarry;
+        private float healPower;
 
         /// <summary>
         /// Creates a unit at full health.
@@ -113,6 +114,20 @@ namespace BinakayanRising.Core.Combat
         public string ArchetypeId
         {
             get { return archetypeId; }
+        }
+
+        /// <summary>
+        /// Health this unit restores to a wounded ally in place of attacking, before the ally's
+        /// Healing Received multiplier. Zero, the default, means the unit never heals.
+        /// </summary>
+        /// <remarks>
+        /// A property of the unit rather than of its stat block: healing is an ability only the
+        /// Field Medic has, and <see cref="UnitStats"/> mirrors the document's eight stats exactly.
+        /// </remarks>
+        public float HealPower
+        {
+            get { return healPower; }
+            set { healPower = value > 0f ? value : 0f; }
         }
 
         /// <summary>Side this unit fights for.</summary>

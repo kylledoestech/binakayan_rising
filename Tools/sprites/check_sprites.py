@@ -15,7 +15,9 @@ import sys
 import numpy as np
 from PIL import Image
 
-EXPECTED = ["Marksman", "Engineer", "Evangelista", "Aguinaldo", "Vanguard", "SpanishRegular"]
+EXPECTED = ["Marksman", "Engineer", "Evangelista", "Aguinaldo", "Vanguard", "SpanishRegular",
+            "FieldMedic", "MagdaloInfantry", "MagdiwangInfantry",
+            "Tomas", "Farmer", "Miner", "Trader", "DrillSergeant"]
 SIZES = {"body.png": (48, 64), "portrait.png": (24, 24)}
 MAX_COLOURS = 16
 SCALE = 8
@@ -90,7 +92,8 @@ def main():
     if args.sheet:
         cell_w = 48 * SCALE + 24 * SCALE + 3 * 16
         cell_h = 64 * SCALE + 16
-        sheet = Image.new("RGBA", (cell_w * 3, cell_h * 2), (205, 190, 150, 255))
+        rows = (len(tiles) + 2) // 3
+        sheet = Image.new("RGBA", (cell_w * 3, cell_h * rows), (205, 190, 150, 255))
         for i, row in enumerate(tiles):
             x0 = (i % 3) * cell_w + 16
             y0 = (i // 3) * cell_h + 8

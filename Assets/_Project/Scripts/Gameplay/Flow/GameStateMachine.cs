@@ -93,11 +93,12 @@ namespace BinakayanRising.Gameplay.Flow
     /// a UML composite behaves.
     /// </para>
     /// <para>
-    /// <b>Five edges are inferred rather than drawn.</b> Figure 2 gives no way back out of
+    /// <b>Six edges are inferred rather than drawn.</b> Figure 2 gives no way back out of
     /// ResourceManagement, HeroSummoning, RosterTraining or MissionPortal, which would strand the
-    /// player in a leaf screen forever. Those four returns plus <c>Quiz -&gt; Combat</c> (which the
-    /// prose does specify: the quiz "returns to the combat state after an answer is submitted") are
-    /// flagged <c>IsInFigure2 == false</c> so the divergence is auditable rather than hidden.
+    /// player in a leaf screen forever, and no way from the encampment back to the title. Those five
+    /// returns plus <c>Quiz -&gt; Combat</c> (which the prose does specify: the quiz "returns to the
+    /// combat state after an answer is submitted") are flagged <c>IsInFigure2 == false</c> so the
+    /// divergence is auditable rather than hidden.
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
@@ -130,6 +131,13 @@ namespace BinakayanRising.Gameplay.Flow
             new GameStateTransition(GameState.ResourceManagement, GameState.BaseHub, "Back to Base Hub (inferred)", false),
             new GameStateTransition(GameState.HeroSummoning, GameState.BaseHub, "Back to Base Hub (inferred)", false),
             new GameStateTransition(GameState.RosterTraining, GameState.BaseHub, "Back to Base Hub (inferred)", false),
+
+            // Inferred: the Armory's inventory, a further Encampment leaf the panel asked for.
+            new GameStateTransition(GameState.BaseHub, GameState.Inventory, "Armory / Inventory (inferred)", false),
+            new GameStateTransition(GameState.Inventory, GameState.BaseHub, "Back to Base Hub (inferred)", false),
+
+            // Inferred: saving and returning to the title screen from the encampment.
+            new GameStateTransition(GameState.BaseHub, GameState.MainMenu, "Save and quit to title (inferred)", false),
 
             // EncampmentState --Select Stage--> MissionPortal. Taken from the resting sub-state.
             new GameStateTransition(GameState.BaseHub, GameState.MissionPortal, "Select Stage", true),
@@ -378,6 +386,12 @@ namespace BinakayanRising.Gameplay.Flow
             return TryTransitionTo(GameState.RosterTraining);
         }
 
+        /// <summary>Inferred edge: opens the Armory's inventory from the hub.</summary>
+        public bool OpenInventory()
+        {
+            return TryTransitionTo(GameState.Inventory);
+        }
+
         /// <summary>Inferred edge: returns from an Encampment leaf screen or the Mission Portal to the hub.</summary>
         public bool ReturnToBaseHub()
         {
@@ -451,7 +465,8 @@ namespace BinakayanRising.Gameplay.Flow
             return state == GameState.BaseHub
                 || state == GameState.ResourceManagement
                 || state == GameState.HeroSummoning
-                || state == GameState.RosterTraining;
+                || state == GameState.RosterTraining
+                || state == GameState.Inventory;
         }
 
         /// <summary>

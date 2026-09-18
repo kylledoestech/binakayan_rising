@@ -7,8 +7,8 @@ using UnityEngine;
 namespace BinakayanRising.UI.Kit
 {
     /// <summary>
-    /// Puts the saved language in place before any screen builds, and keeps the language state
-    /// honest across play sessions.
+    /// Puts the saved language and audio levels in place before any screen builds, and keeps the
+    /// language state honest across play sessions.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -30,9 +30,10 @@ namespace BinakayanRising.UI.Kit
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void LoadSavedLanguage()
+        private static void LoadSavedPreferences()
         {
             Loc.SetLanguage(UserPrefs.Language, notify: false);
+            UserPrefs.ApplyAudio();
 
 #if UNITY_EDITOR
             ReportMissingGlyphs();

@@ -66,6 +66,7 @@ namespace BinakayanRising.Core.Combat
         private BattleOutcome mutualAnnihilationOutcome = BattleOutcome.Draw;
         private bool logModifierEvents = true;
         private bool spanishReceivesTerrainBonuses = true;
+        private float healBelowFraction = 0.75f;
 
         /// <summary>
         /// Hard cap on AI turns. When a battle reaches it, the outcome is
@@ -272,6 +273,17 @@ namespace BinakayanRising.Core.Combat
         }
 
         /// <summary>Returns an independent copy, so a caller can tweak one battle without affecting others.</summary>
+        /// <summary>
+        /// A healer only spends its turn on an ally whose health is below this fraction of its
+        /// effective Max HP; otherwise it fights. TODO(design): not specified in capstone
+        /// document — Table 3 names the Field Medic's healing but not when it chooses to heal.
+        /// </summary>
+        public float HealBelowFraction
+        {
+            get { return healBelowFraction; }
+            set { healBelowFraction = value < 0f ? 0f : (value > 1f ? 1f : value); }
+        }
+
         public CombatConfig Clone()
         {
             return new CombatConfig
@@ -287,7 +299,8 @@ namespace BinakayanRising.Core.Combat
                 applyAccuracyRoll = applyAccuracyRoll,
                 mutualAnnihilationOutcome = mutualAnnihilationOutcome,
                 logModifierEvents = logModifierEvents,
-                spanishReceivesTerrainBonuses = spanishReceivesTerrainBonuses
+                spanishReceivesTerrainBonuses = spanishReceivesTerrainBonuses,
+                healBelowFraction = healBelowFraction
             };
         }
     }

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using BinakayanRising.Core.Combat;
+using BinakayanRising.Core.Content;
 using BinakayanRising.Core.Grid;
 using BinakayanRising.Gameplay.Presentation;
 using UnityEngine;
@@ -252,7 +253,7 @@ namespace BinakayanRising.Gameplay
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
         {
-            if (SceneAlreadyDriven())
+            if (!AutoBootstrap || SceneAlreadyDriven())
             {
                 return;
             }
@@ -261,6 +262,13 @@ namespace BinakayanRising.Gameplay
             host.AddComponent<BattlePlaytest>();
         }
 
+        /// <summary>
+        /// False while the campaign shell runs the game, so the prototype waits to be launched as a
+        /// mission instead of spawning its own battle at start-up. The shell's installer sets this
+        /// before the first scene loads.
+        /// </summary>
+        public static bool AutoBootstrap = true;
+
         /// <summary>True when something this project owns is already running the scene.</summary>
         /// <remarks>
         /// The check spans every <c>BinakayanRising.*</c> namespace, not just Gameplay. A scene
@@ -268,7 +276,7 @@ namespace BinakayanRising.Gameplay
         /// driven as one running the battle prototype, and bootstrapping the prototype on top of
         /// it draws the battle HUD over whatever that scene was actually for.
         /// </remarks>
-        private static bool SceneAlreadyDriven()
+        public static bool SceneAlreadyDriven()
         {
             MonoBehaviour[] behaviours = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
             for (int i = 0; i < behaviours.Length; i++)
@@ -1105,14 +1113,22 @@ namespace BinakayanRising.Gameplay
                     continue;
                 }
 
-                units.Add(new CombatUnit(
+                CombatUnit unit = new CombatUnit(
                     entry.Id,
                     entry.DisplayName,
                     entry.ArchetypeId,
                     Team.Katipunan,
                     entry.Stats,
                     placement.Value,
-                    config.StackingPolicy));
+                    config.StackingPolicy);
+
+                UnitArchetype archetype = UnitCatalog.Find(entry.ArchetypeId);
+                if (archetype != null)
+                {
+                    unit.HealPower = archetype.HealPower;
+                }
+
+                units.Add(unit);
             }
 
             units.AddRange(PlaytestScenario.SpanishColumn(spanishCount));
@@ -1234,6 +1250,7 @@ namespace BinakayanRising.Gameplay
                 case BattleEventType.UnitMoved:
                     return MoveSeconds;
                 case BattleEventType.UnitAttacked:
+                case BattleEventType.UnitHealed:
                     return AttackSeconds;
                 case BattleEventType.DamageDealt:
                     return DamageSeconds;
@@ -1293,6 +1310,20 @@ namespace BinakayanRising.Gameplay
                     {
                         actor.CurrentHP = Mathf.Min(actor.MaxHP, actor.CurrentHP + battleEvent.Amount);
                         AddPopup(PopupKind.Heal, battleEvent.Amount, actor);
+                    }
+
+                    break;
+
+                case BattleEventType.UnitHealed:
+                    if (actor != null && target != null)
+                    {
+                        Face(actor, CellToWorld(target.Cell).x - CellToWorld(actor.Cell).x);
+                    }
+
+                    if (target != null)
+                    {
+                        target.CurrentHP = Mathf.Min(target.MaxHP, target.CurrentHP + battleEvent.Amount);
+                        AddPopup(PopupKind.Heal, battleEvent.Amount, target);
                     }
 
                     break;

@@ -57,12 +57,24 @@ namespace BinakayanRising.EditorTools
         private static readonly Vector2 UnitBodyPivot = new Vector2(24f / 48f, 5f / 64f);
 
         /// <summary>
+        /// Encampment buildings and scenery share the unit figures' density, so a keeper and the
+        /// doorway behind them are drawn at the same pixel size.
+        /// </summary>
+        private const float CampPixelsPerUnit = 80f;
+
+        /// <summary>
+        /// Where a camp sprite's footprint centre sits on its 256x256 canvas. It must match
+        /// <c>GROUND_PIXEL</c> in <c>Tools/sprites/render_camp.py</c>.
+        /// </summary>
+        public static readonly Vector2 CampPivot = new Vector2(128f / 256f, 48f / 256f);
+
+        /// <summary>
         /// Bumped whenever the rules below change, so Unity reimports the art they apply to
         /// instead of keeping settings baked by an older version.
         /// </summary>
         public override uint GetVersion()
         {
-            return 4;
+            return 5;
         }
 
         private void OnPreprocessTexture()
@@ -76,13 +88,17 @@ namespace BinakayanRising.EditorTools
 
             importer.textureType = TextureImporterType.Sprite;
             importer.spriteImportMode = SpriteImportMode.Single;
-            importer.spritePixelsPerUnit = IsUnitBody(assetPath)
-                ? UnitBodyPixelsPerUnit
+            importer.spritePixelsPerUnit = IsUnitBody(assetPath) ? UnitBodyPixelsPerUnit
+                : IsCampArt(assetPath) ? CampPixelsPerUnit
                 : IsBoardArt(assetPath) ? BoardPixelsPerUnit : UiPixelsPerUnit;
 
-            // Unit sprites are pixel art: bilinear filtering would blur each texel into its
-            // neighbours and turn the one-pixel outline into a soft brown halo.
-            importer.filterMode = IsUnitArt(assetPath) ? FilterMode.Point : FilterMode.Bilinear;
+            // Unit and camp sprites are pixel art: bilinear filtering would blur each texel into
+            // its neighbours and turn the one-pixel outline into a soft brown halo.
+            importer.filterMode = IsUnitArt(assetPath) || IsCampArt(assetPath) ? FilterMode.Point : FilterMode.Bilinear;
+
+            // The camp picks buildings under the cursor by their opaque pixels, not their boxes,
+            // so a click on the sky above a low roof reaches the building behind it.
+            importer.isReadable = IsCampArt(assetPath);
             importer.wrapMode = TextureWrapMode.Clamp;
             importer.mipmapEnabled = false;
             importer.npotScale = TextureImporterNPOTScale.None;
@@ -132,6 +148,11 @@ namespace BinakayanRising.EditorTools
             return path.StartsWith(ArtRoot + "Units/", StringComparison.Ordinal);
         }
 
+        private static bool IsCampArt(string path)
+        {
+            return path.StartsWith(ArtRoot + "Encampment/", StringComparison.Ordinal);
+        }
+
         private static bool IsUnitBody(string path)
         {
             return IsUnitArt(path) && path.EndsWith("/body.png", StringComparison.Ordinal);
@@ -153,6 +174,13 @@ namespace BinakayanRising.EditorTools
             {
                 settings.spriteAlignment = (int)SpriteAlignment.Custom;
                 settings.spritePivot = UnitBodyPivot;
+                return;
+            }
+
+            if (IsCampArt(path))
+            {
+                settings.spriteAlignment = (int)SpriteAlignment.Custom;
+                settings.spritePivot = CampPivot;
                 return;
             }
 

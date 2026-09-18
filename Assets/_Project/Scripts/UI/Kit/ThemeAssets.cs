@@ -128,6 +128,29 @@ namespace BinakayanRising.UI.Kit
             public Sprite portrait;
         }
 
+        [Header("Encampment — buildings and scenery rendered by Tools/sprites/run_camp.sh")]
+        [Tooltip("Filled from Assets/_Project/Art/Encampment/ by Tools → Binakayan Rising → Refresh Unit Art.")]
+        public Sprite[] camp = new Sprite[0];
+
+        /// <summary>A camp building or prop by file name, or null when none was rendered.</summary>
+        public Sprite CampSprite(string name)
+        {
+            if (camp == null || string.IsNullOrEmpty(name))
+            {
+                return null;
+            }
+
+            for (int i = 0; i < camp.Length; i++)
+            {
+                if (camp[i] != null && string.Equals(camp[i].name, name, System.StringComparison.Ordinal))
+                {
+                    return camp[i];
+                }
+            }
+
+            return null;
+        }
+
         /// <summary>The board figure for an archetype, or null when none was rendered.</summary>
         public Sprite UnitBody(string archetypeId)
         {

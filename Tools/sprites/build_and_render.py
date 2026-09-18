@@ -3,7 +3,7 @@ Builds every unit figure and renders its board sprite and HUD portrait.
 
 Run through run.sh, which launches Blender headless:
 
-    blender -b --factory-startup --python build_and_render.py -- --out <dir> [--only Marksman]
+    blender -b --factory-startup --python build_and_render.py -- --out <dir> [--only Marksman[,Engineer...]]
 
 Each unit gets a fresh empty scene, so no part, material or light leaks between figures.
 Raw renders and one .blend per unit go to out/ next to this script for inspection; the
@@ -169,7 +169,7 @@ def main():
     os.makedirs(os.path.join(scratch, "raw"), exist_ok=True)
 
     for archetype, build in units.UNITS:
-        if args.only and args.only != archetype:
+        if args.only and archetype not in args.only.split(","):
             continue
 
         bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -202,4 +202,5 @@ def main():
             print("SPRITE %s/%s palette=%d worst_snap=%d" % (archetype, name, len(kit.tones) + 1, worst))
 
 
-main()
+if __name__ == "__main__":
+    main()

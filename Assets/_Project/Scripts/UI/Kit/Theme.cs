@@ -94,21 +94,82 @@ namespace BinakayanRising.UI.Kit
         /// <summary>The pulsing rim drawn around whatever the tutorial is pointing at.</summary>
         public static readonly Color SpotlightRing = new Color32(0xF0, 0xD2, 0x64, 0xFF);
 
+        /// <summary>
+        /// Recruiting tiers, used for a recruit's frame and label. Hero is the gold the rest of
+        /// the interface already means "best" with; Rare is an indigo kept clear of the
+        /// colonial blue, which marks the enemy.
+        /// </summary>
+        public static class Rarity
+        {
+            public static readonly Color Common = new Color32(0x7A, 0x68, 0x52, 0xFF);
+            public static readonly Color Rare = new Color32(0x4B, 0x4F, 0x9C, 0xFF);
+            public static readonly Color Hero = new Color32(0xC9, 0xA2, 0x27, 0xFF);
+
+            public static Color Of(Core.Content.UnitRarity rarity)
+            {
+                switch (rarity)
+                {
+                    case Core.Content.UnitRarity.Hero: return Hero;
+                    case Core.Content.UnitRarity.Rare: return Rare;
+                    default: return Common;
+                }
+            }
+        }
+
+        /// <summary>
+        /// The encampment's painted ground and markers. Pixel art: a few flat tones per surface,
+        /// picked to sit under the Blender-rendered buildings without fighting their palette.
+        /// </summary>
+        public static class Camp
+        {
+            public static readonly Color32 JungleDark = new Color32(0x34, 0x4C, 0x24, 0xFF);
+            public static readonly Color32 Jungle = new Color32(0x40, 0x5C, 0x2A, 0xFF);
+            public static readonly Color32 JungleLight = new Color32(0x4C, 0x6A, 0x30, 0xFF);
+
+            public static readonly Color32 ClearingDark = new Color32(0x6A, 0x7C, 0x3C, 0xFF);
+            public static readonly Color32 Clearing = new Color32(0x78, 0x8A, 0x44, 0xFF);
+            public static readonly Color32 ClearingLight = new Color32(0x86, 0x96, 0x4C, 0xFF);
+
+            public static readonly Color32 PathDark = new Color32(0x8E, 0x76, 0x4E, 0xFF);
+            public static readonly Color32 Path = new Color32(0xA2, 0x88, 0x5A, 0xFF);
+            public static readonly Color32 PathLight = new Color32(0xB2, 0x98, 0x68, 0xFF);
+
+            /// <summary>The marker arrow over the objective, and its outline.</summary>
+            public static readonly Color32 Marker = new Color32(0xF0, 0xD2, 0x64, 0xFF);
+            public static readonly Color32 MarkerShade = new Color32(0xC9, 0xA2, 0x27, 0xFF);
+            public static readonly Color32 MarkerInk = new Color32(0x1E, 0x16, 0x12, 0xFF);
+
+            /// <summary>The footprint drawn round a building under the cursor.</summary>
+            public static readonly Color32 Hover = new Color32(0xF0, 0xD2, 0x64, 0xC0);
+
+            /// <summary>The walk target's ring.</summary>
+            public static readonly Color32 Target = new Color32(0xE9, 0xE2, 0xD0, 0xA0);
+
+            /// <summary>A figure's contact shadow.</summary>
+            public static readonly Color32 Shadow = new Color32(0x10, 0x14, 0x08, 0x60);
+        }
+
         // ------------------------------------------------------------------ canvas order
 
         /// <summary>
         /// Sorting orders for the screen-space canvases, bottom to top.
         /// </summary>
         /// <remarks>
-        /// World labels sit under the HUD so panels and the outcome scrim cover them; the tutorial
-        /// sits over the HUD so its scrim can dim it; the How-to-Play deck sits over both.
+        /// The campaign screens sit under everything; world labels sit under the HUD so panels and
+        /// the outcome scrim cover them; the tutorial sits over the HUD so its scrim can dim it; the
+        /// How-to-Play deck sits over both. Settings, confirmations and toasts can open from
+        /// anywhere, so they sit on top of all of it.
         /// </remarks>
         public static class Layer
         {
+            public const int Shell = 80;
             public const int WorldLabels = 90;
             public const int Hud = 100;
             public const int Tutorial = 200;
             public const int Deck = 210;
+            public const int Settings = 220;
+            public const int Modal = 230;
+            public const int Toast = 240;
         }
 
         // ------------------------------------------------------------------ type
@@ -267,6 +328,23 @@ namespace BinakayanRising.UI.Kit
                 return barFillSprite;
             }
         }
+
+        /// <summary>Currency and interface icons. Null when setup has not run; callers skip the icon.</summary>
+        public static Sprite IconReales => Assets != null ? Assets.iconReales : null;
+
+        public static Sprite IconRations => Assets != null ? Assets.iconRations : null;
+
+        public static Sprite IconScrap => Assets != null ? Assets.iconScrap : null;
+
+        public static Sprite IconSettings => Assets != null ? Assets.iconSettings : null;
+
+        public static Sprite IconClose => Assets != null ? Assets.iconClose : null;
+
+        public static Sprite IconBack => Assets != null ? Assets.iconBack : null;
+
+        public static Sprite IconCheck => Assets != null ? Assets.iconCheck : null;
+
+        public static Sprite IconStar => Assets != null ? Assets.iconStar : null;
 
         /// <summary>Display face, for titles and buttons.</summary>
         public static TMP_FontAsset DisplayFont => Assets != null ? Assets.displayFont : null;

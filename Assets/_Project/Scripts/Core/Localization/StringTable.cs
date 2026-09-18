@@ -278,6 +278,143 @@ namespace BinakayanRising.Core.Localization
                 + "<b>1 / 2 / 3</b>  bilis 0.5x / 1x / 3x\n"
                 + "<b>Esc</b>  isara, o laktawan ang tutorial\n"
                 + "<b>EN / FIL</b>  palitan ang wika");
+
+            // ---------------------------------------------------------------- shared buttons
+            Add(TextKey.CommonConfirm, "Confirm", "Ituloy");
+            Add(TextKey.CommonCancel, "Cancel", "Kanselahin");
+            Add(TextKey.CommonClose, "Close", "Isara");
+            Add(TextKey.CommonBack, "Back", "Bumalik");
+            Add(TextKey.CommonOn, "On", "Bukas");
+            Add(TextKey.CommonOff, "Off", "Sarado");
+
+            // ---------------------------------------------------------------- main menu
+            Add(TextKey.MenuTagline, "Cavite, November 1896", "Cavite, Nobyembre 1896");
+            Add(TextKey.MenuContinue, "Continue", "Magpatuloy");
+            Add(TextKey.MenuNewCampaign, "New Campaign", "Bagong Kampanya");
+            Add(TextKey.MenuSettings, "Settings", "Mga Setting");
+            Add(TextKey.MenuQuit, "Quit", "Umalis");
+            Add(TextKey.MenuSaveSummary, "{0}  ·  {1}  ·  {2}", "{0}  ·  {1}  ·  {2}");
+            Add(TextKey.MenuOverwriteTitle, "Start a new campaign?", "Magsimula ng bagong kampanya?");
+            Add(TextKey.MenuOverwriteBody,
+                "Your current campaign will be erased.",
+                "Mabubura ang kasalukuyang kampanya.");
+            Add(TextKey.MenuSaveRestored,
+                "Your last save was damaged. The backup was loaded instead.",
+                "Nasira ang huling save. Ang backup ang binuksan.");
+
+            // ---------------------------------------------------------------- settings
+            Add(TextKey.SetTitle, "Settings", "Mga Setting");
+            Add(TextKey.SetAudio, "Audio", "Tunog");
+            Add(TextKey.SetMusic, "Music", "Musika");
+            Add(TextKey.SetSfx, "Sound effects", "Mga epekto");
+            Add(TextKey.SetMute, "Mute all", "I-mute lahat");
+            Add(TextKey.SetDisplay, "Display", "Screen");
+            Add(TextKey.SetResolution, "Resolution", "Resolusyon");
+            Add(TextKey.SetFullscreen, "Fullscreen", "Buong screen");
+            Add(TextKey.SetLanguageText, "Language & Text", "Wika at Teksto");
+            Add(TextKey.SetLanguage, "Language", "Wika");
+            Add(TextKey.SetTextSpeed, "Text speed", "Bilis ng teksto");
+            Add(TextKey.SetSaveTutorial, "Save & Tutorial", "Save at Tutorial");
+            Add(TextKey.SetReplayTutorial, "Replay Tutorial", "Ulitin ang Tutorial");
+            Add(TextKey.SetReplayDone,
+                "The tutorial will play again in your next battle.",
+                "Lalabas muli ang tutorial sa susunod na labanan.");
+            Add(TextKey.SetDeleteSave, "Delete Save", "Burahin ang Save");
+            Add(TextKey.SetDeleteTitle, "Delete your campaign?", "Burahin ang kampanya?");
+            Add(TextKey.SetDeleteBody,
+                "Every unit, weapon and cleared mission will be lost. This cannot be undone.",
+                "Mawawala ang lahat ng yunit, armas at natapos na misyon. Hindi na ito maibabalik.");
+            Add(TextKey.SetNoSave, "No saved campaign.", "Walang naka-save na kampanya.");
+            Add(TextKey.LangEnglish, "English", "Ingles");
+            Add(TextKey.LangFilipino, "Filipino", "Filipino");
+            Add(TextKey.SpeedSlow, "Slow", "Mabagal");
+            Add(TextKey.SpeedNormal, "Normal", "Katamtaman");
+            Add(TextKey.SpeedFast, "Fast", "Mabilis");
+            Add(TextKey.SpeedInstant, "Instant", "Agad");
+
+            // ---------------------------------------------------------------- encampment chrome
+            Add(TextKey.HubMenu, "Menu", "Menu");
+            Add(TextKey.HubObjective, "Objective", "Layunin");
+            Add(TextKey.HubRank, "Rank", "Ranggo");
+            Add(TextKey.CurReales, "Reales", "Reales");
+            Add(TextKey.CurRations, "Rations", "Rasyon");
+            Add(TextKey.CurScrap, "Scrap", "Bakal");
+            Add(TextKey.HubToTitle, "Main Menu", "Pangunahing Menu");
+            Add(TextKey.HubSaved, "Saved", "Na-save");
+            Add(TextKey.HubQuestDone, "Sub-quest complete: {0}", "Natapos ang gawain: {0}");
+            Add(TextKey.HubRewardReales, "+{0} Reales", "+{0} Reales");
+            Add(TextKey.HubComingSoon, "The {0} opens in the next update.", "Magbubukas ang {0} sa susunod na update.");
+            Add(TextKey.HubNoPath, "No way through from here.", "Walang madaanan mula rito.");
+            Add(TextKey.DlgNext, "Next", "Susunod");
+            Add(TextKey.DlgSkip, "Skip", "Laktawan");
+            Add(TextKey.DlgHint, "Click or press Space", "I-click o pindutin ang Space");
+            Add(TextKey.ResStored, "In storage", "Nakaimbak");
+            Add(TextKey.ResNext, "Next in {0}s", "Susunod sa {0}s");
+            Add(TextKey.ResFull, "Full. Production has stopped", "Puno na. Tumigil ang ani");
+            Add(TextKey.ResHarvest, "Harvest", "Umani");
+            Add(TextKey.ResNothing, "Nothing to harvest yet.", "Wala pang maaani.");
+            Add(TextKey.ResGot, "+{0} {1}", "+{0} {1}");
+            Add(TextKey.ResRate, "Makes 1 every {0}s. Holds {1}.", "Gumagawa ng 1 bawat {0}s. Hanggang {1}.");
+            Add(TextKey.ResBack, "Back to camp", "Bumalik sa kampo");
+            Add(TextKey.ExLot, "{0} {1} buys {2} Reales", "{0} {1} = {2} Reales");
+            Add(TextKey.ExHave, "You have {0}", "Mayroon kang {0}");
+            Add(TextKey.ExSellOne, "Sell 1 lot", "Magbenta ng 1");
+            Add(TextKey.ExSellAll, "Sell all", "Ibenta lahat");
+            Add(TextKey.ExSold, "Sold for {0} Reales", "Naibenta sa {0} Reales");
+            Add(TextKey.ExShort, "Not enough for a lot.", "Kulang para sa isang lote.");
+            Add(TextKey.InvResources, "Resources", "Mga Rekurso");
+            Add(TextKey.InvWeapons, "Weapons", "Mga Sandata");
+            Add(TextKey.InvRealesUse, "Coin. Recruits and drills soldiers.", "Salapi. Pangalap at pagsasanay ng sundalo.");
+            Add(TextKey.InvRationsUse, "Food. Every mission costs Rations to march.", "Pagkain. May bayad na Rasyon ang bawat misyon.");
+            Add(TextKey.InvScrapUse, "Iron. Drills and weapon reforging use it.", "Bakal. Gamit sa pagsasanay at pagpapanday.");
+            Add(TextKey.InvWhere, "From the {0}", "Mula sa {0}");
+            Add(TextKey.InvHeldBy, "Held by {0}", "Hawak ni {0}");
+            Add(TextKey.InvOnRack, "On the rack", "Nasa lalagyan");
+            Add(TextKey.InvAttack, "+{0} attack", "+{0} atake");
+            Add(TextKey.InvTier, "Tier {0}", "Antas {0}");
+            Add(TextKey.InvGiveTo, "Give to", "Ibigay kay");
+            Add(TextKey.InvReforge, "Reforge", "Ipanday");
+            Add(TextKey.InvReforgeInto, "Reforge into {0}", "Ipanday bilang {0}");
+            Add(TextKey.InvTopTier, "The finest of its kind.", "Pinakamahusay sa uri nito.");
+            Add(TextKey.InvNone, "No weapons yet. Missions reward them.", "Wala pang sandata. Gantimpala ito ng mga misyon.");
+            Add(TextKey.InvPick, "Choose a weapon.", "Pumili ng sandata.");
+            Add(TextKey.InvEquipped, "{0} now carries the {1}.", "Hawak na ni {0} ang {1}.");
+            Add(TextKey.InvReforged, "Reforged into {0}.", "Napanday bilang {0}.");
+            Add(TextKey.InvCantAfford, "Not enough to pay for it.", "Kulang ang pambayad.");
+            Add(TextKey.TrnLevel, "Level {0}", "Antas {0}");
+            Add(TextKey.TrnXp, "{0} / {1} XP", "{0} / {1} XP");
+            Add(TextKey.TrnTopLevel, "Top level reached", "Naabot na ang pinakamataas na antas");
+            Add(TextKey.TrnHealth, "Health", "Buhay");
+            Add(TextKey.TrnAttack, "Attack", "Atake");
+            Add(TextKey.TrnDefense, "Defence", "Depensa");
+            Add(TextKey.TrnNow, "Now", "Ngayon");
+            Add(TextKey.TrnNext, "Next level", "Susunod na antas");
+            Add(TextKey.TrnWeapon, "Carries: {0}", "Hawak: {0}");
+            Add(TextKey.TrnNoWeapon, "Carries no weapon", "Walang hawak na sandata");
+            Add(TextKey.TrnDrill, "Drill", "Sanayin");
+            Add(TextKey.TrnDrillGives, "One drill gives +{0} XP", "Isang pagsasanay: +{0} XP");
+            Add(TextKey.TrnDrilled, "{0} gained {1} XP.", "Nagkamit si {0} ng {1} XP.");
+            Add(TextKey.TrnKeeperNote, "Pick a soldier, then drill. Battles give XP too.", "Pumili ng sundalo, saka sanayin. May XP din sa labanan.");
+            Add(TextKey.TrnPage, "{0} / {1}", "{0} / {1}");
+            Add(TextKey.PromoTitle, "Promoted", "Umangat ang Antas");
+            Add(TextKey.PromoLevel, "Level {0}  ▸  Level {1}", "Antas {0}  ▸  Antas {1}");
+            Add(TextKey.RecRates, "Published rates", "Nakapaskil na tsansa");
+            Add(TextKey.RecPity, "A Hero is guaranteed within {0} recruits.", "Tiyak ang Bayani sa loob ng {0} pangangalap.");
+            Add(TextKey.RecPityNext, "Your next recruit is a guaranteed Hero.", "Tiyak na Bayani ang susunod mong makakalap.");
+            Add(TextKey.RecDuplicate, "A Hero you already have trains instead: +{0} XP.", "Kung nasa iyo na ang Bayani, sasanayin siya: +{0} XP.");
+            Add(TextKey.RecOne, "Recruit 1", "Mangalap ng 1");
+            Add(TextKey.RecTen, "Recruit {0}", "Mangalap ng {0}");
+            Add(TextKey.RecCost, "{0} Reales", "{0} Reales");
+            Add(TextKey.RecSave, "Saves {0} Reales", "Tipid na {0} Reales");
+            Add(TextKey.RecIntro, "New recruits join your roster at level 1.", "Nagsisimula sa antas 1 ang bawat bagong kasapi.");
+            Add(TextKey.RecResults, "New recruits", "Mga bagong kasapi");
+            Add(TextKey.RecNew, "New", "Bago");
+            Add(TextKey.RecDupXp, "Trained +{0} XP", "Sinanay +{0} XP");
+            Add(TextKey.RecGuaranteed, "Guaranteed", "Tiyak");
+            Add(TextKey.RecCantAfford, "Not enough Reales. Sell goods at the Exchange.", "Kulang ang Reales. Magbenta sa Palitan.");
+            Add(TextKey.RecTapToReveal, "Click to reveal", "I-click upang ipakita");
+            Add(TextKey.RecRevealAll, "Reveal all", "Ipakita lahat");
+            Add(TextKey.RecRoster, "Your roster: {0} units", "Iyong hukbo: {0} yunit");
         }
 
         /// <summary>The text for a key, falling back to English and then to the key's name.</summary>

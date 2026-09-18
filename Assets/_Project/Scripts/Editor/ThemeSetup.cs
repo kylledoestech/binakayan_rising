@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using BinakayanRising.Core.Localization;
 using BinakayanRising.UI.Kit;
 using TMPro;
 using UnityEditor;
@@ -36,6 +37,7 @@ namespace BinakayanRising.EditorTools
         private const string ResourceRoot = "Assets/_Project/Resources";
         private const string ThemeAssetPath = ResourceRoot + "/ThemeAssets.asset";
         private const string UnitArtRoot = ArtRoot + "/Units";
+        private const string CampArtRoot = ArtRoot + "/Encampment";
 
         /// <summary>
         /// Sampling size for the SDF atlas. Large enough that Cinzel's thin serifs survive, small
@@ -46,22 +48,8 @@ namespace BinakayanRising.EditorTools
         private const int FontAtlasPadding = 9;
         private const int FontAtlasSize = 1024;
 
-        /// <summary>
-        /// Characters baked into every font atlas: printable ASCII, the Spanish and Tagalog
-        /// diacritics the historical names need, and the typographic punctuation the UI uses.
-        /// </summary>
-        /// <remarks>
-        /// Static atlases only contain what is asked for. Omitting the tilde here would render
-        /// "Caviteño" and "Cañacao" with a missing glyph box in the middle of a proper noun — a
-        /// failure that is easy to miss until it appears in a screenshot at the defense.
-        /// </remarks>
-        private const string BakedCharacters =
-            " !\"#$%&'()*+,-./0123456789:;<=>?@" +
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`" +
-            "abcdefghijklmnopqrstuvwxyz{|}~" +
-            "ñÑáéíóúÁÉÍÓÚüÜàÀèÈ¡¿" +
-            "—–…‘’“”·•×÷°±₱" +
-            "✓✗★☆▸◂▴▾";
+        /// <summary>Characters baked into every font atlas. See <see cref="BakedGlyphs"/>.</summary>
+        private const string BakedCharacters = BakedGlyphs.All;
 
         // ------------------------------------------------------------------ entry points
 
@@ -337,6 +325,7 @@ namespace BinakayanRising.EditorTools
             theme.sfxToggle = Load<AudioClip>($"{ArtRoot}/Sfx/ui_toggle.ogg");
 
             AssignUnitArt(theme);
+            AssignCampArt(theme);
 
             if (isNew)
             {
@@ -365,9 +354,10 @@ namespace BinakayanRising.EditorTools
             }
 
             AssignUnitArt(theme);
+            AssignCampArt(theme);
             EditorUtility.SetDirty(theme);
             AssetDatabase.SaveAssets();
-            Debug.Log($"ThemeSetup: {theme.units.Length} unit art sets assigned.");
+            Debug.Log($"ThemeSetup: {theme.units.Length} unit art sets and {theme.camp.Length} camp sprites assigned.");
         }
 
         /// <summary>
@@ -394,6 +384,28 @@ namespace BinakayanRising.EditorTools
             }
 
             theme.units = entries.ToArray();
+        }
+
+        /// <summary>
+        /// Fills <see cref="ThemeAssets.camp"/> with every sprite under <c>Art/Encampment/</c>.
+        /// The file name is the name the layout in <c>Core/Content/Encampment.cs</c> uses.
+        /// </summary>
+        private static void AssignCampArt(ThemeAssets theme)
+        {
+            var sprites = new List<Sprite>();
+            if (AssetDatabase.IsValidFolder(CampArtRoot))
+            {
+                foreach (string guid in AssetDatabase.FindAssets("t:Sprite", new[] { CampArtRoot }))
+                {
+                    Sprite sprite = Sprite(AssetDatabase.GUIDToAssetPath(guid));
+                    if (sprite != null)
+                    {
+                        sprites.Add(sprite);
+                    }
+                }
+            }
+
+            theme.camp = sprites.OrderBy(s => s.name, StringComparer.Ordinal).ToArray();
         }
 
         /// <summary>

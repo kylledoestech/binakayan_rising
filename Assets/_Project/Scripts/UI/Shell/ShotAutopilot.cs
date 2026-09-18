@@ -1,0 +1,678 @@
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using BinakayanRising.Core.Content;
+using BinakayanRising.Core.Localization;
+using BinakayanRising.Core.Meta;
+using BinakayanRising.UI.Kit;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace BinakayanRising.UI.Shell
+{
+    /// <summary>
+    /// Drives a player build through a fixed route of screens, saving a screenshot and a layout
+    /// audit at each stop, then quits. For reviewing the interface without clicking through it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Run as <c>BinakayanRising.x86_64 -brShot phase1 -brShotDir out -brSaveDir tmp</c>. Always
+    /// pass <c>-brSaveDir</c>: the route starts new campaigns and deletes saves.
+    /// </para>
+    /// <para>
+    /// The audit is the part that proves anything. A screenshot shows that something looks wrong;
+    /// the audit measures it: every label that had to cut its text off, every label that shrank
+    /// below three quarters of its size to fit, and every element that spills outside its layout
+    /// group or off the screen. Lines go to <c>audit.txt</c> beside the images.
+    /// </para>
+    /// </remarks>
+    public sealed class ShotAutopilot : MonoBehaviour
+    {
+        private string directory;
+        private readonly StringBuilder audit = new StringBuilder();
+        private int problems;
+
+        private GameShell Shell
+        {
+            get { return GameShell.Current; }
+        }
+
+        private IEnumerator Start()
+        {
+            if (string.IsNullOrEmpty(CommandLine.Value("-brSaveDir")))
+            {
+                // The route deletes saves; without a scratch directory it would delete the real one.
+                Debug.LogError("[Shot] refusing to run without -brSaveDir.");
+                Application.Quit(2);
+                yield break;
+            }
+
+            directory = CommandLine.Value("-brShotDir") ?? Path.Combine(Application.persistentDataPath, "shots");
+            Directory.CreateDirectory(directory);
+
+            if (CommandLine.Has("-brShotSize"))
+            {
+                string[] size = (CommandLine.Value("-brShotSize") ?? "1920x1080").Split('x');
+                Screen.SetResolution(int.Parse(size[0]), int.Parse(size[1]), FullScreenMode.Windowed);
+            }
+
+            string route = CommandLine.Value("-brShot") ?? "phase1";
+            Language before = Loc.Current;
+            UserPrefs.ChooseLanguage(Language.English);
+
+            // Let the machine launch and the first screen finish fading in.
+            yield return Wait(1.2f);
+
+            switch (route)
+            {
+                case "phase2":
+                    yield return Phase2();
+                    break;
+
+                case "phase3":
+                    yield return Phase3();
+                    break;
+
+                default:
+                    yield return Phase1();
+                    break;
+            }
+
+            UserPrefs.ChooseLanguage(before);
+            audit.Insert(0, "screen " + Screen.width + "x" + Screen.height + ", problems " + problems + "\n");
+            File.WriteAllText(Path.Combine(directory, "audit.txt"), audit.ToString());
+            Debug.Log("[Shot] done, " + problems + " layout problems. " + directory);
+            yield return Wait(0.3f);
+            Application.Quit(problems == 0 ? 0 : 3);
+        }
+
+        private IEnumerator Phase1()
+        {
+            Shell.Session.DeleteSave();
+            Shell.Router.Current?.Show();
+            yield return Shot("01_menu_empty");
+
+            Shell.StartNewCampaign();
+            yield return Shot("02_hub");
+
+            Shell.OpenSettings();
+            yield return Shot("03_settings");
+
+            Click("Button Delete Save");
+            yield return Shot("04_confirm_delete");
+            Click("Button Cancel");
+
+            Shell.CloseSettings();
+            Shell.ReturnToTitle();
+            yield return Shot("05_menu_saved");
+
+            Click("Button New Campaign");
+            yield return Shot("06_confirm_overwrite");
+            Click("Button Cancel");
+
+            UserPrefs.ChooseLanguage(Language.Filipino);
+            yield return Shot("07_menu_fil");
+
+            Shell.ContinueCampaign();
+            yield return Shot("08_hub_fil");
+
+            Shell.OpenSettings();
+            yield return Shot("09_settings_fil");
+            Shell.CloseSettings();
+        }
+
+        /// <summary>
+        /// The encampment and its economy: the camp itself, hovering, the aide's welcome, a
+        /// keeper's first-visit greeting, the three resource tabs and the inventory.
+        /// </summary>
+        private IEnumerator Phase2()
+        {
+            Shell.Session.DeleteSave();
+            Shell.StartNewCampaign();
+            yield return Wait(0.6f);
+            MeasureCamp("camp on entry");
+            yield return Shot("p2_01_camp");
+
+            Shell.Camp.ForceHover(Places.MissionTent, null);
+            yield return Shot("p2_02_hover_tent");
+            Shell.Camp.ForceHover(null, Characters.Tomas);
+            yield return Shot("p2_03_hover_tomas");
+            Shell.Camp.ForceHover(null, null);
+
+            // Walk to the aide; the welcome opens on arrival.
+            Shell.Camp.ClickFigure(Characters.Tomas);
+            yield return Wait(0.25f);
+            yield return Shot("p2_04_walking");
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 6f);
+            yield return Shot("p2_05_dialogue_tomas");
+            Hub().Dialogue.Advance();
+            Hub().Dialogue.Advance();
+            Hub().Dialogue.Advance();
+            Hub().Dialogue.Advance();
+            yield return Shot("p2_06_dialogue_tomas_line3");
+            Hub().Dialogue.Finish();
+
+            // The arrow moves on in the hub's LateUpdate, so measure a frame later.
+            yield return null;
+            MeasureCamp("after welcome");
+            yield return Shot("p2_07_next_objective");
+
+            // Seed the stores: the farm part-way, the mine full, and goods to sell.
+            MetaGame game = Shell.Session.Game;
+            long now = game.Now.Ticks;
+            game.Data.farm.sinceUtcTicks = now - (long)(game.Rules.Farm.SecondsPerUnit * 13.4 * System.TimeSpan.TicksPerSecond);
+            game.Data.mine.sinceUtcTicks = now - (long)(game.Rules.Mine.SecondsPerUnit * 40.0 * System.TimeSpan.TicksPerSecond);
+            game.Earn(Currency.Rations, 25);
+            game.Earn(Currency.Scrap, 12);
+
+            Shell.Camp.ClickSite(Places.Farm);
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
+            yield return Shot("p2_08_farmer_greeting");
+            Hub().Dialogue.Finish();
+            yield return Shot("p2_09_farm");
+            ClickIn("Button Harvest");
+            yield return Shot("p2_10_farm_harvested");
+            ClickIn("Tab 1");
+            yield return Shot("p2_11_mine_full");
+            ClickIn("Tab 2");
+            yield return Shot("p2_12_exchange");
+            ClickIn("Button Sell All Rations");
+            yield return Shot("p2_13_exchange_sold");
+            MeasureToastClear();
+            ClickIn("Button Back To Camp");
+            yield return Wait(0.4f);
+
+            Shell.Camp.ClickSite(Places.Armory);
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
+            yield return Shot("p2_14_inventory");
+            ClickIn("Tab 1");
+            yield return Shot("p2_15_weapons");
+            ClickIn("Give 1");
+            yield return Shot("p2_16_weapon_given");
+            ClickIn("Button Back To Camp");
+            yield return Wait(0.4f);
+
+            Shell.Camp.ClickSite(Places.Library);
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
+            yield return Shot("p2_17_coming_soon");
+
+            UserPrefs.ChooseLanguage(Language.Filipino);
+            Shell.Camp.ForceHover(Places.Exchange, null);
+            yield return Shot("p2_18_hub_fil");
+            Shell.Camp.ForceHover(null, null);
+            Shell.Camp.ClickFigure(Characters.Tomas);
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
+            yield return Shot("p2_19_reminder_fil");
+            Hub().Dialogue.Finish();
+            Shell.Camp.ClickSite(Places.Mine);
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
+            yield return Shot("p2_20_miner_fil");
+            Hub().Dialogue.Finish();
+            yield return Shot("p2_21_mine_fil");
+            ClickIn("Button Back To Camp");
+            yield return Wait(0.4f);
+            Shell.Camp.ClickSite(Places.Armory);
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
+            ClickIn("Tab 1");
+            yield return Shot("p2_22_weapons_fil");
+        }
+
+        /// <summary>
+        /// Progression: the drill sergeant, the training ground, a drill that promotes (caught
+        /// while the numbers count and after), the recruitment hall, a guaranteed Hero, ten
+        /// recruits at once, and the same screens in Filipino.
+        /// </summary>
+        private IEnumerator Phase3()
+        {
+            Shell.Session.DeleteSave();
+            Shell.StartNewCampaign();
+            yield return Wait(0.6f);
+
+            // Seed enough to drill and recruit, and put the first unit one drill from a level.
+            MetaGame game = Shell.Session.Game;
+            game.Earn(Currency.Reales, 2400);
+            game.Earn(Currency.Scrap, 40);
+            OwnedUnit first = game.Units[0];
+            first.xp = game.XpToNext(first) - 40;
+
+            Shell.Camp.ClickSite(Places.Training);
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
+            yield return Shot("p3_01_sergeant_greeting");
+            Hub().Dialogue.Finish();
+            yield return Wait(0.4f);
+            Training().SelectedUnit = first.id;
+            yield return Shot("p3_02_training");
+
+            ClickIn("Button Drill");
+            yield return Shot("p3_03_promotion_counting", 0.45f);
+            yield return Shot("p3_04_promotion", 1.2f);
+            yield return DrainPromotions("p3_04");
+            ClickIn("Button Drill");
+            yield return Shot("p3_05_drilled");
+            MeasureToastClear();
+            Training().SelectedUnit = game.Units[game.Units.Count - 1].id;
+            yield return Shot("p3_06_training_other");
+            ClickIn("Button Back To Camp");
+            yield return Wait(0.4f);
+
+            // Nine recruits without a Hero: the next is guaranteed.
+            game.Data.pity = game.Rules.PityThreshold - 1;
+            Shell.Camp.ClickSite(Places.Recruitment);
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
+            yield return Shot("p3_07_recruit_greeting");
+            Hub().Dialogue.Finish();
+            yield return Wait(0.4f);
+            yield return Shot("p3_08_recruit");
+
+            ClickIn("Button Recruit One");
+            yield return Shot("p3_09_reveal_one_back", 0.1f);
+            yield return WaitWhile(() => RecruitReveal.Current != null && !RecruitReveal.Current.AllShown, 6f);
+            yield return Shot("p3_10_reveal_one");
+            MeasureReveal("10_reveal_one");
+            yield return CloseReveal("p3_10");
+
+            ClickIn("Button Recruit Many");
+            yield return Shot("p3_11_reveal_many_mid", 0.9f);
+            yield return WaitWhile(() => RecruitReveal.Current != null && !RecruitReveal.Current.AllShown, 10f);
+            yield return Shot("p3_12_reveal_many");
+            MeasureReveal("12_reveal_many");
+            yield return CloseReveal("p3_12");
+            yield return Shot("p3_13_recruit_after");
+
+            UserPrefs.ChooseLanguage(Language.Filipino);
+            yield return Shot("p3_14_recruit_fil");
+            ClickIn("Button Recruit One");
+            yield return WaitWhile(() => RecruitReveal.Current != null && !RecruitReveal.Current.AllShown, 6f);
+            yield return Shot("p3_15_reveal_fil");
+            MeasureReveal("15_reveal_fil");
+            yield return CloseReveal("p3_15");
+            ClickIn("Button Back To Camp");
+            yield return Wait(0.4f);
+
+            OwnedUnit second = game.Units[1];
+            second.xp = game.XpToNext(second) - 40;
+            Shell.Camp.ClickSite(Places.Training);
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
+            Training().SelectedUnit = second.id;
+            yield return Shot("p3_16_training_fil");
+            ClickIn("Button Drill");
+            yield return Shot("p3_17_promotion_fil");
+            yield return DrainPromotions("p3_17");
+        }
+
+        /// <summary>Closes the reveal, then shoots and dismisses any promotion it hands on.</summary>
+        private IEnumerator CloseReveal(string prefix)
+        {
+            if (RecruitReveal.Current == null)
+            {
+                Note("step", "no reveal open (" + prefix + ")");
+                yield break;
+            }
+
+            RecruitReveal.Current.Press();
+            yield return Wait(0.3f);
+            int shown = 0;
+            while (PromotionCard.Current != null && shown < 6)
+            {
+                shown++;
+                yield return Shot(prefix + "_promotion_" + shown);
+                PromotionCard.Current.Continue();
+                yield return Wait(0.3f);
+            }
+        }
+
+        /// <summary>Dismisses every queued promotion card, shooting any after the first.</summary>
+        private IEnumerator DrainPromotions(string prefix)
+        {
+            int guard = 0;
+            while (PromotionCard.Current != null && guard < 6)
+            {
+                if (guard > 0)
+                {
+                    yield return Shot(prefix + "_next_" + guard);
+                }
+
+                guard++;
+                PromotionCard.Current.Continue();
+                yield return Wait(0.3f);
+            }
+        }
+
+        private TrainingScreen Training()
+        {
+            return Shell.Router.Get<TrainingScreen>(Gameplay.Flow.GameState.RosterTraining);
+        }
+
+        private EncampmentScreen Hub()
+        {
+            return Shell.Router.Get<EncampmentScreen>(Gameplay.Flow.GameState.BaseHub);
+        }
+
+        /// <summary>
+        /// Writes the camp's framing to the audit as numbers: the camera, the art scale, where the
+        /// clearing and the arrow land on screen. The screenshot shows it; this measures it.
+        /// </summary>
+        private void MeasureCamp(string when)
+        {
+            Camp.CampWorld camp = Shell.Camp;
+            Camera view = camp.View;
+            if (view == null)
+            {
+                Note("camp", "no camera (" + when + ")");
+                return;
+            }
+
+            float screenPerUnit = Screen.height / (2f * view.orthographicSize);
+            float perArtPixel = screenPerUnit / Camp.CampIso.PixelsPerUnit;
+            Rect content = camp.ContentBounds;
+            Vector3 low = view.WorldToScreenPoint(new Vector3(content.xMin, content.yMin, 0f));
+            Vector3 high = view.WorldToScreenPoint(new Vector3(content.xMax, content.yMax, 0f));
+            audit.Append("\n-- camp, ").Append(when).Append('\n');
+            audit.AppendFormat("  camera ortho {0:0.0000} at ({1:0.0000},{2:0.0000}); {3:0.00} screen px per art px\n",
+                view.orthographicSize, view.transform.position.x, view.transform.position.y, perArtPixel);
+            audit.AppendFormat("  content on screen x {0:0}..{1:0}, y {2:0}..{3:0} (top inset {4:0})\n",
+                low.x, high.x, low.y, high.y, camp.TopInsetPixels);
+            if (Mathf.Abs(perArtPixel - Mathf.Round(perArtPixel)) > 0.001f)
+            {
+                Note("camp", "art scale is not a whole number: " + perArtPixel);
+            }
+
+            if (low.x < 0f || high.x > Screen.width || low.y < 0f || high.y > Screen.height - camp.TopInsetPixels + 1f)
+            {
+                Note("camp", "content not inside the free screen area");
+            }
+
+            if (camp.ArrowShown)
+            {
+                Vector3 tip = view.WorldToScreenPoint(camp.ArrowTip);
+                float top = view.WorldToScreenPoint(camp.ArrowBounds.max).y;
+                audit.AppendFormat("  arrow tip at screen ({0:0},{1:0}), top {2:0}\n", tip.x, tip.y, top);
+                if (top > Screen.height - camp.TopInsetPixels)
+                {
+                    Note("camp", "arrow reaches under the top bar (" + when + ")");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Checks the reveal's title sits clear above the tiles, and that a Hero's turning sun stays
+        /// inside its card whatever angle it is at.
+        /// </summary>
+        private void MeasureReveal(string when)
+        {
+            RecruitReveal reveal = RecruitReveal.Current;
+            if (reveal == null)
+            {
+                Note("reveal", "none open (" + when + ")");
+                return;
+            }
+
+            // A screen-space overlay: world corners are screen pixels, y up.
+            var corners = new Vector3[4];
+            Transform band = reveal.transform.Find("Band");
+            RectTransform title = band.GetComponentInChildren<TextMeshProUGUI>().rectTransform;
+            title.GetWorldCorners(corners);
+            float titleTop = corners[1].y;
+            float titleBottom = corners[0].y;
+            float tilesTop = float.MinValue;
+            audit.AppendFormat("\n-- reveal, {0}: title {1:0}..{2:0}\n", when, titleBottom, titleTop);
+
+            for (int i = 0; i < band.childCount; i++)
+            {
+                var tile = band.GetChild(i) as RectTransform;
+                if (tile == null || !tile.name.StartsWith("Recruit "))
+                {
+                    continue;
+                }
+
+                tile.GetWorldCorners(corners);
+                tilesTop = Mathf.Max(tilesTop, corners[1].y);
+                Rect card = Rect.MinMaxRect(corners[0].x, corners[0].y, corners[2].x, corners[2].y);
+                Transform front = tile.Find("Front");
+                Transform sun = null;
+                Image[] images = front != null ? front.GetComponentsInChildren<Image>(false) : new Image[0];
+                for (int k = 0; k < images.Length && sun == null; k++)
+                {
+                    sun = images[k].name == "Sigil" ? images[k].transform.parent : null;
+                }
+
+                if (sun == null)
+                {
+                    continue;
+                }
+
+                var glow = (RectTransform)sun;
+                float radius = glow.rect.width * 0.5f * glow.lossyScale.x;
+                Vector3 centre = glow.TransformPoint(glow.rect.center);
+                audit.AppendFormat("  {0} sun centre ({1:0},{2:0}) radius {3:0}, card {4:0}..{5:0} x {6:0}..{7:0}\n",
+                    tile.name, centre.x, centre.y, radius, card.xMin, card.xMax, card.yMin, card.yMax);
+                if (centre.x - radius < card.xMin || centre.x + radius > card.xMax
+                    || centre.y - radius < card.yMin || centre.y + radius > card.yMax)
+                {
+                    Note("reveal", tile.name + "'s sun reaches outside the card");
+                }
+            }
+
+            audit.AppendFormat("  tiles top {0:0}\n", tilesTop);
+            if (titleBottom < tilesTop)
+            {
+                Note("reveal", "title overlaps the tiles");
+            }
+        }
+
+        /// <summary>Checks the toast now showing stays clear of the open panel's card.</summary>
+        private void MeasureToastClear()
+        {
+            var panel = Shell.Router.Current as CampPanelScreen;
+            GameObject toast = GameObject.Find("Toast");
+            Transform toastCard = toast != null ? toast.transform.Find("Card") : null;
+            if (panel == null || toastCard == null)
+            {
+                Note("toast", "no panel or no toast to measure");
+                return;
+            }
+
+            // Both canvases are screen-space overlays, so world corners are screen pixels.
+            var corners = new Vector3[4];
+            panel.Card.GetWorldCorners(corners);
+            float cardBottom = corners[0].y;
+            ((RectTransform)toastCard).GetWorldCorners(corners);
+            float toastTop = corners[1].y;
+            audit.AppendFormat("\n-- toast top {0:0}, panel card bottom {1:0}\n", toastTop, cardBottom);
+            if (toastTop > cardBottom)
+            {
+                Note("toast", "covers the panel card");
+            }
+        }
+
+        private static IEnumerator WaitWhile(System.Func<bool> condition, float timeout)
+        {
+            float end = Time.unscaledTime + timeout;
+            while (condition() && Time.unscaledTime < end)
+            {
+                yield return null;
+            }
+
+            yield return Wait(0.2f);
+        }
+
+        /// <summary>Clicks a button on the screen now showing, by object name.</summary>
+        private void ClickIn(string name)
+        {
+            GameScreen screen = Shell.Router.Current;
+            Button[] buttons = screen != null ? screen.GetComponentsInChildren<Button>(false) : new Button[0];
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                if (buttons[i].name == name)
+                {
+                    buttons[i].onClick.Invoke();
+                    return;
+                }
+            }
+
+            Note("step", "no button named '" + name + "' on " + (screen != null ? screen.name : "no screen"));
+        }
+
+        // ------------------------------------------------------------------ steps
+
+        private static IEnumerator Wait(float seconds)
+        {
+            float end = Time.unscaledTime + seconds;
+            while (Time.unscaledTime < end)
+            {
+                yield return null;
+            }
+        }
+
+        private void Click(string name)
+        {
+            GameObject target = GameObject.Find(name);
+            Button button = target != null ? target.GetComponent<Button>() : null;
+            if (button == null)
+            {
+                Note("step", "no button named '" + name + "'");
+                return;
+            }
+
+            button.onClick.Invoke();
+        }
+
+        private IEnumerator Shot(string name, float settle = 0.7f)
+        {
+            yield return Wait(settle);
+            yield return new WaitForEndOfFrame();
+            ScreenCapture.CaptureScreenshot(Path.Combine(directory, name + ".png"));
+            audit.Append("\n== ").Append(name).Append('\n');
+            Audit();
+            yield return null;
+            yield return null;
+        }
+
+        // ------------------------------------------------------------------ audit
+
+        private void Audit()
+        {
+            Canvas[] canvases = FindObjectsByType<Canvas>(FindObjectsSortMode.None);
+            var corners = new Vector3[4];
+            var parentCorners = new Vector3[4];
+
+            for (int c = 0; c < canvases.Length; c++)
+            {
+                Canvas canvas = canvases[c];
+                if (!canvas.isActiveAndEnabled || !canvas.isRootCanvas)
+                {
+                    continue;
+                }
+
+                // Measure in canvas units, the 1920x1080 the layout was written against.
+                float scale = canvas.scaleFactor > 0f ? canvas.scaleFactor : 1f;
+                Rect screen = new Rect(0f, 0f, Screen.width, Screen.height);
+
+                TextMeshProUGUI[] labels = canvas.GetComponentsInChildren<TextMeshProUGUI>(false);
+                for (int i = 0; i < labels.Length; i++)
+                {
+                    TextMeshProUGUI label = labels[i];
+                    if (string.IsNullOrEmpty(label.text) || !label.isActiveAndEnabled)
+                    {
+                        continue;
+                    }
+
+                    label.ForceMeshUpdate();
+                    if (label.isTextTruncated || (label.overflowMode == TextOverflowModes.Overflow && IsOverflowing(label)))
+                    {
+                        Note(PathOf(label.transform), "text cut off: \"" + Clip(label.text) + "\"");
+                    }
+                    else if (label.enableAutoSizing && label.fontSize < label.fontSizeMax * 0.75f)
+                    {
+                        Note(PathOf(label.transform), string.Format("shrank to {0:0} of {1:0}: \"{2}\"", label.fontSize, label.fontSizeMax, Clip(label.text)));
+                    }
+                }
+
+                RectTransform[] rects = canvas.GetComponentsInChildren<RectTransform>(false);
+                for (int i = 0; i < rects.Length; i++)
+                {
+                    RectTransform rect = rects[i];
+                    if (rect.rect.width <= 0f || rect.rect.height <= 0f || rect.name == "Sigil" && rect.rect.width >= 600f)
+                    {
+                        continue;
+                    }
+
+                    rect.GetWorldCorners(corners);
+                    Rect bounds = ScreenRect(corners, canvas);
+
+                    if (bounds.xMin < screen.xMin - 1f || bounds.yMin < screen.yMin - 1f
+                        || bounds.xMax > screen.xMax + 1f || bounds.yMax > screen.yMax + 1f)
+                    {
+                        Note(PathOf(rect), "off screen: " + Describe(bounds, scale));
+                        continue;
+                    }
+
+                    var parent = rect.parent as RectTransform;
+                    if (parent == null || parent.GetComponent<HorizontalOrVerticalLayoutGroup>() == null)
+                    {
+                        continue;
+                    }
+
+                    parent.GetWorldCorners(parentCorners);
+                    Rect outer = ScreenRect(parentCorners, canvas);
+                    if (bounds.xMin < outer.xMin - 1f || bounds.yMin < outer.yMin - 1f
+                        || bounds.xMax > outer.xMax + 1f || bounds.yMax > outer.yMax + 1f)
+                    {
+                        Note(PathOf(rect), "spills out of " + parent.name + ": " + Describe(bounds, scale) + " in " + Describe(outer, scale));
+                    }
+                }
+            }
+        }
+
+        private static bool IsOverflowing(TextMeshProUGUI label)
+        {
+            // Preferred values are measured at the largest size, so for a label that shrinks to fit
+            // they overstate it; the mesh it actually drew is the measure there.
+            float height = label.enableAutoSizing
+                ? label.textBounds.size.y
+                : label.GetPreferredValues(label.text, label.rectTransform.rect.width, 0f).y;
+            return height > label.rectTransform.rect.height + 2f;
+        }
+
+        private static Rect ScreenRect(Vector3[] corners, Canvas canvas)
+        {
+            Camera camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+            Vector2 min = RectTransformUtility.WorldToScreenPoint(camera, corners[0]);
+            Vector2 max = RectTransformUtility.WorldToScreenPoint(camera, corners[2]);
+            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        }
+
+        private static string Describe(Rect rect, float scale)
+        {
+            return string.Format("[{0:0},{1:0} {2:0}x{3:0}]", rect.x / scale, rect.y / scale, rect.width / scale, rect.height / scale);
+        }
+
+        private void Note(string where, string what)
+        {
+            problems++;
+            string line = "  " + where + ": " + what;
+            audit.Append(line).Append('\n');
+            Debug.LogWarning("[Shot]" + line);
+        }
+
+        private static string PathOf(Transform transform)
+        {
+            var parts = new List<string>();
+            for (Transform t = transform; t != null && parts.Count < 5; t = t.parent)
+            {
+                parts.Add(t.name);
+            }
+
+            parts.Reverse();
+            return string.Join("/", parts.ToArray());
+        }
+
+        private static string Clip(string text)
+        {
+            text = text.Replace("\n", " ");
+            return text.Length > 60 ? text.Substring(0, 60) + "..." : text;
+        }
+    }
+}

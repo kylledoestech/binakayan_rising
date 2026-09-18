@@ -496,6 +496,10 @@ namespace BinakayanRising.Gameplay.Presentation
                     yield return PlayRegen(battleEvent);
                     break;
 
+                case BattleEventType.UnitHealed:
+                    yield return PlayHeal(battleEvent);
+                    break;
+
                 case BattleEventType.UnitMoved:
                     yield return PlayMove(battleEvent);
                     break;
@@ -553,6 +557,10 @@ namespace BinakayanRising.Gameplay.Presentation
 
                 case BattleEventType.HpRegenerated:
                     ApplyHealthDelta(battleEvent.ActorId, battleEvent.Amount);
+                    break;
+
+                case BattleEventType.UnitHealed:
+                    ApplyHealthDelta(battleEvent.TargetId, battleEvent.Amount);
                     break;
 
                 case BattleEventType.UnitMoved:
@@ -616,6 +624,20 @@ namespace BinakayanRising.Gameplay.Presentation
                 {
                     view.ShowHeal(battleEvent.Amount);
                 }
+            }
+
+            yield return Wait(hpRegeneratedScale);
+        }
+
+        private IEnumerator PlayHeal(BattleEvent battleEvent)
+        {
+            UnitView patient;
+
+            if (viewsByUnitId.TryGetValue(battleEvent.TargetId, out patient))
+            {
+                ApplyHealthDelta(battleEvent.TargetId, battleEvent.Amount);
+                patient.SetHealth(GetHealth(battleEvent.TargetId));
+                patient.ShowHeal(battleEvent.Amount);
             }
 
             yield return Wait(hpRegeneratedScale);
