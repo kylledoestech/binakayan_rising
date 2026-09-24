@@ -51,6 +51,9 @@ namespace BinakayanRising.Core.Combat
         private bool alive;
         private float movementCarry;
         private float healPower;
+        private UnitAbilities abilities = UnitAbilities.None;
+        private int reloadRemaining;
+        private int provokedBy = -1;
 
         /// <summary>
         /// Creates a unit at full health.
@@ -128,6 +131,33 @@ namespace BinakayanRising.Core.Combat
         {
             get { return healPower; }
             set { healPower = value > 0f ? value : 0f; }
+        }
+
+        /// <summary>
+        /// What the unit can do beyond its stats — splash, reload, aura, home terrain, or never
+        /// acting at all. Never null; null resets to <see cref="UnitAbilities.None"/>.
+        /// </summary>
+        public UnitAbilities Abilities
+        {
+            get { return abilities; }
+            set { abilities = value ?? UnitAbilities.None; }
+        }
+
+        /// <summary>Turns this unit must still spend reloading before it can act again.</summary>
+        public int ReloadRemaining
+        {
+            get { return reloadRemaining; }
+            internal set { reloadRemaining = value > 0 ? value : 0; }
+        }
+
+        /// <summary>
+        /// Id of the enemy that last hit this unit from beyond its reach, which an entrenched unit
+        /// sorties against; -1 for none. See <see cref="CombatConfig.SortieSpeed"/>.
+        /// </summary>
+        public int ProvokedBy
+        {
+            get { return provokedBy; }
+            internal set { provokedBy = value; }
         }
 
         /// <summary>Side this unit fights for.</summary>
