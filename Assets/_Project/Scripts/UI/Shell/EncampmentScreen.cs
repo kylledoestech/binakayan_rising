@@ -38,6 +38,19 @@ namespace BinakayanRising.UI.Shell
         private MetaGame bound;
         private bool pointerStale = true;
 
+        /// <summary>
+        /// Plays a hub-task quest's opening story scene the first time the quest is current
+        /// (<see cref="MetaGame.PendingStoryScene"/>). Screenshot routes that are not about the
+        /// story turn it off, so the camp they photograph is not under a cutscene.
+        /// </summary>
+        public static bool StoryAutoplay { get; set; } = true;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            StoryAutoplay = true;
+        }
+
         public override GameState State
         {
             get { return GameState.BaseHub; }
@@ -148,6 +161,7 @@ namespace BinakayanRising.UI.Shell
             }
 
             World.InputEnabled = !dialogue.IsOpen && !Shell.SettingsOpen && !Shell.ModalOpen && Machine != null && Machine.CurrentState == State;
+            PlayPendingStory();
 
             if (pointerStale && bound != null)
             {
@@ -157,6 +171,25 @@ namespace BinakayanRising.UI.Shell
             }
 
             UpdatePlate();
+        }
+
+        /// <summary>
+        /// Plays the story scene the campaign owes, once nothing else is on screen. The scene is
+        /// marked seen as it starts, so quitting mid-scene never replays it in a loop.
+        /// </summary>
+        private void PlayPendingStory()
+        {
+            if (!StoryAutoplay || bound == null || dialogue.IsOpen || Shell.SettingsOpen || Shell.ModalOpen
+                || SplashScreen.Current != null || Machine == null || Machine.CurrentState != State)
+            {
+                return;
+            }
+
+            string scene = bound.PendingStoryScene;
+            if (scene != null && bound.MarkSceneSeen(scene))
+            {
+                CutscenePlayer.Play(scene, null);
+            }
         }
 
         // ------------------------------------------------------------------ name plate

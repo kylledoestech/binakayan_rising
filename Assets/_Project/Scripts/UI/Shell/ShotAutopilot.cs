@@ -62,11 +62,27 @@ namespace BinakayanRising.UI.Shell
             Language before = Loc.Current;
             UserPrefs.ChooseLanguage(Language.English);
 
+            // Every route but the shell's starts on the menu, as before the splash existed, and
+            // photographs the camp without its story scene playing over it.
+            if (route != "shell")
+            {
+                if (SplashScreen.Current != null)
+                {
+                    SplashScreen.Current.Dismiss(true);
+                }
+
+                EncampmentScreen.StoryAutoplay = false;
+            }
+
             // Let the machine launch and the first screen finish fading in.
             yield return Wait(1.2f);
 
             switch (route)
             {
+                case "shell":
+                    yield return ShellRoute();
+                    break;
+
                 case "phase2":
                     yield return Phase2();
                     break;
@@ -539,6 +555,147 @@ namespace BinakayanRising.UI.Shell
             if (Shell.Battle != null || !Gameplay.Flow.GameStateMachine.IsEncampmentSubState(Shell.Machine.CurrentState))
             {
                 Note("pause", "Retreat did not return to the camp; state " + Shell.Machine.CurrentState);
+            }
+        }
+
+        /// <summary>
+        /// The shell and its content (#46, #50, #34, #40, #49): the splash in both languages, the
+        /// menu over the trench scene, a new campaign opening on Act 1 by itself (once only), the
+        /// overwrite guard, the Library's glossary, the other acts, the aftermath and the Music
+        /// slider in Settings.
+        /// </summary>
+        private IEnumerator ShellRoute()
+        {
+            Shell.Session.DeleteSave();
+            if (SplashScreen.Current == null)
+            {
+                Note("shell", "no splash at start-up");
+            }
+
+            if (SplashScreen.LoadArt() == null)
+            {
+                Note("shell", "splash picture missing from Resources/" + SplashScreen.ArtPath);
+            }
+
+            AuditMusic("splash", MusicPlayer.Track.Menu);
+            yield return Shot("s_01_splash");
+            UserPrefs.ChooseLanguage(Language.Filipino);
+            yield return Shot("s_02_splash_fil");
+            UserPrefs.ChooseLanguage(Language.English);
+
+            if (SplashScreen.Current != null)
+            {
+                SplashScreen.Current.Dismiss(false);
+            }
+
+            yield return Wait(0.8f);
+            Shell.Router.Current?.Show();
+            yield return Shot("s_03_menu");
+
+            // A new campaign: the camp plays Act 1 on its own.
+            Shell.StartNewCampaign();
+            yield return WaitWhile(() => CutscenePlayer.Current == null, 4f);
+            if (CutscenePlayer.Current == null)
+            {
+                Note("shell", "Act 1 did not play on a new campaign");
+            }
+
+            yield return Shot("s_04_act1", 3.5f);
+            CutscenePlayer.Current?.Advance();
+            CutscenePlayer.Current?.Advance();
+            yield return Shot("s_05_act1_slide2", 3f);
+            CutscenePlayer.Current?.Skip();
+            yield return Wait(1.8f);
+            AuditMusic("camp", MusicPlayer.Track.Camp);
+
+            // Back to the title: Continue must not replay Act 1; New Campaign must ask first.
+            Shell.ReturnToTitle();
+            yield return Wait(0.8f);
+            Click("Button New Campaign");
+            yield return Shot("s_06_confirm_overwrite");
+            Click("Button Cancel");
+            Shell.ContinueCampaign();
+            yield return Wait(1f);
+            if (CutscenePlayer.Current != null)
+            {
+                Note("shell", "Act 1 played again after Continue");
+                CutscenePlayer.Current.Skip();
+            }
+
+            if (Shell.Session.Game == null)
+            {
+                Note("shell", "Continue did not load the save");
+            }
+
+            // The glossary.
+            LibraryPanel.Open(Shell);
+            yield return Wait(0.3f);
+            if (LibraryPanel.Current == null)
+            {
+                Note("shell", "the Library did not open");
+            }
+            else
+            {
+                LibraryPanel.Current.ShowGlossary();
+                yield return Shot("s_07_glossary");
+                MeasureCard("glossary", LibraryPanel.Current.Card);
+                LibraryPanel.Current.TurnPage(1);
+                yield return Shot("s_08_glossary_page2");
+                LibraryPanel.Current.TurnPage(1);
+                yield return Shot("s_09_glossary_page3");
+                UserPrefs.ChooseLanguage(Language.Filipino);
+                yield return Shot("s_10_glossary_fil");
+                UserPrefs.ChooseLanguage(Language.English);
+                LibraryPanel.Current.Close();
+            }
+
+            yield return Wait(0.4f);
+
+            // The other acts, and the aftermath of the final battle.
+            string[] scenes = { Cutscenes.Act2, Cutscenes.Act3, Cutscenes.Act4 };
+            for (int i = 0; i < scenes.Length; i++)
+            {
+                CutscenePlayer.Play(scenes[i], null);
+                yield return Shot("s_11_act" + (i + 2), 3.5f);
+                CutscenePlayer.Current?.Skip();
+                yield return Wait(0.6f);
+            }
+
+            CutscenePlayer.Play(Cutscenes.Aftermath, null);
+            yield return Shot("s_12_aftermath", 3.5f);
+            for (int i = 0; i < 4; i++)
+            {
+                CutscenePlayer.Current?.Advance();
+                CutscenePlayer.Current?.Advance();
+                yield return Wait(0.5f);
+            }
+
+            yield return Shot("s_13_aftermath_later", 3.5f);
+            UserPrefs.ChooseLanguage(Language.Filipino);
+            yield return Shot("s_14_aftermath_fil", 0.8f);
+            UserPrefs.ChooseLanguage(Language.English);
+            CutscenePlayer.Current?.Skip();
+            yield return Wait(0.6f);
+
+            Shell.OpenSettings();
+            yield return Shot("s_15_settings_music");
+            Shell.CloseSettings();
+        }
+
+        /// <summary>Writes which music is playing, and at what level, and checks it is the one expected.</summary>
+        private void AuditMusic(string where, MusicPlayer.Track expected)
+        {
+            AudioClip clip = MusicPlayer.CurrentClip;
+            audit.AppendFormat("\n-- music at {0}: {1} ({2}), level {3:0.00}\n", where, MusicPlayer.Current,
+                clip != null ? clip.name : "no clip", UserPrefs.EffectiveMusicVolume);
+            if (MusicPlayer.Current != expected)
+            {
+                Note("music", where + " plays " + MusicPlayer.Current + ", not " + expected);
+            }
+
+            if (clip == null)
+            {
+                Note("music", "no clip loaded for " + MusicPlayer.Current + " at " + where);
             }
         }
 

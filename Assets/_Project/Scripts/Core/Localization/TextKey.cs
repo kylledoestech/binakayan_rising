@@ -308,6 +308,13 @@ namespace BinakayanRising.Core.Localization
         DeckMoreUnitsTitle,
         DeckMoreUnitsBody,
 
+        // Agent D: splash (#46), glossary (#50).
+        SplashPressAnyKey,
+        LibTabLessons,
+        LibTabGlossary,
+        LibGlossaryPage,
+        LibGlossaryNote,
+
         Count
     }
 }

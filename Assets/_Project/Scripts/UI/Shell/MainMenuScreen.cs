@@ -14,8 +14,15 @@ namespace BinakayanRising.UI.Shell
     /// The title screen: Continue, New Campaign, Settings, Quit.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// Continue is the proposal's "Load Local Save": it opens the one local save, restoring from
+    /// the backup copy if the main file is damaged. New Campaign asks before it overwrites a
+    /// save. The <see cref="SplashScreen"/> covers this screen at start-up (#46).
+    /// </para>
+    /// <para>
     /// Continue carries a one-line summary of the save under it — rank, current mission, time
     /// played — so a player can tell at a glance whose campaign it is before opening it.
+    /// </para>
     /// </remarks>
     public sealed class MainMenuScreen : ShellScreen
     {
@@ -39,6 +46,21 @@ namespace BinakayanRising.UI.Shell
             backdrop.color = Theme.Backdrop;
             backdrop.raycastTarget = false;
             UiKit.Stretch(backdrop.rectTransform);
+
+            // The splash's trench scene carries on behind the menu, darkened so the card and the
+            // title read over it (#46).
+            Texture2D art = SplashScreen.LoadArt();
+            if (art != null)
+            {
+                RawImage scene = UiKit.NewRect(Root, "Scene").gameObject.AddComponent<RawImage>();
+                scene.texture = art;
+                scene.color = new Color(0.42f, 0.38f, 0.40f, 1f);
+                scene.raycastTarget = false;
+                UiKit.Stretch(scene.rectTransform);
+                AspectRatioFitter fit = scene.gameObject.AddComponent<AspectRatioFitter>();
+                fit.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+                fit.aspectRatio = (float)art.width / art.height;
+            }
 
             // A large, faint sun behind everything: the one mark that says whose side this is.
             Image watermark = UiKit.Sigil(Root, 900f, new Color(Theme.Gold.r, Theme.Gold.g, Theme.Gold.b, 0.06f));

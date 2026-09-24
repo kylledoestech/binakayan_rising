@@ -502,6 +502,13 @@ namespace BinakayanRising.Core.Localization
             Add(TextKey.TrnStatHeal, "HEALING", "LUNAS");
             Add(TextKey.TrnBond, "Bond: {0}", "Kabuklod: {0}");
             Add(TextKey.TrnNoBond, "No Kapatiran bond", "Walang kabuklod sa Kapatiran");
+
+            // Agent D: splash (#46), glossary (#50).
+            Add(TextKey.SplashPressAnyKey, "Press any key", "Pindutin ang anumang key");
+            Add(TextKey.LibTabLessons, "Lessons", "Mga Aralin");
+            Add(TextKey.LibTabGlossary, "Glossary", "Talahuluganan");
+            Add(TextKey.LibGlossaryPage, "Page {0} of {1}", "Pahina {0} ng {1}");
+            Add(TextKey.LibGlossaryNote, "People, places and words from the story and the lessons, in alphabetical order.", "Mga tao, lugar at salita mula sa kuwento at mga aralin, ayon sa alpabeto.");
         }
 
         /// <summary>The text for a key, falling back to English and then to the key's name.</summary>
