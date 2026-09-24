@@ -311,6 +311,13 @@ namespace BinakayanRising.Core.Localization
         // #12 drag-and-drop deployment, #22 panels hidden during the replay
         DeployStripHint,
 
+        // Agent D: splash (#46), glossary (#50).
+        SplashPressAnyKey,
+        LibTabLessons,
+        LibTabGlossary,
+        LibGlossaryPage,
+        LibGlossaryNote,
+
         Count
     }
 }

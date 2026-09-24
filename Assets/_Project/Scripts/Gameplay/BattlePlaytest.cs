@@ -472,6 +472,9 @@ namespace BinakayanRising.Gameplay
         /// <summary>Raised when the replay speed changes, with the new speed.</summary>
         public event System.Action<float> SpeedChanged;
 
+        /// <summary>Raised when a replayed blow lands (not a dodge or miss): true for a critical. For hit sounds (#49).</summary>
+        public event System.Action<bool> HitLanded;
+
         /// <summary>Which stage of the mission is running.</summary>
         public Phase CurrentPhase => phase;
 
@@ -1481,6 +1484,7 @@ namespace BinakayanRising.Gameplay
             target.CurrentHP = Mathf.Max(0f, target.CurrentHP - battleEvent.Amount);
             target.HitTimer = HitSeconds;
             AddPopup(battleEvent.WasCrit ? PopupKind.Critical : PopupKind.Damage, battleEvent.Amount, target);
+            HitLanded?.Invoke(battleEvent.WasCrit);
 
             if (battleEvent.WasCrit && actor != null)
             {

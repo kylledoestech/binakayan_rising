@@ -188,7 +188,7 @@ namespace BinakayanRising.Core.Content
                 Briefing = new LocString(
                     "A student engineer answers the call from home. Meet your aide and learn the encampment.",
                     "Isang estudyanteng inhinyero ang tumugon sa tawag ng bayan. Kilalanin ang iyong katuwang at ang kampo."),
-                PreCutscene = "c01_ghent",
+                PreCutscene = Cutscenes.Act1,
                 Tasks = new[] { TaskTalkAide },
                 RewardReales = 50, RewardLesson = "l01",
                 MapX = 0.14f, MapY = 0.84f
@@ -202,7 +202,7 @@ namespace BinakayanRising.Core.Content
                 Briefing = new LocString(
                     "A Spanish patrol probes the trench line. Deploy your troops and hold.",
                     "Isang patrolyang Kastila ang sumusubok sa hanay ng trinsera. Ipuwesto ang hukbo at manindigan."),
-                PreCutscene = "c02_reality",
+                PreCutscene = Cutscenes.Act2,
                 Battle = new QuestBattle(3, 6, WinRule.Rout, 120, 1896, true, 0),
                 RationsCost = 0, RewardReales = 100, RewardLesson = "l02",
                 MapX = 0.46f, MapY = 0.55f
@@ -216,7 +216,7 @@ namespace BinakayanRising.Core.Content
                 Briefing = new LocString(
                     "Farmers, teachers and medics come to the camp. Recruit them, drill them and arm them.",
                     "Dumarating sa kampo ang mga magsasaka, guro at mediko. Kalapin, sanayin at armasan sila."),
-                PreCutscene = "c03_rally",
+                PreCutscene = Cutscenes.Act3,
                 Tasks = new[] { TaskRecruit, TaskTrain, TaskEquip },
                 RewardReales = 150, RewardWeapon = WeaponCatalog.Bolo, RewardLesson = "l03",
                 MapX = 0.50f, MapY = 0.48f
@@ -290,7 +290,7 @@ namespace BinakayanRising.Core.Content
                 Briefing = new LocString(
                     "Blanco's offensive begins. Spanish columns advance on Binakayan under covering fire.",
                     "Nagsimula ang opensiba ni Blanco. Sumusulong ang mga hanay ng Kastila sa Binakayan."),
-                PreCutscene = "c08_firstwave",
+                PreCutscene = Cutscenes.Act4,
                 Battle = new QuestBattle(8, 6, WinRule.Rout, 120, 1909, false, 4),
                 RationsCost = 8, RewardReales = 250, RewardLesson = "l08",
                 MapX = 0.56f, MapY = 0.28f
@@ -319,7 +319,7 @@ namespace BinakayanRising.Core.Content
                     "The last and largest assault. Everything Evangelista built is put to the test.",
                     "Ang huli at pinakamalaking salakay. Susubukin ang lahat ng itinayo ni Evangelista."),
                 PreCutscene = "c10_dawn",
-                PostCutscene = "c11_aftermath",
+                PostCutscene = Cutscenes.Aftermath,
                 Battle = new QuestBattle(14, 6, WinRule.Rout, 120, 1911, false, 6),
                 RationsCost = 12, RewardReales = 500, RewardLesson = "l10",
                 MapX = 0.46f, MapY = 0.14f
