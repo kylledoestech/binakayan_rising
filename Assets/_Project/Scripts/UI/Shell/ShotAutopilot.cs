@@ -75,6 +75,10 @@ namespace BinakayanRising.UI.Shell
                     yield return Phase3();
                     break;
 
+                case "phase4":
+                    yield return Phase4();
+                    break;
+
                 default:
                     yield return Phase1();
                     break;
@@ -300,6 +304,177 @@ namespace BinakayanRising.UI.Shell
             ClickIn("Button Drill");
             yield return Shot("p3_17_promotion_fil");
             yield return DrainPromotions("p3_17");
+        }
+
+        /// <summary>
+        /// The Week 19 additions: the rank-up card, the Mission Tent map, a cutscene, the Library
+        /// and its test, a campaign battle with its minimap and mid-battle question, in English
+        /// and Filipino.
+        /// </summary>
+        private IEnumerator Phase4()
+        {
+            Shell.Session.DeleteSave();
+            Shell.StartNewCampaign();
+            yield return Wait(0.6f);
+
+            MetaGame game = Shell.Session.Game;
+            game.Earn(Currency.Rations, 60);
+            foreach (string id in new[] { "q01", "q02", "q03", "q04" })
+            {
+                game.Data.clearedQuests.Add(id);
+            }
+
+            foreach (string id in new[] { "l01", "l02", "l03", "l04" })
+            {
+                game.Data.lessons.Add(id);
+            }
+
+            Hub().Dialogue.Finish();
+            yield return WaitWhile(() => RankUpCard.Current == null, 4f);
+            yield return Shot("p4_01_rankup_stars", 0.35f);
+            yield return Shot("p4_02_rankup", 2.4f);
+            MeasureCard("rankup", RankUpCard.Current != null ? RankUpCard.Current.Card : null);
+            if (RankUpCard.Current != null)
+            {
+                RankUpCard.Current.Continue();
+                RankUpCard.Current?.Continue();
+            }
+
+            yield return Wait(0.4f);
+            Shell.Camp.ClickSite(Places.MissionTent);
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
+            Hub().Dialogue.Finish();
+            yield return WaitWhile(() => !(Shell.Router.Current is MissionMapScreen), 4f);
+            yield return Shot("p4_03_map");
+            var map = Shell.Router.Current as MissionMapScreen;
+            if (map != null)
+            {
+                MeasureCard("map", map.Card);
+            }
+
+            CutscenePlayer.Play("c06_earthworks", null);
+            yield return Shot("p4_04_cutscene_typing", 0.5f);
+            yield return Shot("p4_05_cutscene", 3.5f);
+            CutscenePlayer.Current?.Advance();
+            CutscenePlayer.Current?.Advance();
+            yield return Shot("p4_06_cutscene_slide2", 3.5f);
+            CutscenePlayer.Current?.Skip();
+            yield return Wait(0.3f);
+
+            Shell.Router.Current?.Hide(immediate: true);
+            Shell.Machine.ReturnToEncampment();
+            yield return Wait(0.6f);
+            LibraryPanel.Open(Shell);
+            yield return Shot("p4_07_library");
+            MeasureCard("library", LibraryPanel.Current != null ? LibraryPanel.Current.Card : null);
+            LibraryPanel.Current?.Close();
+            QuizCard.Show(Learning.Test(1, 5, 3), "Level 1 Test", null, null);
+            yield return Shot("p4_08_quiz");
+            MeasureCard("quiz", QuizCard.Current != null ? QuizCard.Current.Card : null);
+            PickFirst();
+            yield return Shot("p4_09_quiz_answered");
+            DestroyQuiz();
+
+            UserPrefs.ChooseLanguage(Language.Filipino);
+            yield return Wait(0.3f);
+            LibraryPanel.Open(Shell);
+            yield return Shot("p4_10_library_fil");
+            LibraryPanel.Current?.Close();
+            QuizCard.Show(Learning.Test(3, 5, 5), "Pagsusulit", null, null);
+            PickFirst();
+            yield return Shot("p4_11_quiz_fil");
+            DestroyQuiz();
+            CutscenePlayer.Play("c10_dawn", null);
+            yield return Shot("p4_12_cutscene_fil", 4f);
+            CutscenePlayer.Current?.Skip();
+            game.Data.clearedQuests.Add("q05");
+            yield return WaitWhile(() => RankUpCard.Current == null, 4f);
+            yield return Shot("p4_13_rankup_fil", 2.6f);
+            RankUpCard.Current?.Continue();
+            RankUpCard.Current?.Continue();
+            UserPrefs.ChooseLanguage(Language.English);
+            yield return Wait(0.3f);
+
+            // A real campaign battle: q06, the Hold battle with a question on turn 5.
+            Shell.Camp.ClickSite(Places.MissionTent);
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
+            yield return WaitWhile(() => !(Shell.Router.Current is MissionMapScreen), 4f);
+            Quest quest = Campaign.Find("q06");
+            Shell.LaunchQuest(quest);
+            yield return Wait(0.5f);
+            CutscenePlayer.Current?.Skip();
+            yield return WaitWhile(() => Shell.Battle == null, 4f);
+            yield return Wait(1.5f);
+            yield return Shot("p4_14_battle_deploy");
+            if (Shell.Battle != null)
+            {
+                Shell.Battle.RequestAutoDeploy();
+                yield return Wait(0.5f);
+                yield return Shot("p4_15_battle_deployed");
+                Shell.Battle.RequestAssault();
+                Shell.Battle.SetSpeed(4f);
+                yield return WaitWhile(() => QuizCard.Current == null && Shell.Battle != null && Shell.Battle.CurrentPhase != BinakayanRising.Gameplay.BattlePlaytest.Phase.Finished, 90f);
+                yield return Shot("p4_16_battle_quiz");
+                PickFirst();
+                yield return Shot("p4_17_battle_quiz_answered");
+                QuizCard.Current?.Continue();
+                yield return WaitWhile(() => Shell.Battle != null && Shell.Battle.CurrentPhase != BinakayanRising.Gameplay.BattlePlaytest.Phase.Finished, 120f);
+                yield return Shot("p4_18_battle_report", 1.5f);
+                if (Shell.Battle != null)
+                {
+                    Shell.Battle.EndMission();
+                }
+
+                yield return Wait(1f);
+                yield return Shot("p4_19_after_battle");
+                yield return DrainPromotions("p4_19");
+                yield return Wait(0.5f);
+                yield return Shot("p4_20_after_cards");
+            }
+        }
+
+        /// <summary>Answers the open question with choice A, to show the reveal.</summary>
+        private void PickFirst()
+        {
+            QuizCard card = QuizCard.Current;
+            if (card == null)
+            {
+                Note("step", "no quiz card open");
+                return;
+            }
+
+            Button[] buttons = card.GetComponentsInChildren<Button>(false);
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                if (buttons[i].name.StartsWith("Choice"))
+                {
+                    buttons[i].onClick.Invoke();
+                    return;
+                }
+            }
+        }
+
+        private static void DestroyQuiz()
+        {
+            if (QuizCard.Current != null)
+            {
+                Object.Destroy(QuizCard.Current.gameObject);
+            }
+        }
+
+        /// <summary>Records a card's size and checks it sits inside the screen.</summary>
+        private void MeasureCard(string what, RectTransform card)
+        {
+            if (card == null)
+            {
+                Note(what, "card not open");
+                return;
+            }
+
+            var corners = new Vector3[4];
+            card.GetWorldCorners(corners);
+            audit.AppendFormat("\n-- {0} card {1:0}x{2:0} at ({3:0},{4:0})-({5:0},{6:0})\n", what,
+                card.rect.width, card.rect.height, corners[0].x, corners[0].y, corners[2].x, corners[2].y);
         }
 
         /// <summary>Closes the reveal, then shoots and dismisses any promotion it hands on.</summary>
@@ -594,7 +769,7 @@ namespace BinakayanRising.UI.Shell
                 for (int i = 0; i < rects.Length; i++)
                 {
                     RectTransform rect = rects[i];
-                    if (rect.rect.width <= 0f || rect.rect.height <= 0f || rect.name == "Sigil" && rect.rect.width >= 600f)
+                    if (rect.rect.width <= 0f || rect.rect.height <= 0f || rect.name == "Sigil" && rect.rect.width >= 600f || rect.name == "Picture")
                     {
                         continue;
                     }

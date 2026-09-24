@@ -30,7 +30,7 @@ namespace BinakayanRising.UI.Shell
     /// is paused or quit, so closing the window never loses more than that.
     /// </para>
     /// </remarks>
-    public sealed class GameShell : MonoBehaviour
+    public sealed partial class GameShell : MonoBehaviour
     {
         private const string PlaytestOnlyPref = "BinakayanRising.PlaytestOnly";
 
@@ -135,6 +135,7 @@ namespace BinakayanRising.UI.Shell
             Register<InventoryScreen>("Inventory");
             Register<TrainingScreen>("Training");
             Register<RecruitScreen>("Recruitment");
+            Register<MissionMapScreen>("Mission Tent");
 
             Machine.StateChanged += OnStateChanged;
             Session.GameOpened += WatchGame;
@@ -161,6 +162,7 @@ namespace BinakayanRising.UI.Shell
         private void Update()
         {
             Session.Tick(Time.unscaledDeltaTime);
+            TickCampaign();
             if (Camp.gameObject.activeSelf)
             {
                 Camp.TopInsetPixels = CampaignBar.CoveredHeight * canvas.scaleFactor;
@@ -170,14 +172,14 @@ namespace BinakayanRising.UI.Shell
         /// <summary>The camp is on screen in the hub and under every panel opened from it.</summary>
         private void OnStateChanged(GameState from, GameState to)
         {
-            bool inCamp = GameStateMachine.IsEncampmentSubState(to);
+            bool inCamp = InCamp(to);
             if (!inCamp)
             {
                 Camp.Hide();
                 return;
             }
 
-            if (!GameStateMachine.IsEncampmentSubState(from))
+            if (!InCamp(from))
             {
                 Camp.ResetAvatar();
             }
@@ -186,6 +188,15 @@ namespace BinakayanRising.UI.Shell
             {
                 Camp.Show(CampaignBar.CoveredHeight * canvas.scaleFactor);
             }
+        }
+
+        /// <summary>
+        /// The camp stays drawn under every encampment panel, and under the Mission Tent's map,
+        /// which is opened from it.
+        /// </summary>
+        private static bool InCamp(GameState state)
+        {
+            return GameStateMachine.IsEncampmentSubState(state) || state == GameState.MissionPortal;
         }
 
         /// <summary>Follows the open campaign, to announce each finished sub-quest.</summary>
@@ -294,7 +305,7 @@ namespace BinakayanRising.UI.Shell
                 return;
             }
 
-            if (Machine.CurrentState != GameState.BaseHub && GameStateMachine.IsEncampmentSubState(Machine.CurrentState))
+            if (Machine.CurrentState != GameState.BaseHub && InCamp(Machine.CurrentState))
             {
                 Machine.ReturnToBaseHub();
             }

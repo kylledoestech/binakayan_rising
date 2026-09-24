@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using BinakayanRising.Core.Content;
 
 namespace BinakayanRising.Core.Meta
 {
@@ -22,7 +23,7 @@ namespace BinakayanRising.Core.Meta
     public sealed class SaveData
     {
         /// <summary>Bumped whenever a field changes meaning. Older files are migrated on load.</summary>
-        public const int CurrentVersion = 1;
+        public const int CurrentVersion = 2;
 
         public int version = CurrentVersion;
 
@@ -165,6 +166,14 @@ namespace BinakayanRising.Core.Meta
             int maxWeapon = 0;
             foreach (int id in seenWeapons) { if (id > maxWeapon) maxWeapon = id; }
             if (nextWeaponId <= maxWeapon) { nextWeaponId = maxWeapon + 1; changed = true; }
+
+            // Version 2 replaced the four-rank ladder with eight; carry the shown rank across so an
+            // old save is not owed a promotion it already saw.
+            if (version < 2)
+            {
+                rankShown = PlayerRanks.FromLevelLadder(rankShown);
+                changed = true;
+            }
 
             if (version < CurrentVersion) { version = CurrentVersion; changed = true; }
 

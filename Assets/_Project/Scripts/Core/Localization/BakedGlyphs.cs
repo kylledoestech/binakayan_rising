@@ -18,7 +18,7 @@ namespace BinakayanRising.Core.Localization
             "abcdefghijklmnopqrstuvwxyz{|}~" +
             "ñÑáéíóúÁÉÍÓÚüÜàÀèÈ¡¿" +
             "—–…‘’“”·•×÷°±₱" +
-            "✓✗★☆▸◂▴▾";
+            "✓▸◂▴▾";
 
         /// <summary>The first character of <paramref name="text"/> that no atlas has, or '\0'.</summary>
         public static char FirstMissing(string text)

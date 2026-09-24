@@ -73,6 +73,32 @@ namespace BinakayanRising.Tests.Content
             for (int i = 0; i < PlayerRanks.Count; i++)
             {
                 yield return Item("rank " + i, PlayerRanks.At(i).Gloss);
+                yield return Item("rank " + i + " announcement", PlayerRanks.AnnouncementOf(i));
+            }
+
+            foreach (Cutscene scene in Cutscenes.All)
+            {
+                for (int i = 0; i < scene.Slides.Length; i++)
+                {
+                    yield return Item(scene.Id + " slide " + i + " caption", scene.Slides[i].Caption);
+                    yield return Item(scene.Id + " slide " + i + " line", scene.Slides[i].Line);
+                }
+            }
+
+            foreach (Lesson lesson in Learning.Lessons)
+            {
+                yield return Item("lesson " + lesson.Id + " title", lesson.Title);
+                yield return Item("lesson " + lesson.Id + " body", lesson.Body);
+            }
+
+            foreach (Question question in Learning.Questions)
+            {
+                yield return Item("question " + question.Id, question.Text);
+                yield return Item("question " + question.Id + " explanation", question.Explanation);
+                for (int i = 0; i < question.Choices.Length; i++)
+                {
+                    yield return Item("question " + question.Id + " choice " + i, question.Choices[i]);
+                }
             }
         }
 
@@ -129,6 +155,80 @@ namespace BinakayanRising.Tests.Content
             {
                 Assert.IsTrue(site.Keeper == null || Characters.Find(site.Keeper) != null, site.Place + " has an unknown keeper.");
             }
+        }
+
+        [Test]
+        public void EveryCutsceneExistsAndIsNarratedByACharacter()
+        {
+            foreach (Quest quest in Campaign.Quests)
+            {
+                Assert.IsTrue(quest.PreCutscene == null || Cutscenes.Find(quest.PreCutscene) != null, quest.Id + " opens with a missing cutscene.");
+                Assert.IsTrue(quest.PostCutscene == null || Cutscenes.Find(quest.PostCutscene) != null, quest.Id + " closes with a missing cutscene.");
+            }
+
+            foreach (Cutscene scene in Cutscenes.All)
+            {
+                Assert.IsNotNull(Characters.Find(scene.Narrator), scene.Id + " has an unknown narrator.");
+                Assert.Greater(scene.Slides.Length, 0, scene.Id + " has no slides.");
+            }
+        }
+
+        [Test]
+        public void EveryQuestUnlocksALessonThatExists()
+        {
+            foreach (Quest quest in Campaign.Quests)
+            {
+                Assert.IsNotNull(Learning.FindLesson(quest.RewardLesson), quest.Id + " unlocks a missing lesson " + quest.RewardLesson);
+            }
+        }
+
+        [Test]
+        public void EveryLevelHasTenQuestionsWithFourDistinctChoicesAndAValidAnswer()
+        {
+            var ids = new HashSet<string>();
+            for (int level = 1; level <= Campaign.LevelCount; level++)
+            {
+                Assert.AreEqual(10, Learning.QuestionsIn(level).Count, "Level " + level + " question count.");
+            }
+
+            foreach (Question q in Learning.Questions)
+            {
+                Assert.IsTrue(ids.Add(q.Id), "Duplicate question id " + q.Id);
+                Assert.AreEqual(Learning.ChoiceCount, q.Choices.Length, q.Id);
+                Assert.That(q.Answer, Is.InRange(0, Learning.ChoiceCount - 1), q.Id);
+                var seen = new HashSet<string>();
+                foreach (LocString choice in q.Choices)
+                {
+                    Assert.IsTrue(seen.Add(choice.English), q.Id + " repeats a choice: " + choice.English);
+                }
+            }
+        }
+
+        [Test]
+        public void ALevelTestDrawsDistinctQuestionsOfThatLevel()
+        {
+            List<Question> test = Learning.Test(2, 5, 42);
+            Assert.AreEqual(5, test.Count);
+            var ids = new HashSet<string>();
+            foreach (Question q in test)
+            {
+                Assert.AreEqual(2, q.Level);
+                Assert.IsTrue(ids.Add(q.Id));
+            }
+        }
+
+        [Test]
+        public void TheBattleQuizAsksEachQuestionOnceBeforeRepeating()
+        {
+            var asked = new List<string>();
+            for (int i = 0; i < 10; i++)
+            {
+                Question q = Learning.NextQuiz(3, asked, 7);
+                Assert.IsFalse(asked.Contains(q.Id), "Repeated " + q.Id + " before all were asked.");
+                asked.Add(q.Id);
+            }
+
+            Assert.IsNotNull(Learning.NextQuiz(3, asked, 7));
         }
 
         private static string Signature(Regex pattern, string text)

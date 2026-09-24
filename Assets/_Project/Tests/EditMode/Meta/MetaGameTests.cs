@@ -352,22 +352,57 @@ namespace BinakayanRising.Tests.Meta
         }
 
         [Test]
-        public void ClearingALevelEarnsTheNextRankAndOwesAPromotionCard()
+        public void ClearingAMilestoneEarnsTheNextRankAndOwesAPromotionCard()
         {
             ClearThrough("q03");
             Quest q04 = Campaign.Find("q04");
-            Assert.AreEqual("Kawal", game.Rank.Title);
+            Assert.AreEqual("Kabo", game.Rank.Title);
+            game.AcknowledgeRank();
 
             game.MarkTask(Campaign.TaskHarvestFarm);
             game.MarkTask(Campaign.TaskHarvestMine);
             game.MarkTask(Campaign.TaskExchange);
 
             Assert.IsTrue(game.IsCleared(q04));
-            Assert.AreEqual("Kabo", game.Rank.Title);
+            Assert.AreEqual("Sarhento", game.Rank.Title);
             Assert.IsTrue(game.PromotionOwed);
 
             game.AcknowledgeRank();
             Assert.IsFalse(game.PromotionOwed);
+        }
+
+        [Test]
+        public void EveryRankHasItsOwnMilestoneQuest()
+        {
+            Assert.AreEqual(8, PlayerRanks.Count);
+            var seen = new System.Collections.Generic.HashSet<string>();
+            for (int i = 1; i < PlayerRanks.Count; i++)
+            {
+                string quest = PlayerRanks.MilestoneOf(i);
+                Assert.IsNotNull(Campaign.Find(quest), "rank " + i);
+                Assert.IsTrue(seen.Add(quest), "rank " + i + " shares its milestone");
+            }
+        }
+
+        [Test]
+        public void EachMilestoneRaisesTheRankByOne()
+        {
+            var cleared = new System.Collections.Generic.List<string>();
+            for (int i = 1; i < PlayerRanks.Count; i++)
+            {
+                Assert.AreEqual(i - 1, PlayerRanks.ForCleared(cleared).Index);
+                cleared.Add(PlayerRanks.MilestoneOf(i));
+                Assert.AreEqual(i, PlayerRanks.ForCleared(cleared).Index);
+            }
+        }
+
+        [Test]
+        public void AnOldSavesShownRankMovesOntoTheEightRankLadder()
+        {
+            var data = new SaveData { version = 1, rankShown = 1 };
+            data.Repair(MetaRules.Default());
+            Assert.AreEqual(2, data.rankShown);
+            Assert.AreEqual(SaveData.CurrentVersion, data.version);
         }
 
         [Test]

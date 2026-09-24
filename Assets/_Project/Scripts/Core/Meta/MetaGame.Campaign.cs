@@ -163,10 +163,10 @@ namespace BinakayanRising.Core.Meta
 
         // ------------------------------------------------------------------ rank
 
-        /// <summary>The rank the player has earned: one title per campaign level cleared.</summary>
+        /// <summary>The rank the player has earned: the highest whose milestone sub-quest is cleared.</summary>
         public PlayerRank Rank
         {
-            get { return PlayerRanks.ForLevelsCleared(LevelsCleared); }
+            get { return PlayerRanks.ForCleared(Data.clearedQuests); }
         }
 
         /// <summary>True when a rank was earned that the player has not yet been shown.</summary>

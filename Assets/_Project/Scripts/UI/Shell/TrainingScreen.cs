@@ -483,7 +483,7 @@ namespace BinakayanRising.UI.Shell
 
             if (up != null)
             {
-                PromotionCard.Show(new[] { up }, null);
+                PromotionCard.Show(new[] { up }, () => Shell.ShowRankUp(null));
                 return;
             }
 

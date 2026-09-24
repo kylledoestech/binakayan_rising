@@ -20,6 +20,7 @@ namespace BinakayanRising.UI.Screens
         private Button seedMinus;
         private Button seedPlus;
         private Button skipButton;
+        private Button retreatButton;
         private TextMeshProUGUI englishLabel;
         private TextMeshProUGUI filipinoLabel;
 
@@ -52,9 +53,31 @@ namespace BinakayanRising.UI.Screens
             Image sigil = UiKit.Sigil(row, 40f, Theme.Gold);
             FixWidth(sigil.rectTransform, 40f);
 
-            TextMeshProUGUI title = UiKit.Display(row, "Binakayan Rising", Theme.Type.Heading, TextAlignmentOptions.Left);
-            FitLine(title, Theme.Type.Heading);
-            FixWidth(title.rectTransform, 330f);
+            // A campaign battle names its quest, with the player's rank beneath it.
+            MissionSetup mission = battle.Mission;
+            if (mission != null)
+            {
+                RectTransform titles = UiKit.Column(row, "Titles", 0f, 0f, TextAnchor.MiddleLeft);
+                FixWidth(titles, 330f);
+                ExpandChildren(titles);
+
+                TextMeshProUGUI quest = UiKit.Display(titles, mission.Title ?? string.Empty, Theme.Type.Body + 2f, TextAlignmentOptions.Left);
+                FitLine(quest, Theme.Type.Body + 2f);
+                FixHeight(quest.rectTransform, 30f);
+
+                TextMeshProUGUI rank = UiKit.Caption(titles, mission.RankTitle ?? string.Empty, TextAlignmentOptions.Left);
+                rank.color = Theme.Revolution;
+                rank.fontStyle = FontStyles.Bold | FontStyles.UpperCase;
+                FitLine(rank, Theme.Type.Small);
+                FixHeight(rank.rectTransform, 22f);
+                Register("top.rank", rank.rectTransform);
+            }
+            else
+            {
+                TextMeshProUGUI title = UiKit.Display(row, "Binakayan Rising", Theme.Type.Heading, TextAlignmentOptions.Left);
+                FitLine(title, Theme.Type.Heading);
+                FixWidth(title.rectTransform, 330f);
+            }
 
             phaseLabel = UiKit.Body(row, string.Empty, Theme.Type.Body, TextAlignmentOptions.Left);
 
@@ -75,6 +98,9 @@ namespace BinakayanRising.UI.Screens
             seedLabel = UiKit.Body(seed, "1896", Theme.Type.Body, TextAlignmentOptions.Center);
             FixWidth(seedLabel.rectTransform, 64f);
             seedPlus = UiKit.SealButton(seed, "+", () => battle.SetSeed(battle.Seed + 1), 40f, 40f, Theme.Type.Body, "Button Seed Plus");
+
+            // A quest's seed is part of the quest, not a control.
+            seed.gameObject.SetActive(mission == null);
 
             Spacer(row, Theme.Space.Snug);
 
@@ -105,6 +131,13 @@ namespace BinakayanRising.UI.Screens
 
             Button redeploy = UiKit.SealButton(row, TextKey.HudRedeploy, Redeploy, 170f, 44f, Theme.Type.Small, "Button Redeploy");
             Register("top.redeploy", RectOf(redeploy));
+
+            if (mission != null)
+            {
+                // Before the assault the player may still turn back; nothing is spent.
+                retreatButton = UiKit.SealButton(row, TextKey.MissionRetreat, Retreat, 150f, 44f, Theme.Type.Small, "Button Retreat");
+                Register("top.retreat", RectOf(retreatButton));
+            }
         }
 
         private static TextMeshProUGUI Caption(Transform parent, TextKey key, float width)
@@ -156,6 +189,18 @@ namespace BinakayanRising.UI.Screens
             Activated("top.help");
         }
 
+        private void Retreat()
+        {
+            if (battle.CurrentPhase != BattlePlaytest.Phase.Deployment || (tutorial != null && tutorial.IsRunning))
+            {
+                UiSfx.Play(UiSfx.Cue.Error);
+                return;
+            }
+
+            Activated("top.retreat");
+            battle.EndMission();
+        }
+
         private void Redeploy()
         {
             battle.RequestRedeploy();
@@ -178,6 +223,10 @@ namespace BinakayanRising.UI.Screens
             seedMinus.interactable = deploying;
             seedPlus.interactable = deploying;
             skipButton.interactable = battle.CurrentPhase == BattlePlaytest.Phase.Combat;
+            if (retreatButton != null)
+            {
+                retreatButton.interactable = deploying;
+            }
 
             // The active rate is shown by tinting the label rather than by swapping the button's
             // sprite, so the row keeps a single consistent silhouette.

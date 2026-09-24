@@ -364,7 +364,7 @@ namespace BinakayanRising.UI.Shell
                     }
                 }
 
-                PromotionCard.Show(ups, null);
+                PromotionCard.Show(ups, () => Shell.ShowRankUp(null));
             });
         }
     }

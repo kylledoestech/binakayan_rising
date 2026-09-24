@@ -229,6 +229,9 @@ namespace BinakayanRising.Gameplay
         private bool paused;
         private bool skipRequested;
         private bool boardInputLocked;
+        private MissionSetup mission;
+        private bool quizAsked;
+        private bool missionEnded;
 
         private int reportStart;
         private int reportCount;
@@ -268,6 +271,18 @@ namespace BinakayanRising.Gameplay
         /// before the first scene loads.
         /// </summary>
         public static bool AutoBootstrap = true;
+
+        /// <summary>
+        /// The campaign battle the next <see cref="BattlePlaytest"/> to wake plays, or null for the
+        /// standalone playtest. Taken, and cleared, in <c>Awake</c>.
+        /// </summary>
+        public static MissionSetup PendingMission;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            PendingMission = null;
+        }
 
         /// <summary>True when something this project owns is already running the scene.</summary>
         /// <remarks>
@@ -459,6 +474,21 @@ namespace BinakayanRising.Gameplay
         /// <summary>Which stage of the mission is running.</summary>
         public Phase CurrentPhase => phase;
 
+        /// <summary>The campaign battle being played, or null in the standalone playtest.</summary>
+        public MissionSetup Mission => mission;
+
+        /// <summary>True for a campaign battle: its seed and column are the quest's, not the player's.</summary>
+        public bool IsMission => mission != null;
+
+        /// <summary>Most units that may be deployed.</summary>
+        public int SquadCap => mission != null ? mission.SquadCap : int.MaxValue;
+
+        /// <summary>True once a campaign battle has finished in the player's favour under its rule.</summary>
+        public bool MissionWon => mission != null && result != null && phase == Phase.Finished && mission.IsWin(result.Outcome);
+
+        /// <summary>Raised when a campaign battle reaches its quiz turn; the replay is paused until answered.</summary>
+        public event System.Action QuizDue;
+
         /// <summary>Seed the next assault will be resolved from.</summary>
         public int Seed => seed;
 
@@ -503,6 +533,18 @@ namespace BinakayanRising.Gameplay
 
         /// <summary>World-space bounds of every tile.</summary>
         public Rect BoardWorldRect => boardWorldRect;
+
+        /// <summary>The board's tiles, for the minimap. Null before the board is built.</summary>
+        public BinakayanRising.Core.Grid.IBattleGrid Grid => grid;
+
+        /// <summary>Glides the camera to <paramref name="world"/>, unless camera input is locked.</summary>
+        public void LookAt(Vector3 world)
+        {
+            if (cameraController != null && !cameraController.InputLocked)
+            {
+                cameraController.MoveTo(world);
+            }
+        }
 
         /// <summary>World-space bounds of every deployable tile.</summary>
         public Rect DeployZoneWorldRect => deployZoneWorldRect;
@@ -587,7 +629,7 @@ namespace BinakayanRising.Gameplay
         /// <summary>Sets the seed for the next assault.</summary>
         public void SetSeed(int value)
         {
-            if (seed == value)
+            if (seed == value || IsMission)
             {
                 return;
             }
@@ -619,7 +661,7 @@ namespace BinakayanRising.Gameplay
         public void SetSpanishCount(int value)
         {
             int clamped = Mathf.Clamp(value, 1, 14);
-            if (spanishCount == clamped)
+            if (spanishCount == clamped || IsMission)
             {
                 return;
             }
@@ -689,6 +731,11 @@ namespace BinakayanRising.Gameplay
         /// <summary>Replays the same formation against the next seed.</summary>
         public void RequestNewSeed()
         {
+            if (IsMission)
+            {
+                return;
+            }
+
             seed++;
             BeginAssault();
         }
@@ -699,6 +746,12 @@ namespace BinakayanRising.Gameplay
         {
             if (phase != Phase.Deployment || grid == null || !grid.IsDeployable(cell)
                 || selectedSlot < 0 || selectedSlot >= roster.Count || IsOccupied(cell))
+            {
+                return false;
+            }
+
+            // A full squad takes no more; a unit already down may still be moved.
+            if (placements.Count >= SquadCap && !placements.ContainsKey(roster[selectedSlot].Id))
             {
                 return false;
             }
@@ -775,6 +828,38 @@ namespace BinakayanRising.Gameplay
             }
         }
 
+        /// <summary>
+        /// Leaves a campaign battle: reports how it went to the shell, once, then removes the board.
+        /// Before the assault is fought the report is a retreat, and nothing is settled.
+        /// </summary>
+        public void EndMission()
+        {
+            if (mission == null || missionEnded)
+            {
+                return;
+            }
+
+            missionEnded = true;
+            MissionReport report = new MissionReport();
+            if (phase == Phase.Finished && result != null)
+            {
+                report.Outcome = result.Outcome;
+                report.Won = mission.IsWin(result.Outcome);
+                foreach (KeyValuePair<int, GridCoord> placement in placements)
+                {
+                    report.Deployed.Add(placement.Key);
+                }
+            }
+            else
+            {
+                report.Retreated = true;
+            }
+
+            System.Action<MissionReport> finished = mission.Finished;
+            Destroy(gameObject);
+            finished?.Invoke(report);
+        }
+
         /// <summary>Freezes or resumes the replay and its animations.</summary>
         public void SetPaused(bool value)
         {
@@ -836,7 +921,20 @@ namespace BinakayanRising.Gameplay
         {
             layout = new IsoGridLayout(1f, 0.5f);
             grid = PlaytestScenario.CreateGrid();
-            roster = PlaytestScenario.KatipunanRoster();
+
+            mission = PendingMission;
+            PendingMission = null;
+            if (mission != null)
+            {
+                roster = new List<RosterEntry>(mission.Roster);
+                seed = mission.Seed;
+                resultSeed = mission.Seed;
+                spanishCount = Mathf.Clamp(mission.EnemyCount, 1, 14);
+            }
+            else
+            {
+                roster = PlaytestScenario.KatipunanRoster();
+            }
 
             BuildBoard();
             BuildCamera();
@@ -1104,6 +1202,12 @@ namespace BinakayanRising.Gameplay
 
             List<CombatUnit> units = new List<CombatUnit>();
             CombatConfig config = PlaytestScenario.Config(seed);
+            if (mission != null)
+            {
+                config.MaxTurns = mission.TurnCap;
+            }
+
+            quizAsked = false;
 
             foreach (KeyValuePair<int, GridCoord> placement in placements)
             {
@@ -1225,6 +1329,17 @@ namespace BinakayanRising.Gameplay
                 BattleEvent battleEvent = result.Events[replayIndex++];
                 ApplyEvent(battleEvent);
                 eventDuration = DurationFor(battleEvent.Type);
+
+                // The quiz stops the replay where its turn begins; the HUD resumes it on an answer.
+                if (!quizAsked && mission != null && mission.QuizTurn > 0 && currentTurn >= mission.QuizTurn
+                    && QuizDue != null)
+                {
+                    quizAsked = true;
+                    paused = true;
+                    RaiseStateChanged();
+                    QuizDue();
+                    break;
+                }
             }
 
             if (replayIndex >= result.Events.Count && eventTimer >= eventDuration)
@@ -1651,7 +1766,7 @@ namespace BinakayanRising.Gameplay
             int index = 0;
             foreach (RosterEntry entry in roster)
             {
-                if (index >= cells.Count)
+                if (index >= cells.Count || placements.Count >= SquadCap)
                 {
                     break;
                 }
@@ -1731,10 +1846,10 @@ namespace BinakayanRising.Gameplay
             return false;
         }
 
-        /// <summary>Spanish regulars are numbered from id 10, matching their authored names.</summary>
+        /// <summary>Spanish regulars are numbered from <see cref="PlaytestScenario.SpanishIdBase"/>, matching their authored names.</summary>
         private static int SpanishOrdinal(int id)
         {
-            return id >= 10 ? id - 9 : 0;
+            return id >= PlaytestScenario.SpanishIdBase ? id - PlaytestScenario.SpanishIdBase + 1 : 0;
         }
 
         // ------------------------------------------------------------------ views

@@ -415,6 +415,54 @@ namespace BinakayanRising.Core.Localization
             Add(TextKey.RecTapToReveal, "Click to reveal", "I-click upang ipakita");
             Add(TextKey.RecRevealAll, "Reveal all", "Ipakita lahat");
             Add(TextKey.RecRoster, "Your roster: {0} units", "Iyong hukbo: {0} yunit");
+
+            // Campaign battles
+            Add(TextKey.HudSquad, "Squad {0}/{1}", "Pangkat {0}/{1}");
+            Add(TextKey.MissionReturn, "Return to Camp", "Bumalik sa Kampo");
+            Add(TextKey.MissionRetreat, "Retreat", "Umatras");
+            Add(TextKey.OutcomeHeld, "The line held for {0} turns.", "Nanindigan ang hanay nang {0} yugto.");
+            Add(TextKey.MissionWonNote, "The rewards are waiting at camp.", "Naghihintay sa kampo ang gantimpala.");
+            Add(TextKey.MissionLostNote, "Your soldiers still learned from the fight.", "May natutunan pa rin ang iyong mga kawal.");
+            Add(TextKey.MissionRetreated, "You pulled back to camp. No Rations were spent.", "Umatras ka pabalik sa kampo. Walang Rasyong nagastos.");
+            Add(TextKey.MissionLostToast, "The line broke. Train, re-arm and try again.", "Nabasag ang hanay. Magsanay, mag-armas at subukang muli.");
+            Add(TextKey.RankUpTitle, "A New Rank", "Bagong Ranggo");
+            Add(TextKey.RankUpStep, "Rank {0} of {1}", "Ranggo {0} sa {1}");
+            Add(TextKey.CutNext, "Next", "Susunod");
+            Add(TextKey.CutSkip, "Skip", "Laktawan");
+            Add(TextKey.CutDone, "Begin", "Simulan");
+            Add(TextKey.MapTitle, "Mission Tent", "Tolda ng Misyon");
+            Add(TextKey.MapLevel, "Level {0} · {1}", "Antas {0} · {1}");
+            Add(TextKey.MapEnemies, "Enemies: {0}", "Kaaway: {0}");
+            Add(TextKey.MapSquad, "Squad: up to {0}", "Pangkat: hanggang {0}");
+            Add(TextKey.MapWinRout, "Win: rout every enemy", "Panalo: itaboy ang lahat ng kaaway");
+            Add(TextKey.MapWinHold, "Win: hold the line for {0} turns", "Panalo: manindigan nang {0} yugto");
+            Add(TextKey.MapCost, "Cost: {0} Rations", "Gastos: {0} Rasyon");
+            Add(TextKey.MapReward, "Reward: {0} Reales", "Gantimpala: {0} Reales");
+            Add(TextKey.MapRewardLesson, "Unlocks a Library lesson", "Nagbubukas ng aralin sa Aklatan");
+            Add(TextKey.MapDeploy, "Deploy", "Humayo");
+            Add(TextKey.MapReplay, "Fight Again", "Lumaban Muli");
+            Add(TextKey.MapLocked, "Clear the quest before this one to unlock it.", "Tapusin muna ang naunang misyon upang mabuksan ito.");
+            Add(TextKey.MapCleared, "Cleared", "Natapos");
+            Add(TextKey.MapInCamp, "Done in the encampment:", "Ginagawa sa kampo:");
+            Add(TextKey.MapNoRations, "Not enough Rations. Harvest at the Farm.", "Kulang ang Rasyon. Umani sa Bukid.");
+            Add(TextKey.MapComplete, "The campaign is won. Replay any battle.", "Napagtagumpayan ang kampanya. Ulitin ang anumang labanan.");
+            Add(TextKey.QuizTitle, "Field Question", "Tanong sa Larangan");
+            Add(TextKey.QuizProgress, "Question {0} of {1}", "Tanong {0} sa {1}");
+            Add(TextKey.QuizRight, "Correct!", "Tama!");
+            Add(TextKey.QuizWrong, "Not quite. The answer is {0}.", "Hindi tama. Ang sagot ay {0}.");
+            Add(TextKey.QuizReales, "+{0} Reales for a right answer.", "+{0} Reales sa tamang sagot.");
+            Add(TextKey.LibTitle, "Library", "Aklatan");
+            Add(TextKey.LibLocked, "Clear quest {0} to unlock this lesson.", "Tapusin ang misyon {0} upang mabuksan ang araling ito.");
+            Add(TextKey.LibTest, "Level {0} Test", "Pagsusulit sa Antas {0}");
+            Add(TextKey.LibTestLocked, "Clear Level {0} first.", "Tapusin muna ang Antas {0}.");
+            Add(TextKey.LibTestReady, "Ready to take.", "Handa nang sagutan.");
+            Add(TextKey.LibBest, "Best: {0}/{1}", "Pinakamataas: {0}/{1}");
+            Add(TextKey.LibPassed, "Passed", "Pumasa");
+            Add(TextKey.LibResult, "You scored {0} of {1}.", "Nakakuha ka ng {0} sa {1}.");
+            Add(TextKey.LibFirstPass, "Passed! +{0} Reales.", "Pumasa! +{0} Reales.");
+            Add(TextKey.LibFail, "You need {0}% to pass. Read the lessons and try again.", "Kailangan ng {0}% upang pumasa. Basahin ang mga aralin at subukang muli.");
+            Add(TextKey.HudMinimap, "Map  (M)", "Mapa  (M)");
+            Add(TextKey.LibLockedShort, "Locked · clear quest {0}", "Sarado · tapusin ang misyon {0}");
         }
 
         /// <summary>The text for a key, falling back to English and then to the key's name.</summary>

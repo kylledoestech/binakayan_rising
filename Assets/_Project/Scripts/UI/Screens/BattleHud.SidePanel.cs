@@ -153,6 +153,10 @@ namespace BinakayanRising.UI.Screens
             columnFewer = UiKit.SealButton(columnRow, "-", () => battle.SetSpanishCount(battle.SpanishCount - 1), 44f, 40f, Theme.Type.Body, "Button Column Fewer");
             columnMore = UiKit.SealButton(columnRow, "+", () => battle.SetSpanishCount(battle.SpanishCount + 1), 44f, 40f, Theme.Type.Body, "Button Column More");
 
+            // The quest sets the column's size; only the playtest lets the player change it.
+            columnFewer.gameObject.SetActive(!battle.IsMission);
+            columnMore.gameObject.SetActive(!battle.IsMission);
+
             Button auto = UiKit.SealButton(deploymentSection, TextKey.AutoDeploy, AutoDeploy, SidePanelWidth - 56f, 48f, 0f, "Button Auto Deploy");
             Register("deploy.auto", RectOf(auto));
             FixHeight(RectOf(auto), 48f);
@@ -301,11 +305,16 @@ namespace BinakayanRising.UI.Screens
                 row.ShownVersion = Loc.Version;
             }
 
-            if (shownColumnCount != battle.SpanishCount || shownColumnVersion != Loc.Version)
+            int columnKey = battle.SpanishCount + (battle.PlacementCount * 100);
+            if (shownColumnCount != columnKey || shownColumnVersion != Loc.Version)
             {
-                shownColumnCount = battle.SpanishCount;
+                shownColumnCount = columnKey;
                 shownColumnVersion = Loc.Version;
                 columnLabel.text = Loc.Get(TextKey.SpanishColumn) + "   " + battle.SpanishCount;
+                if (battle.IsMission)
+                {
+                    columnLabel.text += "   ·   " + Loc.Format(TextKey.HudSquad, battle.PlacementCount, battle.SquadCap);
+                }
             }
 
             columnFewer.interactable = battle.SpanishCount > 1;

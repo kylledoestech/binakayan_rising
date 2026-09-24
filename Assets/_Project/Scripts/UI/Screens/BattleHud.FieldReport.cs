@@ -97,10 +97,24 @@ namespace BinakayanRising.UI.Screens
             RectTransform actions = UiKit.Row(column, "Actions", Theme.Space.Base, 0f, TextAnchor.MiddleCenter);
             FixHeight(actions, 64f);
 
-            UiKit.SealButton(actions, TextKey.NewSeed, NewSeed, 280f, 60f, 0f, "Button New Seed");
-            UiKit.SealButton(actions, TextKey.HudRedeploy, Redeploy, 280f, 60f, 0f, "Button Outcome Redeploy");
+            if (battle.IsMission)
+            {
+                // A campaign battle is settled once: the way on is back to camp.
+                UiKit.SealButton(actions, TextKey.MissionReturn, ReturnToCamp, 320f, 60f, 0f, "Button Return To Camp");
+            }
+            else
+            {
+                UiKit.SealButton(actions, TextKey.NewSeed, NewSeed, 280f, 60f, 0f, "Button New Seed");
+                UiKit.SealButton(actions, TextKey.HudRedeploy, Redeploy, 280f, 60f, 0f, "Button Outcome Redeploy");
+            }
 
             outcomeRoot.gameObject.SetActive(false);
+        }
+
+        private void ReturnToCamp()
+        {
+            Activated("outcome.return");
+            battle.EndMission();
         }
 
         private void NewSeed()
@@ -124,9 +138,12 @@ namespace BinakayanRising.UI.Screens
                 return;
             }
 
+            // Under the Hold rule a battle still going at the turn cap is won: the line held.
+            BattleOutcome shown = battle.MissionWon ? BattleOutcome.Victory : result.Outcome;
+
             Color titleColor;
             UiSfx.Cue cue;
-            switch (result.Outcome)
+            switch (shown)
             {
                 case BattleOutcome.Victory:
                     titleColor = Theme.Gold;
@@ -142,15 +159,21 @@ namespace BinakayanRising.UI.Screens
                     break;
             }
 
-            outcomeTitle.text = BattleText.Outcome(result.Outcome);
+            outcomeTitle.text = BattleText.Outcome(shown);
             outcomeTitle.color = titleColor;
 
             // The seed the battle was resolved from, not the one the next battle will use: the two
             // differ as soon as anyone touches the seed control.
+            string first = battle.MissionWon && result.Outcome == BattleOutcome.Draw
+                ? Loc.Format(TextKey.OutcomeHeld, result.TurnsElapsed)
+                : Loc.Format(TextKey.OutcomeTurns, result.TurnsElapsed);
+            string last = battle.IsMission
+                ? Loc.Get(battle.MissionWon ? TextKey.MissionWonNote : TextKey.MissionLostNote)
+                : Loc.Format(TextKey.OutcomeSeed, result.Events.Count, battle.ResultSeed);
             outcomeSummary.text =
-                Loc.Format(TextKey.OutcomeTurns, result.TurnsElapsed) + "\n"
+                first + "\n"
                 + Loc.Format(TextKey.OutcomeSurvivors, result.KatipunanAlive, result.SpanishAlive) + "\n"
-                + Loc.Format(TextKey.OutcomeSeed, result.Events.Count, battle.ResultSeed);
+                + last;
 
             if (announce)
             {

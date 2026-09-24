@@ -55,6 +55,7 @@ namespace BinakayanRising.UI.Screens
         private RectTransform topBar;
         private RectTransform sidePanel;
         private RectTransform logPanel;
+        private BattleMinimap minimap;
 
         /// <summary>Raised after a HUD control has done its job, with the control's anchor id.</summary>
         /// <remarks>Raised for hotkeys too, so a tutorial step waiting on a button is satisfied either way.</remarks>
@@ -110,7 +111,9 @@ namespace BinakayanRising.UI.Screens
 
         private void Start()
         {
-            if (tutorial != null)
+            // In the campaign only the quest marked as the tutorial teaches; a later battle never
+            // opens on the guide, even for a player who skipped it.
+            if (tutorial != null && (battle.Mission == null || battle.Mission.Tutorial))
             {
                 tutorial.BeginIfFirstRun();
             }
@@ -214,6 +217,7 @@ namespace BinakayanRising.UI.Screens
             BuildTopBar(canvas.transform);
             BuildSidePanel(canvas.transform);
             BuildLogPanel(canvas.transform);
+            BuildMinimap(canvas.transform);
             BuildOutcome(canvas.transform);
 
             deck = HowToPlayDeck.Create(this);
@@ -221,6 +225,26 @@ namespace BinakayanRising.UI.Screens
             tutorial.Bind(this);
 
             Canvas.ForceUpdateCanvases();
+        }
+
+        /// <summary>The minimap, left of the field report along the bottom edge (M toggles it).</summary>
+        private void BuildMinimap(Transform parent)
+        {
+            minimap = BattleMinimap.Create(parent, battle);
+            Register("minimap", minimap.Root);
+            Pin(minimap.Root, new Vector2(1f, 0f), new Vector2(1f, 0f),
+                new Vector2(-(LogWidth + (2f * Theme.Space.Base)), Theme.Space.Base),
+                new Vector2(BattleMinimap.Width, LogHeight));
+        }
+
+        /// <summary>Shows or hides the minimap.</summary>
+        public void ToggleMinimap()
+        {
+            if (minimap != null)
+            {
+                minimap.gameObject.SetActive(!minimap.gameObject.activeSelf);
+                UiSfx.Play(UiSfx.Cue.Toggle);
+            }
         }
 
         // ------------------------------------------------------------------ per-frame

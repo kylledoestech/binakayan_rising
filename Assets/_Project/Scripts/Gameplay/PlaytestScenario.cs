@@ -65,6 +65,12 @@ namespace BinakayanRising.Gameplay
         public const int MapHeight = 9;
 
         /// <summary>
+        /// The first Spanish unit id. Far above any save's unit ids, so a campaign roster never
+        /// collides with the column; every Katipunan id still sorts before every Spanish one.
+        /// </summary>
+        public const int SpanishIdBase = 1000;
+
+        /// <summary>
         /// Builds the battlefield: Evangelista's trench line on the Katipunan right, the encampment
         /// tents behind it, the Dalahican tidal shallows along the shore, and bamboo barricades
         /// anchoring both flanks. Only the trench and the tents are marked deployable.
@@ -135,7 +141,7 @@ namespace BinakayanRising.Gameplay
             for (int i = 0; i < clamped; i++)
             {
                 column.Add(new CombatUnit(
-                    10 + i,
+                    SpanishIdBase + i,
                     "Spanish Regular " + (i + 1),
                     "SpanishRegular",
                     Team.Spanish,

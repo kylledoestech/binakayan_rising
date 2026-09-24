@@ -147,7 +147,7 @@ namespace BinakayanRising.UI.Shell
                 return;
             }
 
-            World.InputEnabled = !dialogue.IsOpen && !Shell.SettingsOpen && Machine != null && Machine.CurrentState == State;
+            World.InputEnabled = !dialogue.IsOpen && !Shell.SettingsOpen && !Shell.ModalOpen && Machine != null && Machine.CurrentState == State;
 
             if (pointerStale && bound != null)
             {
@@ -295,6 +295,14 @@ namespace BinakayanRising.UI.Shell
 
                 case Places.Recruitment:
                     GoTo(GameState.HeroSummoning);
+                    break;
+
+                case Places.MissionTent:
+                    GoTo(GameState.MissionPortal);
+                    break;
+
+                case Places.Library:
+                    LibraryPanel.Open(Shell);
                     break;
 
                 default:

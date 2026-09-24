@@ -36,6 +36,9 @@ namespace BinakayanRising.UI.Shell
         private const float SunTurnDegreesPerSecond = 14f;
         private const float CountSeconds = 0.7f;
         private const float CountStagger = 0.18f;
+        private const float RowStagger = 0.09f;
+        private const float RowSlide = 0.22f;
+        private const float RowOffset = 48f;
 
         /// <summary>The body sprite drawn at three screen pixels per art pixel.</summary>
         private const float BodyScale = 3f;
@@ -46,6 +49,10 @@ namespace BinakayanRising.UI.Shell
         private readonly TextMeshProUGUI[] statBefore = new TextMeshProUGUI[3];
         private readonly TextMeshProUGUI[] statAfter = new TextMeshProUGUI[3];
         private readonly TextMeshProUGUI[] statGain = new TextMeshProUGUI[3];
+        private readonly RectTransform[] statRows = new RectTransform[3];
+        private readonly CanvasGroup[] statGroups = new CanvasGroup[3];
+        private float[] shownBefore;
+        private float[] shownAfter;
 
         private Action onClosed;
         private RectTransform card;
@@ -187,8 +194,13 @@ namespace BinakayanRising.UI.Shell
 
         private void BuildStatRow(RectTransform parent, int index)
         {
-            RectTransform row = UiKit.Row(parent, "Stat " + index, Theme.Space.Base, 0f, TextAnchor.MiddleCenter);
-            UiLayout.Fix(row, 0f, 40f);
+            // The row sits in a holder the layout places; the row itself slides inside it.
+            RectTransform holder = UiKit.NewRect(parent, "Stat " + index);
+            UiLayout.Fix(holder, 0f, 40f);
+            RectTransform row = UiKit.Row(holder, "Row", Theme.Space.Base, 0f, TextAnchor.MiddleCenter);
+            UiKit.Stretch(row);
+            statRows[index] = row;
+            statGroups[index] = UiKit.Group(row.gameObject);
 
             TextMeshProUGUI label = UiKit.Body(row, Loc.Get(StatLabels[index]), Theme.Type.Body + 2f, TextAlignmentOptions.Left);
             UiKit.Localize(label, StatLabels[index]);
@@ -237,6 +249,8 @@ namespace BinakayanRising.UI.Shell
             for (int i = 0; i < statAfter.Length; i++)
             {
                 statAfter[i].transform.localScale = Vector3.one;
+                statRows[i].anchoredPosition = Vector2.zero;
+                statGroups[i].alpha = 1f;
             }
 
             playing = StartCoroutine(Play(up));
@@ -266,17 +280,51 @@ namespace BinakayanRising.UI.Shell
 
             float[] before = { up.Before.MaxHP, up.Before.AttackDamage, up.Before.Defense };
             float[] after = { up.After.MaxHP, up.After.AttackDamage, up.After.Defense };
+            shownBefore = before;
+            shownAfter = after;
             for (int i = 0; i < 3; i++)
             {
                 statBefore[i].text = StatNumber(before[i]);
                 statAfter[i].text = StatNumber(before[i]);
                 statGain[i].text = string.Empty;
+                statGroups[i].alpha = 0f;
+                statRows[i].anchoredPosition = new Vector2(-RowOffset, 0f);
             }
+
+            levelLine.transform.localScale = Vector3.zero;
 
             UiSfx.Play(UiSfx.Cue.Victory);
             yield return UiTween.Enter(card, cardGroup, new Vector2(0f, -60f), 0.35f);
             StartCoroutine(UiTween.Punch(body.transform.parent, 0.18f, 0.3f));
-            StartCoroutine(UiTween.Punch(levelLine.transform, 0.14f, 0.26f));
+
+            // The new level grows in with a small overshoot.
+            float grow = Time.unscaledTime;
+            while (Time.unscaledTime - grow < 0.28f)
+            {
+                float g = (Time.unscaledTime - grow) / 0.28f;
+                levelLine.transform.localScale = Vector3.one * (g * (1f + (0.2f * Mathf.Sin(g * Mathf.PI))));
+                yield return null;
+            }
+
+            levelLine.transform.localScale = Vector3.one;
+
+            // The stat rows slide in one after another, easing out.
+            float slide = Time.unscaledTime;
+            bool entered = false;
+            while (!entered)
+            {
+                entered = true;
+                for (int i = 0; i < 3; i++)
+                {
+                    float t = Mathf.Clamp01((Time.unscaledTime - slide - (i * RowStagger)) / RowSlide);
+                    float eased = 1f - ((1f - t) * (1f - t) * (1f - t));
+                    statGroups[i].alpha = eased;
+                    statRows[i].anchoredPosition = new Vector2(-RowOffset * (1f - eased), 0f);
+                    entered &= t >= 1f;
+                }
+
+                yield return null;
+            }
 
             // Each stat counts up in turn, and its gain appears as it lands.
             float start = Time.unscaledTime;
@@ -326,12 +374,41 @@ namespace BinakayanRising.UI.Shell
                 : rounded.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
         }
 
-        /// <summary>Finishes the counting if it is still going, then moves to the next card.</summary>
+        /// <summary>Finishes the animation if it is still going; otherwise moves to the next card.</summary>
         public void Continue()
         {
             UiSfx.Play(UiSfx.Cue.Click);
+            if (playing != null && Time.frameCount != openedFrame)
+            {
+                Settle();
+                return;
+            }
+
             playing = null;
             Next();
+        }
+
+        /// <summary>Everything at rest: the card in place, the rows in, every stat landed.</summary>
+        private void Settle()
+        {
+            StopAllCoroutines();
+            playing = null;
+            card.anchoredPosition = Vector2.zero;
+            cardGroup.alpha = 1f;
+            body.transform.parent.localScale = Vector3.one;
+            levelLine.transform.localScale = Vector3.one;
+            for (int i = 0; i < 3; i++)
+            {
+                statGroups[i].alpha = 1f;
+                statRows[i].anchoredPosition = Vector2.zero;
+                statAfter[i].transform.localScale = Vector3.one;
+                if (shownBefore != null)
+                {
+                    statAfter[i].text = StatNumber(shownAfter[i]);
+                    float gain = shownAfter[i] - shownBefore[i];
+                    statGain[i].text = gain > 0.001f ? "+" + StatNumber(gain) : string.Empty;
+                }
+            }
         }
 
         private void Close()

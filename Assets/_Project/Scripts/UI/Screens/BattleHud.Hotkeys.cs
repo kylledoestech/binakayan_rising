@@ -16,8 +16,15 @@ namespace BinakayanRising.UI.Screens
         private void ReadHotkeys()
         {
             Keyboard keyboard = Keyboard.current;
-            if (keyboard == null)
+            // A question card owns the keyboard: its 1 to 4 answer, not change the speed.
+            if (keyboard == null || BinakayanRising.UI.Shell.QuizCard.Current != null)
             {
+                return;
+            }
+
+            if (keyboard.mKey.wasPressedThisFrame && (deck == null || !deck.IsOpen))
+            {
+                ToggleMinimap();
                 return;
             }
 

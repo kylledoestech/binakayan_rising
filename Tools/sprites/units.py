@@ -653,6 +653,38 @@ def build_drill_sergeant(kit):
             hand + Vector((0.7, -0.25, -1.6)), 0.08)
 
 
+def build_senador(kit):
+    """Tadah, the Senador: the story's narrator. Grey hair, a dark frock coat over a white shirt
+    and bow tie, a rolled proclamation in hand."""
+    hands, skin, ink = base_figure(kit, {
+        "shirt": "#2A2F3A",
+        "trousers": "#2A2F3A",
+        "shoes": "#1E1612",
+        "torso_bottom": 0.75,
+        "hem": 0.98,
+        "hair": "none",
+        "right_hand": (0.95, 0.85, 1.9),
+        "left_hand": (0.2, 1.05, 1.5),
+    })
+    kit.begin("detail")
+    # The white shirt front and the bow tie, over the coat's open front.
+    kit.box(kit.material("shirtfront", "#EFEADF", flat=True), (0.14, 0.55, 1.1), (0.74, 0.0, TORSO_TOP - 0.62))
+    bow = kit.material("bowtie", KATIPUNAN_RED, flat=True)
+    kit.box(bow, (0.16, 0.62, 0.22), (0.8, 0.0, TORSO_TOP - 0.1))
+    # Grey at the temples and a grey moustache: an elder of the town.
+    kit.begin("hair")
+    grey = kit.material("grey", "#B8B2A8", flat=True)
+    kit.ball(grey, 1.28, (-0.22, 0.0, HEAD_Z + 0.26), scale=(1.0, 1.0, 0.96))
+    kit.box(grey, (0.5, 1.0, 0.3), (0.72, 0.35, HEAD_Z + 0.95), rotation=(0.0, math.radians(-25.0), 0.0))
+    kit.begin("face")
+    kit.box(grey, (0.12, 0.85, 0.2), (1.14, 0.0, HEAD_Z - 0.52))
+    kit.begin("prop", outlined=True)
+    hand = hands[-1]
+    paper = kit.material("paper", "#E9E2D0")
+    kit.rod(paper, hand + Vector((0.0, 0.0, -0.55)), hand + Vector((0.0, 0.0, 0.75)), 0.2)
+    kit.cone(kit.material("seal", KATIPUNAN_RED, flat=True), 0.22, 0.22, 0.12, (hand.x, hand.y, hand.z + 0.1))
+
+
 # Folder names are the archetype ids used by PlaytestScenario, so Unity can find each set.
 UNITS = [
     ("Marksman", build_marksman),
@@ -670,4 +702,5 @@ UNITS = [
     ("Miner", build_miner),
     ("Trader", build_trader),
     ("DrillSergeant", build_drill_sergeant),
+    ("Senador", build_senador),
 ]

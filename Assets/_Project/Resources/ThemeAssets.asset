@@ -83,6 +83,9 @@ MonoBehaviour:
   - archetypeId: Miner
     body: {fileID: 21300000, guid: 40083d8d768df5fcc8ddce17e4a17974, type: 3}
     portrait: {fileID: 21300000, guid: 81160030ffd1da23b92aeb52889840ad, type: 3}
+  - archetypeId: Senador
+    body: {fileID: 21300000, guid: a04e23790f144d99a29f7767f45ae7cc, type: 3}
+    portrait: {fileID: 21300000, guid: 6f54015366b54d4c8c72b0ecdabe034c, type: 3}
   - archetypeId: SpanishRegular
     body: {fileID: 21300000, guid: 3df31e18e915a2d68afad904129030b5, type: 3}
     portrait: {fileID: 21300000, guid: 53ab493d877ad0ceeb7b24146f4fb420, type: 3}

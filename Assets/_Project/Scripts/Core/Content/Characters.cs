@@ -49,6 +49,9 @@ namespace BinakayanRising.Core.Content
         public const string Trader = "Trader";
         public const string Sergeant = "DrillSergeant";
 
+        /// <summary>Tadah, the Senador: narrates the cutscenes and announces each rank.</summary>
+        public const string Senador = "Senador";
+
         private static readonly List<Character> all = new List<Character>
         {
             new Character(
@@ -90,6 +93,14 @@ namespace BinakayanRising.Core.Content
                 new LocString(
                     "A former native soldier of the Spanish army who deserted to the Katipunan. Men like him taught farmers to load, aim and hold a line.",
                     "Dating katutubong sundalo ng hukbong Kastila na tumiwalag at sumapi sa Katipunan. Ang mga tulad niya ang nagturo sa mga magsasaka na magkarga, tumutok at manindigan sa hanay."),
+                false),
+            new Character(
+                Senador,
+                new LocString("Tadah", "Tadah"),
+                new LocString("Senador · Narrator", "Senador · Tagapagsalaysay"),
+                new LocString(
+                    "An elder of Cavite who lived through the revolution and now tells its story. He speaks between battles and marks each rank the player earns.",
+                    "Isang matanda ng Kabite na nabuhay sa panahon ng himagsikan at ngayo'y nagsasalaysay nito. Nagsasalita siya sa pagitan ng mga labanan at ipinapahayag ang bawat ranggong makakamit."),
                 false)
         };
 
