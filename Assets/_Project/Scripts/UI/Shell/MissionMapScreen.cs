@@ -27,12 +27,12 @@ namespace BinakayanRising.UI.Shell
     /// </remarks>
     public sealed class MissionMapScreen : CampPanelScreen
     {
-        private const float MapWidth = 820f;
+        private const float MapWidth = 760f;
         private const float MapHeight = 520f;
         private const float MapInset = 44f;
         private const float NodeSize = 54f;
         private const float PathWidth = 5f;
-        private const float DetailWidth = 420f;
+        private const float DetailWidth = 480f;
         private const int PaperWidth = 205;
         private const int PaperHeight = 135;
 
@@ -48,6 +48,7 @@ namespace BinakayanRising.UI.Shell
         private TextMeshProUGUI briefing;
         private TextMeshProUGUI facts;
         private TextMeshProUGUI status;
+        private RectTransform factWell;
         private Button deploy;
         private TextMeshProUGUI deployLabel;
         private int renderedVersion = -1;
@@ -170,7 +171,10 @@ namespace BinakayanRising.UI.Shell
 
             questTitle = UiKit.Display(column, string.Empty, Theme.Type.Heading, TextAlignmentOptions.Left);
             questTitle.color = Theme.Revolution;
-            UiLayout.OneLine(questTitle, Theme.Type.Heading);
+            // Wraps to a second line rather than shrinking: the Filipino titles run long.
+            questTitle.textWrappingMode = TextWrappingModes.Normal;
+            questTitle.enableAutoSizing = false;
+            questTitle.fontSize = Theme.Type.Heading;
             UiLayout.Fix(questTitle.rectTransform, DetailWidth, 36f);
 
             tagLabel = UiKit.Caption(column, string.Empty, TextAlignmentOptions.Left);
@@ -182,7 +186,7 @@ namespace BinakayanRising.UI.Shell
             briefing.textWrappingMode = TextWrappingModes.Normal;
             UiLayout.Fix(briefing.rectTransform, DetailWidth, 90f);
 
-            RectTransform factWell = UiKit.Well(column, "Facts");
+            factWell = UiKit.Well(column, "Facts");
             UiLayout.Fix(factWell, DetailWidth, 196f);
             facts = UiKit.Body(factWell, string.Empty, Theme.Type.Body, TextAlignmentOptions.TopLeft);
             facts.textWrappingMode = TextWrappingModes.Normal;
@@ -346,6 +350,21 @@ namespace BinakayanRising.UI.Shell
             deploy.interactable = game.CanLaunch(quest);
             deployLabel.text = Loc.Get(game.IsCleared(quest) ? TextKey.MapReplay : TextKey.MapDeploy);
             status.text = StatusOf(game, quest);
+            status.gameObject.SetActive(status.text.Length > 0);
+            FitDetail();
+        }
+
+        /// <summary>
+        /// Sizes the title, briefing and facts to what they say this time, so a two-line title
+        /// or a wrapped enemy mix pushes the Deploy button down instead of spilling out of its box.
+        /// </summary>
+        private void FitDetail()
+        {
+            float width = DetailWidth;
+            UiLayout.Fix(questTitle.rectTransform, width, Mathf.Ceil(Mathf.Max(32f, questTitle.GetPreferredValues(questTitle.text, width, 0f).y + 2f)));
+            UiLayout.Fix(briefing.rectTransform, width, Mathf.Ceil(briefing.GetPreferredValues(briefing.text, width, 0f).y + 2f));
+            float inner = width - (2f * Theme.Space.Base);
+            UiLayout.Fix(factWell, width, Mathf.Ceil(facts.GetPreferredValues(facts.text, inner, 0f).y + (2f * Theme.Space.Base)));
         }
 
         private static string Facts(MetaGame game, Quest quest)

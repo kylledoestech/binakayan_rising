@@ -79,7 +79,7 @@ namespace BinakayanRising.UI.Screens
             UiKit.Scrim(outcomeRoot);
 
             outcomeCard = Register("outcome.card", UiKit.Panel(outcomeRoot, "Card"));
-            Pin(outcomeCard, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(760f, 440f));
+            Pin(outcomeCard, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(760f, 484f));
 
             RectTransform column = UiKit.Column(outcomeCard, "Body", Theme.Space.Base, Theme.Space.Loose, TextAnchor.UpperCenter);
             UiKit.Stretch(column);
@@ -93,7 +93,8 @@ namespace BinakayanRising.UI.Screens
             FixHeight(outcomeTitle.rectTransform, 76f);
 
             outcomeSummary = UiKit.Body(column, string.Empty, Theme.Type.Body, TextAlignmentOptions.Center);
-            FixHeight(outcomeSummary.rectTransform, 96f);
+            // Four lines under Escort and Sabotage: the objective, turns, survivors and the note.
+            FixHeight(outcomeSummary.rectTransform, 136f);
 
             RectTransform actions = UiKit.Row(column, "Actions", Theme.Space.Base, 0f, TextAnchor.MiddleCenter);
             FixHeight(actions, 64f);

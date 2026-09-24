@@ -102,23 +102,33 @@ namespace BinakayanRising.UI.Shell
                 fit.aspectRatio = (float)art.width / art.height;
             }
 
-            // The title sits in the clear dusk sky at the upper left, where the picture leaves room.
+            // A soft dusk shadow behind the title, so the parchment letters and the gold tagline
+            // hold up against the pink sky (#46). Fades out well before the flag.
+            RawImage shade = UiKit.NewRect(root, "Title Shade").gameObject.AddComponent<RawImage>();
+            shade.texture = TitleShade();
+            shade.raycastTarget = false;
+            UiKit.Anchor(shade.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), Vector2.zero, new Vector2(1180f, 420f));
+            shade.rectTransform.pivot = new Vector2(0f, 1f);
+            shade.rectTransform.anchoredPosition = new Vector2(0f, -30f);
+
+            // The title sits in the clear dusk sky at the upper left, where the picture leaves room;
+            // sized so it ends before the flag's fly edge (x 975 at 1080p).
             RectTransform titleBlock = UiKit.Column(root, "Title", Theme.Space.Tight, 0f, TextAnchor.UpperLeft);
-            UiKit.Anchor(titleBlock, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(110f, -90f), new Vector2(900f, 260f));
+            UiKit.Anchor(titleBlock, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(80f, -90f), new Vector2(820f, 260f));
             titleBlock.pivot = new Vector2(0f, 1f);
-            titleBlock.anchoredPosition = new Vector2(110f, -90f);
+            titleBlock.anchoredPosition = new Vector2(80f, -90f);
             UiLayout.FillWidth(titleBlock);
 
             Image sigil = UiKit.Sigil(titleBlock, 84f, Theme.Gold);
             UiLayout.Fix((RectTransform)sigil.transform.parent, 84f, 84f);
 
-            TextMeshProUGUI title = UiKit.Display(titleBlock, "Binakayan Rising", 88f, TextAlignmentOptions.Left);
+            TextMeshProUGUI title = UiKit.Display(titleBlock, "Binakayan Rising", 76f, TextAlignmentOptions.Left);
             title.color = Theme.Parchment;
-            UiLayout.OneLine(title, 88f);
+            UiLayout.OneLine(title, 76f);
             UiLayout.Fix(title.rectTransform, 0f, 104f);
 
             TextMeshProUGUI tagline = UiKit.Body(titleBlock, Loc.Get(TextKey.MenuTagline), Theme.Type.Heading, TextAlignmentOptions.Left);
-            tagline.color = Theme.Gold;
+            tagline.color = Theme.GoldBright;
             tagline.fontStyle = FontStyles.Italic;
             UiKit.Localize(tagline, TextKey.MenuTagline);
             UiLayout.Fix(tagline.rectTransform, 0f, 40f);
@@ -129,6 +139,44 @@ namespace BinakayanRising.UI.Shell
             UiKit.Localize(prompt, TextKey.SplashPressAnyKey);
             UiLayout.OneLine(prompt, Theme.Type.Title);
             UiKit.Anchor(prompt.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 70f), new Vector2(1200f, 52f));
+        }
+
+        private static Texture2D titleShade;
+
+        /// <summary>
+        /// A dark wash, strongest at the upper left and fading to nothing to the right and below;
+        /// small and bilinear-filtered, so it stretches into a smooth gradient.
+        /// </summary>
+        private static Texture2D TitleShade()
+        {
+            if (titleShade != null)
+            {
+                return titleShade;
+            }
+
+            const int Width = 64;
+            const int Height = 32;
+            var pixels = new Color32[Width * Height];
+            for (int y = 0; y < Height; y++)
+            {
+                // Row 0 is the bottom of the rect.
+                float v = (float)y / (Height - 1);
+                float vertical = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(v / 0.45f));
+                for (int x = 0; x < Width; x++)
+                {
+                    float u = (float)x / (Width - 1);
+                    float horizontal = 1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((u - 0.45f) / 0.55f));
+                    byte alpha = (byte)Mathf.RoundToInt(255f * 0.7f * vertical * horizontal);
+                    pixels[(y * Width) + x] = new Color32(0x1A, 0x10, 0x18, alpha);
+                }
+            }
+
+            titleShade = new Texture2D(Width, Height, TextureFormat.RGBA32, false);
+            titleShade.wrapMode = TextureWrapMode.Clamp;
+            titleShade.filterMode = FilterMode.Bilinear;
+            titleShade.SetPixels32(pixels);
+            titleShade.Apply(false, true);
+            return titleShade;
         }
 
         private void Update()

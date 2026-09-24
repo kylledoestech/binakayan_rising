@@ -37,6 +37,7 @@ namespace BinakayanRising.UI.Shell
         private RawImage picture;
         private CanvasGroup pictureGroup;
         private TextMeshProUGUI caption;
+        private RectTransform captionBox;
         private Image portrait;
         private TextMeshProUGUI speaker;
         private TextMeshProUGUI speakerRole;
@@ -113,6 +114,7 @@ namespace BinakayanRising.UI.Shell
 
             // The caption: a parchment label in the top-left corner.
             RectTransform label = UiKit.Panel(root, "Caption", blocksClicks: false);
+            captionBox = label;
             UiKit.Anchor(label, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Theme.Space.Loose, -Theme.Space.Loose), new Vector2(620f, 64f));
             caption = UiKit.Display(label, string.Empty, Theme.Type.Heading, TextAlignmentOptions.Left);
             caption.color = Theme.Revolution;
@@ -199,6 +201,7 @@ namespace BinakayanRising.UI.Shell
             CutsceneSlide slide = scene.Slides[index];
             picture.texture = CutsceneArt.For(slide);
             caption.text = slide.Caption.Get();
+            FitCaption();
 
             Character who = Characters.Find(scene.Narrator);
             speaker.text = who != null ? who.Name.Get() : scene.Narrator;
@@ -313,6 +316,18 @@ namespace BinakayanRising.UI.Shell
             {
                 Current = null;
             }
+        }
+
+        /// <summary>
+        /// Widens the caption plate to its text, so a long act title ("Act 4 - The Masterpiece of
+        /// Binakayan-Dalahican") keeps its full size instead of shrinking into the 620 default.
+        /// </summary>
+        private void FitCaption()
+        {
+            float inner = caption.GetPreferredValues(caption.text, 0f, 0f).x;
+            float limit = Theme.ReferenceResolution.x - (2f * Theme.Space.Loose);
+            float width = Mathf.Clamp(Mathf.Ceil(inner + (2f * Theme.Space.Base) + 8f), 620f, limit);
+            captionBox.sizeDelta = new Vector2(width, captionBox.sizeDelta.y);
         }
     }
 }

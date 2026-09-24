@@ -28,7 +28,7 @@ namespace BinakayanRising.UI.Screens
     public sealed class HowToPlayDeck : MonoBehaviour
     {
         private const float CardWidth = 1040f;
-        private const float CardHeight = 700f;
+        private const float CardHeight = 780f;
         private const float TileSize = 72f;
 
         // Unit figures are 48x64 pixel art shown at exactly 2x.
@@ -160,6 +160,12 @@ namespace BinakayanRising.UI.Screens
             UiSfx.Play(UiSfx.Cue.Click);
         }
 
+        /// <summary>The index of the page with this title, or -1; so callers never hard-code a page number.</summary>
+        public static int PageOf(TextKey title)
+        {
+            return System.Array.IndexOf(Titles, title);
+        }
+
         /// <summary>Jumps to a page, for tests and screenshots.</summary>
         public void ShowPage(int index)
         {
@@ -191,6 +197,9 @@ namespace BinakayanRising.UI.Screens
             {
                 pageTitle.text = Loc.Get(Titles[page]);
                 pageBody.text = Loc.Get(Bodies[page]);
+
+                // Five units at two lines each plus the advice: tighter leading keeps all of it.
+                pageBody.lineSpacing = page == EnemiesPage ? 0f : 8f;
                 renderedPage = page;
                 renderedVersion = Loc.Version;
             }

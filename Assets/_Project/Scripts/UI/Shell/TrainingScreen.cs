@@ -258,19 +258,25 @@ namespace BinakayanRising.UI.Shell
             Image rule2 = UiKit.Divider(detail);
             UiLayout.Fix(rule2.rectTransform, 0f, 12f);
 
-            drillLine = UiKit.Body(detail, string.Empty, Theme.Type.Body + 2f, TextAlignmentOptions.Left);
+            // What a drill gives on the left, what it costs on the right: the button row below
+            // has no room left for the cost once the Lore button joined it (#20).
+            RectTransform drillRow = UiKit.Row(detail, "Drill", Theme.Space.Base, 0f, TextAnchor.MiddleLeft);
+            UiLayout.Fix(drillRow, 0f, 26f);
+            drillLine = UiKit.Body(drillRow, string.Empty, Theme.Type.Body + 2f, TextAlignmentOptions.Left);
             drillLine.fontStyle = FontStyles.Bold;
             UiLayout.OneLine(drillLine, Theme.Type.Body + 2f);
+            UiLayout.Flexible(drillLine.rectTransform);
             UiLayout.Fix(drillLine.rectTransform, 0f, 26f);
+            drillCost = UiKit.Body(drillRow, string.Empty, Theme.Type.Body + 2f, TextAlignmentOptions.Right);
+            UiLayout.OneLine(drillCost, Theme.Type.Body + 2f);
+            UiLayout.Fix(drillCost.rectTransform, 0f, 26f);
 
             RectTransform actions = UiKit.Row(detail, "Actions", Theme.Space.Base, 0f, TextAnchor.MiddleLeft);
             UiLayout.Fix(actions, 0f, 60f);
             drill = UiKit.SealButton(actions, TextKey.TrnDrill, Drill, 200f, 60f, 0f, "Button Drill");
             UiLayout.Fix((RectTransform)drill.transform, 200f, 60f);
-            drillCost = UiKit.Body(actions, string.Empty, Theme.Type.Body + 2f, TextAlignmentOptions.Left);
-            UiLayout.OneLine(drillCost, Theme.Type.Body + 2f);
-            UiLayout.Flexible(drillCost.rectTransform);
-            UiLayout.Fix(drillCost.rectTransform, 0f, 40f);
+            RectTransform gap = UiKit.NewRect(actions, "Gap");
+            UiLayout.Flexible(gap);
 
             // Every pair's lore dialogue, heard or still locked (#20).
             Button lore = UiKit.SealButton(actions, TextKey.LoreButton, OpenLore, 170f, 60f, 0f, "Button Lore");
@@ -469,11 +475,13 @@ namespace BinakayanRising.UI.Shell
             {
                 drillLine.text = Loc.Get(TextKey.TrnTopLevel);
                 drillCost.text = string.Empty;
+                UiLayout.Fix(drillCost.rectTransform, 1f, 26f);
                 return;
             }
 
             drillLine.text = Loc.Format(TextKey.TrnDrillGives, game.Rules.DrillXp);
             drillCost.text = CostText(game.Rules.DrillCost);
+            UiLayout.Fix(drillCost.rectTransform, Mathf.Ceil(drillCost.GetPreferredValues(drillCost.text, 0f, 0f).x) + 4f, 26f);
             drillCost.color = game.CanAfford(game.Rules.DrillCost) ? Theme.Ink : Theme.Danger;
             drill.interactable = game.CanDrill(unit);
         }
