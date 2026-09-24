@@ -127,6 +127,18 @@ namespace BinakayanRising.Core.Meta
         public int AssessmentPassPercent = 60;
         public int AssessmentFirstPassReales = 150;
 
+        // ------------------------------------------------------------------ kapatiran (#19)
+
+        // TODO(design): not specified in capstone document (DESIGN-DECISIONS #8). Table 3 names the
+        // ranks; this build counts battles fought with the pair deployed side by side. One point
+        // per battle; the ranks come at 1, 3 and 5 points, so a pair kept together through the
+        // seven campaign battles reaches A before the last day of Binakayan-Dalahican.
+        /// <summary>Support points a pair earns for one battle fought side by side.</summary>
+        public int BondSupportPerBattle = 1;
+
+        /// <summary>Support points needed for rank C, B and A, in that order.</summary>
+        public int[] BondRankSupport = { 1, 3, 5 };
+
         public static MetaRules Default()
         {
             return new MetaRules();

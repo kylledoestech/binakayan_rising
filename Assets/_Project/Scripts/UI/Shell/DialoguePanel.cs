@@ -171,8 +171,23 @@ namespace BinakayanRising.UI.Shell
         {
             DialogueLine line = lines[index];
             Character who = Characters.Find(line.Speaker);
-            speakerName.text = who != null ? who.Name.Get() : line.Speaker;
-            speakerRole.text = who != null ? who.Role.Get() : string.Empty;
+            UnitArchetype unit = who == null ? UnitCatalog.Find(line.Speaker) : null;
+            if (who != null)
+            {
+                speakerName.text = who.Name.Get();
+                speakerRole.text = who.Role.Get();
+            }
+            else if (unit != null)
+            {
+                // The Kapatiran lore is spoken by the units themselves (#20).
+                speakerName.text = unit.Name.Get();
+                speakerRole.text = UnitCatalog.RoleLabel(unit.Role).Get();
+            }
+            else
+            {
+                speakerName.text = line.Speaker;
+                speakerRole.text = string.Empty;
+            }
 
             Sprite face = Theme.Assets != null ? Theme.Assets.UnitPortrait(line.Speaker) : null;
             portrait.sprite = face;

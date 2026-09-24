@@ -28,7 +28,7 @@ namespace BinakayanRising.UI.Shell
     /// group or off the screen. Lines go to <c>audit.txt</c> beside the images.
     /// </para>
     /// </remarks>
-    public sealed class ShotAutopilot : MonoBehaviour
+    public sealed partial class ShotAutopilot : MonoBehaviour
     {
         private string directory;
         private readonly StringBuilder audit = new StringBuilder();
@@ -101,6 +101,10 @@ namespace BinakayanRising.UI.Shell
 
                 case "issues":
                     yield return Issues();
+                    break;
+
+                case "bonds":
+                    yield return Bonds();
                     break;
 
                 case "deploy":
@@ -454,6 +458,7 @@ namespace BinakayanRising.UI.Shell
                 PickFirst();
                 yield return Shot("p4_17_battle_quiz_answered");
                 QuizCard.Current?.Continue();
+                yield return TakeAnyCommand();
                 yield return WaitWhile(() => Shell.Battle != null && Shell.Battle.CurrentPhase != BinakayanRising.Gameplay.BattlePlaytest.Phase.Finished, 120f);
                 yield return Shot("p4_18_battle_report", 1.5f);
                 if (Shell.Battle != null)
@@ -834,6 +839,7 @@ namespace BinakayanRising.UI.Shell
             yield return WaitWhile(() => QuizCard.Current == null && Shell.Battle != null && Shell.Battle.CurrentPhase != BinakayanRising.Gameplay.BattlePlaytest.Phase.Finished, 90f);
             PickFirst();
             QuizCard.Current?.Continue();
+            yield return TakeAnyCommand();
             yield return Wait(2.5f);
             yield return Shot("i_09_hp_bars_later", 0.1f);
         }
@@ -1011,11 +1017,7 @@ namespace BinakayanRising.UI.Shell
             battle.RequestSkip();
             yield return WaitWhile(() => QuizCard.Current == null && Shell.Battle != null
                 && Shell.Battle.CurrentPhase != Gameplay.BattlePlaytest.Phase.Finished, 60f);
-            if (QuizCard.Current != null)
-            {
-                PickFirst();
-                QuizCard.Current?.Continue();
-            }
+            yield return AnswerQuiz();
 
             yield return WaitWhile(() => Shell.Battle != null
                 && Shell.Battle.CurrentPhase != Gameplay.BattlePlaytest.Phase.Finished, 60f);
@@ -1175,7 +1177,7 @@ namespace BinakayanRising.UI.Shell
             battle.RequestAssault();
             battle.SetSpeed(1f);
             yield return Wait(4f);
-            AnswerQuiz();
+            yield return AnswerQuiz();
             yield return Shot(prefix, 0.1f);
             UserPrefs.ChooseLanguage(Language.Filipino);
             yield return Shot(prefix + "_fil", 0.2f);
@@ -1185,7 +1187,7 @@ namespace BinakayanRising.UI.Shell
             float waited = 0f;
             while (Shell.Battle != null && Shell.Battle.CurrentPhase != Gameplay.BattlePlaytest.Phase.Finished && waited < 150f)
             {
-                AnswerQuiz();
+                yield return AnswerQuiz();
                 yield return Wait(0.5f);
                 waited += 0.5f;
             }
@@ -1246,7 +1248,7 @@ namespace BinakayanRising.UI.Shell
             float waited = 0f;
             while (Shell.Battle != null && Shell.Battle.CurrentPhase != Gameplay.BattlePlaytest.Phase.Finished && waited < 400f)
             {
-                AnswerQuiz();
+                yield return AnswerQuiz();
                 yield return Wait(0.5f);
                 waited += 0.5f;
             }
@@ -1255,13 +1257,22 @@ namespace BinakayanRising.UI.Shell
             yield return Shot("bench_end", 1f);
         }
 
-        /// <summary>Answers and closes an open battle question, if one is up.</summary>
-        private void AnswerQuiz()
+        /// <summary>
+        /// Answers and closes an open battle question, if one is up, then takes the first allowed
+        /// Tactician's Command (#43) if the right answer opened the command card.
+        /// </summary>
+        private IEnumerator AnswerQuiz()
         {
-            if (QuizCard.Current != null)
+            bool answered = QuizCard.Current != null;
+            if (answered)
             {
                 PickFirst();
                 QuizCard.Current?.Continue();
+            }
+
+            if (answered || TacticianCommandCard.Current != null)
+            {
+                yield return TakeAnyCommand();
             }
         }
 

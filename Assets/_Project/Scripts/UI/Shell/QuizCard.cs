@@ -51,6 +51,18 @@ namespace BinakayanRising.UI.Shell
         /// <summary>The card showing now, or null.</summary>
         public static QuizCard Current { get; private set; }
 
+        /// <summary>The question on the card now, or null. For screenshots and tests.</summary>
+        public Question Asking
+        {
+            get { return questions != null && index >= 0 && index < questions.Count ? questions[index] : null; }
+        }
+
+        /// <summary>Picks choice <paramref name="choice"/>, 0 to 3, as a click would.</summary>
+        public void Choose(int choice)
+        {
+            Pick(choice);
+        }
+
         /// <summary>The card's frame, for layout checks.</summary>
         public RectTransform Card
         {

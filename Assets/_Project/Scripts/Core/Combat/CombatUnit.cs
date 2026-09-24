@@ -329,6 +329,30 @@ namespace BinakayanRising.Core.Combat
             return applied;
         }
 
+        /// <summary>
+        /// Brings a fallen unit back on <paramref name="cell"/> with <paramref name="health"/> HP,
+        /// its modifiers cleared and its movement carry reset. Does nothing to a living unit.
+        /// </summary>
+        /// <param name="health">Health to return with; at least 1.</param>
+        /// <param name="cell">Where it stands again.</param>
+        /// <returns>True when the unit was revived.</returns>
+        public bool Revive(float health, GridCoord cell)
+        {
+            if (alive)
+            {
+                return false;
+            }
+
+            currentHP = health < 1f ? 1f : health;
+            alive = true;
+            position = cell;
+            movementCarry = 0f;
+            reloadRemaining = 0;
+            provokedBy = -1;
+            modifiers.Clear();
+            return true;
+        }
+
         /// <summary>Kills the unit outright, bypassing the damage formula.</summary>
         public void Kill()
         {

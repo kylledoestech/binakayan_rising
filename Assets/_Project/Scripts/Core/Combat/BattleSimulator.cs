@@ -48,7 +48,7 @@ namespace BinakayanRising.Core.Combat
     /// something a unit test can run to completion in microseconds with the editor closed.
     /// </para>
     /// </remarks>
-    public sealed class BattleSimulator
+    public sealed partial class BattleSimulator
     {
         private readonly IBattleGrid grid;
         private readonly CombatUnit[] unitsInIdOrder;
@@ -151,6 +151,7 @@ namespace BinakayanRising.Core.Combat
             this.movement = movement ?? new GreedyStepMovementPolicy();
 
             rng = new DeterministicRandom(this.config.RandomSeed);
+            RecordStartCells();
         }
 
         /// <summary>Every unit in the battle, in ascending id order — the order they act in.</summary>
@@ -221,6 +222,7 @@ namespace BinakayanRising.Core.Combat
 
             List<BattleEvent> turnEvents = new List<BattleEvent>();
             Emit(turnEvents, BattleEvent.TurnStarted(turnNumber));
+            ApplyQueuedCommand(turnEvents);
 
             RefreshLiving();
             RecomputeModifiers(turnEvents);
@@ -431,6 +433,7 @@ namespace BinakayanRising.Core.Combat
                 }
             }
 
+            ApplyCommandModifiers(turnEvents);
             ApplyAuras(turnEvents);
             ApplySeekerSpeed(turnEvents);
         }

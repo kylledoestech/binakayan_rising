@@ -127,6 +127,8 @@ namespace BinakayanRising.UI.Screens
                     return Theme.GoldBright;
                 case BattlePlaytest.PopupKind.Heal:
                     return new Color32(0x8C, 0xD9, 0x8C, 0xFF);
+                case BattlePlaytest.PopupKind.Buff:
+                    return Theme.GoldBright;
                 case BattlePlaytest.PopupKind.Dodge:
                 case BattlePlaytest.PopupKind.Miss:
                     return Theme.Parchment;
@@ -407,6 +409,9 @@ namespace BinakayanRising.UI.Screens
                     break;
                 case BattlePlaytest.PopupKind.Critical:
                     slot.Label.SetText("{0:0.0}!", amount);
+                    break;
+                case BattlePlaytest.PopupKind.Buff:
+                    slot.Label.text = Loc.Format(TextKey.PopupAttack, Mathf.RoundToInt(amount));
                     break;
                 default:
                     slot.Label.SetText("{0:0.0}", amount);

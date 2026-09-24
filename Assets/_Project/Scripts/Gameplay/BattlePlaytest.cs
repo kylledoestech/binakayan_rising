@@ -55,7 +55,10 @@ namespace BinakayanRising.Gameplay
             Critical,
             Heal,
             Dodge,
-            Miss
+            Miss,
+
+            /// <summary>A Tactician's Command stat bonus landing on a unit.</summary>
+            Buff
         }
 
         /// <summary>What a field report line narrates.</summary>
@@ -64,7 +67,19 @@ namespace BinakayanRising.Gameplay
             AssaultBegan,
             UnitRouted,
             CriticalHit,
-            BattleResolved
+            BattleResolved,
+
+            /// <summary>Tactician's Command: every ally healed.</summary>
+            CommandHeal,
+
+            /// <summary>Tactician's Command: every ally's attack raised for the turn.</summary>
+            CommandAttack,
+
+            /// <summary>Tactician's Command: the Spanish sent back to their starting cells.</summary>
+            CommandReset,
+
+            /// <summary>Tactician's Command: a fallen unit, the actor, back on the field.</summary>
+            CommandRevive
         }
 
         /// <summary>One field report line, recorded as data for the interface to phrase.</summary>
@@ -181,6 +196,7 @@ namespace BinakayanRising.Gameplay
         private const float DamageSeconds = 0.16f;
         private const float DeathSeconds = 0.30f;
         private const float TurnSeconds = 0.10f;
+        private const float CommandSeconds = 0.45f;
 
         private const float MinSpeed = 0.25f;
         private const float MaxSpeed = 8f;
@@ -248,6 +264,7 @@ namespace BinakayanRising.Gameplay
         private bool boardInputLocked;
         private MissionSetup mission;
         private bool quizAsked;
+        private TacticianCommand commandIssued;
         private bool missionEnded;
 
         private int reportStart;
@@ -877,6 +894,7 @@ namespace BinakayanRising.Gameplay
                 foreach (KeyValuePair<int, GridCoord> placement in placements)
                 {
                     report.Deployed.Add(placement.Key);
+                    report.Placements.Add(placement);
                 }
             }
             else
@@ -893,6 +911,119 @@ namespace BinakayanRising.Gameplay
         public void SetPaused(bool value)
         {
             paused = value;
+        }
+
+        /// <summary>The Tactician's Command issued this battle, or <see cref="TacticianCommand.None"/>.</summary>
+        public TacticianCommand IssuedCommand => commandIssued;
+
+        /// <summary>
+        /// Whether <paramref name="command"/> would do anything at the turn the replay stands on:
+        /// the revive needs an ally who has already fallen, the others need someone to act on.
+        /// </summary>
+        public bool CanIssueCommand(TacticianCommand command)
+        {
+            if (phase != Phase.Combat || result == null || commandIssued != TacticianCommand.None)
+            {
+                return false;
+            }
+
+            bool fallenAlly = false;
+            bool livingAlly = false;
+            bool livingEnemy = false;
+            foreach (UnitView unit in views.Values)
+            {
+                if (unit.Id == PlaytestScenario.SupplyCartId)
+                {
+                    // The cart neither fights nor comes back; see BattleSimulator.CanIssue.
+                    continue;
+                }
+
+                if (unit.Team == Team.Katipunan)
+                {
+                    fallenAlly |= !unit.Alive;
+                    livingAlly |= unit.Alive;
+                }
+                else
+                {
+                    livingEnemy |= unit.Alive;
+                }
+            }
+
+            switch (command)
+            {
+                case TacticianCommand.MapWideHeal:
+                case TacticianCommand.AttackBuff:
+                    return livingAlly;
+                case TacticianCommand.ResetEnemyPositions:
+                    return livingEnemy;
+                case TacticianCommand.ReviveFallenUnit:
+                    return fallenAlly;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// Issues a Tactician's Command (Capstone Table 4, #43) at the turn the replay is paused on,
+        /// and re-fights the rest of the battle with it, so the outcome can change.
+        /// </summary>
+        /// <remarks>
+        /// The battle was resolved in full before the replay began, so the command cannot simply
+        /// be dropped into it. Instead the same deployment, seed and bonds are fought again up to
+        /// the end of the turn before, the command is queued, and the battle runs to its end. Nothing
+        /// before the command draws a different die, so the new log matches the one already shown
+        /// event for event up to this turn's start — that is checked, not assumed — and the replay
+        /// carries on from where it stopped, into the new ending.
+        /// </remarks>
+        /// <returns>False when the command could not be applied; the battle is then unchanged.</returns>
+        public bool ApplyTacticianCommand(TacticianCommand command)
+        {
+            return ApplyTacticianCommand(command, TacticianCommands.DefaultMagnitude(command), TacticianCommands.AttackTurns);
+        }
+
+        /// <summary>
+        /// <see cref="ApplyTacticianCommand(TacticianCommand)"/> with an explicit size: a fraction,
+        /// e.g. 0.10 for Table 4's "+10%", and turns for the timed attack bonus.
+        /// </summary>
+        public bool ApplyTacticianCommand(TacticianCommand command, float magnitude, int durationTurns)
+        {
+            if (!CanIssueCommand(command) || replayIndex <= 0)
+            {
+                return false;
+            }
+
+            int battleSeed = resultSeed;
+            BattleResult commanded = TacticianCommands.RunWithCommand(
+                () =>
+                {
+                    List<CombatUnit> ignored;
+                    return BuildSimulator(battleSeed, out ignored);
+                },
+                currentTurn,
+                command,
+                magnitude,
+                durationTurns);
+
+            if (commanded.Events.Count <= replayIndex)
+            {
+                Debug.LogWarning("[BattlePlaytest] Tactician's Command re-simulation ended early; command dropped.");
+                return false;
+            }
+
+            for (int i = 0; i < replayIndex; i++)
+            {
+                if (commanded.Events[i].ToString() != result.Events[i].ToString())
+                {
+                    Debug.LogWarning("[BattlePlaytest] Tactician's Command re-simulation diverged at event " + i
+                        + "; command dropped.");
+                    return false;
+                }
+            }
+
+            commandIssued = command;
+            result = commanded;
+            RaiseStateChanged();
+            return true;
         }
 
         /// <summary>Ignores board clicks while true, e.g. while a modal is open.</summary>
@@ -1276,47 +1407,11 @@ namespace BinakayanRising.Gameplay
             // keeps telling the player to place units on a board they can no longer place on.
             ShowDeployHighlights(false);
 
-            List<CombatUnit> units = new List<CombatUnit>();
-            CombatConfig config = PlaytestScenario.Config(seed);
-            if (mission != null)
-            {
-                config.MaxTurns = mission.TurnCap;
-                config.Objective = PlaytestScenario.ObjectiveFor(mission.WinRule);
-            }
-
             quizAsked = false;
+            commandIssued = TacticianCommand.None;
 
-            foreach (KeyValuePair<int, GridCoord> placement in placements)
-            {
-                RosterEntry entry;
-                if (!TryGetEntry(placement.Key, out entry))
-                {
-                    continue;
-                }
-
-                CombatUnit unit = new CombatUnit(
-                    entry.Id,
-                    entry.DisplayName,
-                    entry.ArchetypeId,
-                    Team.Katipunan,
-                    entry.Stats,
-                    placement.Value,
-                    config.StackingPolicy);
-
-                UnitArchetype archetype = UnitCatalog.Find(entry.ArchetypeId);
-                if (archetype != null)
-                {
-                    unit.HealPower = archetype.HealPower;
-                }
-
-                units.Add(unit);
-            }
-
-            units.AddRange(EnemyColumn());
-            if (Rule == WinRule.Escort)
-            {
-                units.Add(PlaytestScenario.SupplyCart(config.StackingPolicy));
-            }
+            List<CombatUnit> units;
+            BattleSimulator simulator = BuildSimulator(seed, out units);
 
             // Capture the deployment before the simulator mutates anything: replay must start from
             // where the units stood, not from where they ended up.
@@ -1325,13 +1420,6 @@ namespace BinakayanRising.Gameplay
             {
                 startCells[unit.Id] = unit.Position;
             }
-
-            BattleSimulator simulator = new BattleSimulator(
-                grid,
-                units,
-                config,
-                terrain: PlaytestScenario.Terrain(),
-                kapatiran: new KapatiranResolver(PlaytestScenario.Bonds()));
 
             result = simulator.RunToCompletion();
             resultSeed = seed;
@@ -1367,6 +1455,63 @@ namespace BinakayanRising.Gameplay
             PhaseChanged?.Invoke(phase);
             RaiseStateChanged();
             return true;
+        }
+
+        /// <summary>
+        /// Builds the battle from the placements: the player's units where they stand, the Spanish
+        /// column, the supply cart on an Escort battle, the objective, the terrain and the bonds. Deterministic, so calling it twice gives two identical
+        /// battles — which is how a Tactician's Command re-fights the rest of one.
+        /// </summary>
+        private BattleSimulator BuildSimulator(int battleSeed, out List<CombatUnit> units)
+        {
+            units = new List<CombatUnit>();
+            CombatConfig config = PlaytestScenario.Config(battleSeed);
+            if (mission != null)
+            {
+                config.MaxTurns = mission.TurnCap;
+                config.Objective = PlaytestScenario.ObjectiveFor(mission.WinRule);
+            }
+
+            foreach (KeyValuePair<int, GridCoord> placement in placements)
+            {
+                RosterEntry entry;
+                if (!TryGetEntry(placement.Key, out entry))
+                {
+                    continue;
+                }
+
+                CombatUnit unit = new CombatUnit(
+                    entry.Id,
+                    entry.DisplayName,
+                    entry.ArchetypeId,
+                    Team.Katipunan,
+                    entry.Stats,
+                    placement.Value,
+                    config.StackingPolicy);
+
+                UnitArchetype archetype = UnitCatalog.Find(entry.ArchetypeId);
+                if (archetype != null)
+                {
+                    unit.HealPower = archetype.HealPower;
+                }
+
+                units.Add(unit);
+            }
+
+            units.AddRange(EnemyColumn());
+            if (Rule == WinRule.Escort)
+            {
+                units.Add(PlaytestScenario.SupplyCart(config.StackingPolicy));
+            }
+
+            BattleSimulator simulator = new BattleSimulator(
+                grid,
+                units,
+                config,
+                terrain: PlaytestScenario.Terrain(),
+                kapatiran: new KapatiranResolver(mission != null && mission.Bonds != null ? mission.Bonds : PlaytestScenario.Bonds()));
+
+            return simulator;
         }
 
         private void Update()
@@ -1454,6 +1599,10 @@ namespace BinakayanRising.Gameplay
                     return DeathSeconds;
                 case BattleEventType.TurnStarted:
                     return TurnSeconds;
+                case BattleEventType.CommandIssued:
+                    return CommandSeconds;
+                case BattleEventType.UnitRevived:
+                    return DeathSeconds;
                 default:
                     return 0f;
             }
@@ -1524,6 +1673,28 @@ namespace BinakayanRising.Gameplay
 
                     break;
 
+                case BattleEventType.CommandIssued:
+                    ApplyCommandEvent(battleEvent);
+                    break;
+
+                case BattleEventType.UnitRevived:
+                    if (actor != null)
+                    {
+                        actor.Alive = true;
+                        actor.CurrentHP = Mathf.Min(actor.MaxHP, battleEvent.Amount);
+                        actor.Cell = battleEvent.To;
+                        actor.AnimateFrom = CellToWorld(battleEvent.To);
+                        actor.AnimateTo = actor.AnimateFrom;
+                        actor.AnimateProgress = 1f;
+                        SetSorting(actor, battleEvent.To);
+                        AddPopup(PopupKind.Heal, battleEvent.Amount, actor);
+                        AppendReport(new FieldReportEntry(
+                            FieldReportKind.CommandRevive, currentTurn, actor.ArchetypeId, actor.Ordinal,
+                            null, 0, BattleOutcome.InProgress, 0));
+                    }
+
+                    break;
+
                 case BattleEventType.UnitDied:
                     if (actor != null)
                     {
@@ -1534,6 +1705,45 @@ namespace BinakayanRising.Gameplay
                             null, 0, BattleOutcome.InProgress, 0));
                     }
 
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Narrates a Tactician's Command. Its effects arrive as their own events — heals, moves,
+        /// a revive — except the attack bonus, which only shows here, over every ally it lifts.
+        /// </summary>
+        private void ApplyCommandEvent(BattleEvent battleEvent)
+        {
+            TacticianCommand command;
+            if (!System.Enum.TryParse(battleEvent.Detail, out command))
+            {
+                return;
+            }
+
+            switch (command)
+            {
+                case TacticianCommand.MapWideHeal:
+                    AppendReport(new FieldReportEntry(
+                        FieldReportKind.CommandHeal, currentTurn, null, 0, null, 0, BattleOutcome.InProgress, 0));
+                    break;
+
+                case TacticianCommand.AttackBuff:
+                    foreach (UnitView unit in views.Values)
+                    {
+                        if (unit.Alive && unit.Team == Team.Katipunan && unit.Id != PlaytestScenario.SupplyCartId)
+                        {
+                            AddPopup(PopupKind.Buff, battleEvent.Amount * 100f, unit);
+                        }
+                    }
+
+                    AppendReport(new FieldReportEntry(
+                        FieldReportKind.CommandAttack, currentTurn, null, 0, null, 0, BattleOutcome.InProgress, 0));
+                    break;
+
+                case TacticianCommand.ResetEnemyPositions:
+                    AppendReport(new FieldReportEntry(
+                        FieldReportKind.CommandReset, currentTurn, null, 0, null, 0, BattleOutcome.InProgress, 0));
                     break;
             }
         }

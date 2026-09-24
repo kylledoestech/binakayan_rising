@@ -319,42 +319,16 @@ namespace BinakayanRising.Gameplay
         }
 
         /// <summary>
-        /// Every Kapatiran bond, already resolved to rank A: two rows of Capstone Table 3, then the
-        /// Vanguard and Field Medic and the Magdalo and Magdiwang pairs from <see cref="BondCatalog"/>.
+        /// Every Kapatiran bond at rank A, Capstone Table 3's maximum, from <see cref="BondCatalog"/>.
         /// </summary>
         /// <remarks>
-        /// Rank progression is metagame state that lives in the save file, so by the time a battle
-        /// starts the rank is known and Core only ever sees the resulting modifiers. Note that the
-        /// Marksman and Engineer bond carries the document's one flat bonus, <c>+1 Attack Range</c>,
-        /// alongside percentage ones.
+        /// The standalone playtest and the guided tutorial battle fight with these. A campaign battle
+        /// fights with the ranks the player's pairs have earned instead
+        /// (<see cref="MissionSetup.Bonds"/>, #19).
         /// </remarks>
         public static List<KapatiranBond> Bonds()
         {
-            return new List<KapatiranBond>
-            {
-                new KapatiranBond(
-                    "Marksman_Engineer",
-                    "Marksman",
-                    "Engineer",
-                    new List<StatModifier>
-                    {
-                        StatModifier.Percent(StatKind.RangedAccuracy, 0.20f, ModifierSource.Kapatiran, "Marksman + Engineer"),
-                        StatModifier.Flat(StatKind.AttackRange, 1f, ModifierSource.Kapatiran, "Marksman + Engineer")
-                    },
-                    "A"),
-                new KapatiranBond(
-                    "Evangelista_Aguinaldo",
-                    "Evangelista",
-                    "Aguinaldo",
-                    new List<StatModifier>
-                    {
-                        StatModifier.Percent(StatKind.AttackDamage, 0.15f, ModifierSource.Kapatiran, "Evangelista + Aguinaldo"),
-                        StatModifier.Percent(StatKind.Defense, 0.10f, ModifierSource.Kapatiran, "Evangelista + Aguinaldo")
-                    },
-                    "A"),
-                BondCatalog.VanguardAndMedic(),
-                BondCatalog.MagdaloAndMagdiwang(BondCatalog.RankA)
-            };
+            return BondCatalog.AllAtRankA();
         }
 
         /// <summary>Terrain and Kapatiran tables for the prototype, using the document's Table 2 values.</summary>

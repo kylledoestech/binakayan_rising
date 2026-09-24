@@ -61,7 +61,16 @@ namespace BinakayanRising.Core.Combat
         BattleEnded = 8,
 
         /// <summary>A unit restored health to an ally instead of attacking.</summary>
-        UnitHealed = 9
+        UnitHealed = 9,
+
+        /// <summary>
+        /// A Tactician's Command took effect (Capstone Table 4). <see cref="BattleEvent.Detail"/>
+        /// names the <see cref="TacticianCommand"/>; <see cref="BattleEvent.Amount"/> is its magnitude.
+        /// </summary>
+        CommandIssued = 20,
+
+        /// <summary>A fallen unit returned to the battle at <see cref="BattleEvent.To"/> with <see cref="BattleEvent.Amount"/> health.</summary>
+        UnitRevived = 21
     }
 
     /// <summary>
@@ -327,6 +336,25 @@ namespace BinakayanRising.Core.Combat
         public static BattleEvent UnitDied(int turn, int unitId, int killerId, GridCoord cell)
         {
             return new BattleEvent(turn, BattleEventType.UnitDied, unitId, killerId, cell, cell, 0f, false, false, false, null);
+        }
+
+        /// <summary>A Tactician's Command took effect at the start of a turn.</summary>
+        /// <param name="turn">Turn number the command opens.</param>
+        /// <param name="command">Which command.</param>
+        /// <param name="magnitude">Its magnitude as a fraction.</param>
+        public static BattleEvent CommandIssued(int turn, TacticianCommand command, float magnitude)
+        {
+            return new BattleEvent(turn, BattleEventType.CommandIssued, NoUnit, NoUnit, GridCoord.Zero, GridCoord.Zero, magnitude, false, false, false, command.ToString());
+        }
+
+        /// <summary>A fallen unit came back.</summary>
+        /// <param name="turn">Turn number.</param>
+        /// <param name="unitId">Unit revived.</param>
+        /// <param name="cell">Cell it returns on.</param>
+        /// <param name="health">Health it returns with.</param>
+        public static BattleEvent UnitRevived(int turn, int unitId, GridCoord cell, float health)
+        {
+            return new BattleEvent(turn, BattleEventType.UnitRevived, unitId, NoUnit, cell, cell, health, false, false, false, null);
         }
 
         /// <summary>

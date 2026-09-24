@@ -91,7 +91,7 @@ namespace BinakayanRising.UI.Shell
             }
 
             // A question or a cutscene owns the screen; the menu waits for it to finish.
-            if (battle == null || QuizCard.Current != null || CutscenePlayer.Current != null)
+            if (battle == null || QuizCard.Current != null || TacticianCommandCard.Current != null || CutscenePlayer.Current != null)
             {
                 return null;
             }

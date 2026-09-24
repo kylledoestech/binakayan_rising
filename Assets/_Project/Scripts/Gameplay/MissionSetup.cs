@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using BinakayanRising.Core.Combat;
 using BinakayanRising.Core.Content;
+using BinakayanRising.Core.Grid;
 
 namespace BinakayanRising.Gameplay
 {
@@ -57,6 +58,12 @@ namespace BinakayanRising.Gameplay
         /// <summary>The campaign level, so the quiz asks about the right part of the story.</summary>
         public int Level = 1;
 
+        /// <summary>
+        /// The Kapatiran bonds at the ranks the player's pairs have earned (#19), or null for the
+        /// standalone playtest's rank-A set.
+        /// </summary>
+        public List<KapatiranBond> Bonds;
+
         /// <summary>Called once when the player leaves the finished battle.</summary>
         public Action<MissionReport> Finished;
 
@@ -93,6 +100,9 @@ namespace BinakayanRising.Gameplay
 
         /// <summary>The save ids of every unit the player deployed.</summary>
         public List<int> Deployed = new List<int>();
+
+        /// <summary>Where each deployed unit stood, by save id: what Kapatiran support is earned from.</summary>
+        public List<KeyValuePair<int, GridCoord>> Placements = new List<KeyValuePair<int, GridCoord>>();
 
         /// <summary>True when the player left before fighting: nothing is settled.</summary>
         public bool Retreated;

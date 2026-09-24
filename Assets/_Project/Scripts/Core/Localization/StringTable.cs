@@ -51,13 +51,13 @@ namespace BinakayanRising.Core.Localization
             Add(TextKey.ShowTips, "Show Tips", "Ipakita ang Tip");
             Add(TextKey.HideTips, "Hide Tips", "Itago ang Tip");
             Add(TextKey.TipsBody,
-                "<b>KAPATIRAN BONDS</b>\n"
+                "<b>KAPATIRAN BONDS</b> (rank A)\n"
                 + "MRK + ENG side by side — +20% accuracy, +1 range\n"
                 + "EVA + AGU side by side — +15% attack, +10% defense\n\n"
                 + "<b>TERRAIN</b> (your troops only)\n"
                 + "Trench — +20% defense, +15% evasion\n"
                 + "Tent — heals 5% HP per turn",
-                "<b>BUKLOD NG KAPATIRAN</b>\n"
+                "<b>BUKLOD NG KAPATIRAN</b> (ranggo A)\n"
                 + "MRK + ENG magkatabi — +20% asinta, +1 layon\n"
                 + "EVA + AGU magkatabi — +15% atake, +10% depensa\n\n"
                 + "<b>LUPAIN</b> (para sa iyong hukbo)\n"
@@ -259,18 +259,18 @@ namespace BinakayanRising.Core.Localization
 
             Add(TextKey.DeckBondsTitle, "Kapatiran Bonds", "Buklod ng Kapatiran");
             Add(TextKey.DeckBondsBody,
-                "Bonded pairs standing side by side — up, down, left or right, never diagonal — both gain:\n\n"
+                "At rank A, bonded pairs standing side by side — up, down, left or right, never diagonal — both gain:\n\n"
                 + "<b>MRK + ENG</b>  +20% accuracy, +1 attack range\n"
                 + "<b>EVA + AGU</b>  +15% attack, +10% defense\n"
                 + "<b>VAN + MED</b>  +25% healing received, +5% max HP\n"
                 + "<b>MGD + MGW</b>  +15% critical chance, +10% evasion\n\n"
-                + "A bond breaks when either partner falls.",
-                "Ang magkapares na magkatabi — itaas, ibaba, kaliwa o kanan, hindi pahilis — ay kapwa tumatanggap ng:\n\n"
+                + "Each battle fought side by side raises the rank: C opens their story, B gives a smaller bonus. A bond breaks when either partner falls.",
+                "Sa Ranggo A, ang magkapares na magkatabi — itaas, ibaba, kaliwa o kanan, hindi pahilis — ay kapwa tumatanggap ng:\n\n"
                 + "<b>MRK + ENG</b>  +20% asinta, +1 layon\n"
                 + "<b>EVA + AGU</b>  +15% atake, +10% depensa\n"
                 + "<b>VAN + MED</b>  +25% natatanggap na lunas, +5% pinakamataas na HP\n"
                 + "<b>MGD + MGW</b>  +15% tsansa ng malubhang tama, +10% ilag\n\n"
-                + "Napuputol ang buklod kapag nagapi ang isa.");
+                + "Tumataas ang ranggo sa bawat labanang magkatabi sila: binubuksan ng C ang kanilang kuwento, mas maliit na dagdag ang sa B. Napuputol ang buklod kapag nagapi ang isa.");
 
             Add(TextKey.DeckCombatTitle, "Combat", "Labanan");
             Add(TextKey.DeckCombatBody,
@@ -555,6 +555,41 @@ namespace BinakayanRising.Core.Localization
                 + "<b>MAR</b>  Marino: +15% atake at depensa sa mababaw na dagat, hindi bumabagal doon\n"
                 + "        HP 105   ·   ATK 14   ·   DEF 6   ·   RNG 1   ·   MOVE 1\n\n"
                 + "Unahin ang opisyal, at huwag magsiksikan sa ilalim ng mga kanyon.");
+
+            // ---------------------------------------------------------------- #43 Tactician's Command
+            Add(TextKey.CmdTitle, "Tactician's Command", "Utos ng Taktiko");
+            Add(TextKey.CmdPrompt, "A right answer earns one command. Choose:", "May isang utos ang tamang sagot. Pumili:");
+            Add(TextKey.CmdHeal, "Heal +{0}%", "Lunas +{0}%");
+            Add(TextKey.CmdHealHint, "Every ally regains {0}% of their health.", "Babawi ng {0}% ng buhay ang bawat kakampi.");
+            Add(TextKey.CmdAttack, "Attack +{0}% for {1} turn", "Atake +{0}% sa {1} yugto");
+            Add(TextKey.CmdAttackHint, "Every ally strikes harder this turn.", "Mas malakas ang tama ng bawat kakampi ngayong yugto.");
+            Add(TextKey.CmdReset, "Reset enemy positions", "Ibalik ang puwesto ng kaaway");
+            Add(TextKey.CmdResetHint, "The Spanish fall back to where they started.", "Aatras ang mga Kastila sa kanilang pinagmulan.");
+            Add(TextKey.CmdRevive, "Revive 1 fallen unit", "Buhayin ang 1 nagaping kawal");
+            Add(TextKey.CmdReviveHint, "The last to fall returns at half health.", "Babalik ang huling nagapi na may kalahating buhay.");
+            Add(TextKey.CmdReviveNone, "No one has fallen yet.", "Wala pang nagagapi.");
+            Add(TextKey.CmdIssued, "Command given: {0}", "Naibigay ang utos: {0}");
+            Add(TextKey.LogCmdHeal, "Tactician's Command: every ally is tended.", "Utos ng Taktiko: ginamot ang bawat kakampi.");
+            Add(TextKey.LogCmdAttack, "Tactician's Command: the line presses the attack.", "Utos ng Taktiko: dumiin ang salakay ng hanay.");
+            Add(TextKey.LogCmdReset, "Tactician's Command: the Spanish are driven back.", "Utos ng Taktiko: naitaboy pabalik ang mga Kastila.");
+            Add(TextKey.LogCmdRevive, "{0} rises to fight again.", "Muling bumangon ang {0} upang lumaban.");
+            Add(TextKey.PopupAttack, "ATK +{0}%", "ATAKE +{0}%");
+
+            // ---------------------------------------------------------------- #19 / #20 Kapatiran ranks and lore
+            Add(TextKey.BondTitle, "Kapatiran Bond", "Buklod ng Kapatiran");
+            Add(TextKey.BondRankStep, "Rank {0}  ▸  Rank {1}", "Ranggo {0}  ▸  Ranggo {1}");
+            Add(TextKey.BondNoBonus, "Rank C opens their story. Stat bonuses begin at rank B.", "Binubuksan ng Ranggo C ang kanilang kuwento. Sa Ranggo B nagsisimula ang dagdag na lakas.");
+            Add(TextKey.BondBonus, "Side by side in battle: {0}", "Kapag magkatabi sa labanan: {0}");
+            Add(TextKey.BondLoreUnlocked, "Lore unlocked: {0}", "Nabuksan ang salaysay: {0}");
+            Add(TextKey.BondListen, "Listen", "Makinig");
+            Add(TextKey.BondNoBonusShort, "no bonus yet", "wala pang dagdag");
+            Add(TextKey.TrnBondRanked, "Bond: {0} · rank {1} · {2}", "Kabuklod: {0} · ranggo {1} · {2}");
+            Add(TextKey.LoreTitle, "Kapatiran Lore", "Salaysay ng Kapatiran");
+            Add(TextKey.LoreButton, "Lore", "Salaysay");
+            Add(TextKey.LoreLocked, "Fight side by side to reach rank C.", "Lumaban nang magkatabi upang maabot ang Ranggo C.");
+            Add(TextKey.LoreSupport, "Rank {0} · support {1} / {2}", "Ranggo {0} · suporta {1} / {2}");
+            Add(TextKey.LoreNew, "NEW", "BAGO");
+            Add(TextKey.LoreClose, "Close", "Isara");
         }
 
         /// <summary>The text for a key, falling back to English and then to the key's name.</summary>
