@@ -600,6 +600,13 @@ namespace BinakayanRising.Core.Localization
             Add(TextKey.InvOnlyFor, "Only the {0} can use it", "Ang {0} lamang ang makagagamit nito");
             Add(TextKey.InvNoReforge, "It cannot be reforged into anything else.", "Hindi na ito maipapanday bilang ibang sandata.");
             Add(TextKey.InvRefused, "{0} cannot use the {1}.", "Hindi magagamit ni {0} ang {1}.");
+
+            // ---------------------------------------------------------------- exchange stepper
+            Add(TextKey.ExLotsOne, "1 lot", "1 lote");
+            Add(TextKey.ExLots, "{0} lots", "{0} lote");
+            Add(TextKey.ExMax, "Max", "Lahat");
+            Add(TextKey.ExSell, "Sell", "Ibenta");
+            Add(TextKey.ExPreview, "{0} {1}  ▸  {2} Reales", "{0} {1}  ▸  {2} Reales");
         }
 
         /// <summary>The text for a key, falling back to English and then to the key's name.</summary>

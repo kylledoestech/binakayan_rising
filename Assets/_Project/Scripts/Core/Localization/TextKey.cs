@@ -378,6 +378,13 @@ namespace BinakayanRising.Core.Localization
         InvNoReforge,
         InvRefused,
 
+        // Exchange stepper: choose how many lots, then sell them in one trade.
+        ExLotsOne,
+        ExLots,
+        ExMax,
+        ExSell,
+        ExPreview,
+
         Count
     }
 }

@@ -226,9 +226,16 @@ namespace BinakayanRising.UI.Shell
             yield return Shot("p2_11_mine_full");
             ClickIn("Tab 2");
             yield return Shot("p2_12_exchange");
-            ClickIn("Button Sell All Rations");
+
+            // The stepper at three lots, then one trade for all three.
+            Shell.Session.Game.Earn(Currency.Rations, 30);
+            Exchange().SetLots(Currency.Rations, 3);
+            yield return Shot("p2_12b_exchange_3_lots");
+            ClickIn("Button Sell Rations");
             yield return Shot("p2_13_exchange_sold");
             MeasureToastClear();
+            ClickIn("Button Lots Max Scrap");
+            yield return Shot("p2_13b_exchange_max_scrap");
             ClickIn("Button Back To Camp");
             yield return Wait(0.4f);
 
@@ -245,6 +252,8 @@ namespace BinakayanRising.UI.Shell
             Shell.Camp.ClickSite(Places.Library);
             yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
             yield return Shot("p2_17_coming_soon");
+            LibraryPanel.Current?.Close();
+            yield return Wait(0.4f);
 
             UserPrefs.ChooseLanguage(Language.Filipino);
             Shell.Camp.ForceHover(Places.Exchange, null);
@@ -259,6 +268,10 @@ namespace BinakayanRising.UI.Shell
             yield return Shot("p2_20_miner_fil");
             Hub().Dialogue.Finish();
             yield return Shot("p2_21_mine_fil");
+            Shell.Session.Game.Earn(Currency.Rations, 30);
+            ClickIn("Tab 2");
+            Exchange().SetLots(Currency.Rations, 3);
+            yield return Shot("p2_21b_exchange_3_lots_fil");
             ClickIn("Button Back To Camp");
             yield return Wait(0.4f);
             Shell.Camp.ClickSite(Places.Armory);
@@ -1459,6 +1472,11 @@ namespace BinakayanRising.UI.Shell
         private TrainingScreen Training()
         {
             return Shell.Router.Get<TrainingScreen>(Gameplay.Flow.GameState.RosterTraining);
+        }
+
+        private ResourceScreen Exchange()
+        {
+            return Shell.Router.Get<ResourceScreen>(Gameplay.Flow.GameState.ResourceManagement);
         }
 
         private EncampmentScreen Hub()

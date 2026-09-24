@@ -164,6 +164,36 @@ namespace BinakayanRising.Tests.Meta
             Assert.AreEqual(0, game.Exchange(Currency.Reales, 1), "Reales cannot be sold for Reales");
         }
 
+        [Test]
+        public void TheExchangeStepperStaysBetweenOneLotAndWhatThePurseCanSell()
+        {
+            ExchangeRate rate = rules.RateFor(Currency.Rations);
+            game.Data.rations = rate.LotSize * 4 + 7;
+
+            Assert.AreEqual(1, game.ClampLots(Currency.Rations, 0));
+            Assert.AreEqual(1, game.ClampLots(Currency.Rations, -3));
+            Assert.AreEqual(3, game.ClampLots(Currency.Rations, 3));
+            Assert.AreEqual(4, game.ClampLots(Currency.Rations, 99), "MAX is every whole lot");
+
+            game.Data.rations = rate.LotSize - 1;
+            Assert.AreEqual(1, game.ClampLots(Currency.Rations, 5), "never zero, even when nothing can be sold");
+        }
+
+        [Test]
+        public void SellingSeveralLotsIsOneTradeAndOneChange()
+        {
+            ExchangeRate rate = rules.RateFor(Currency.Rations);
+            game.Data.rations = rate.LotSize * 3;
+            int reales = game.Balance(Currency.Reales);
+            int changes = 0;
+            game.Changed += () => changes++;
+
+            Assert.AreEqual(rate.RealesPerLot * 3, game.Exchange(Currency.Rations, 3));
+            Assert.AreEqual(1, changes);
+            Assert.AreEqual(0, game.Balance(Currency.Rations));
+            Assert.AreEqual(reales + rate.RealesPerLot * 3, game.Balance(Currency.Reales));
+        }
+
         // ------------------------------------------------------------------ training
 
         [Test]

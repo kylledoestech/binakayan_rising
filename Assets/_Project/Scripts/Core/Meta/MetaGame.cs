@@ -303,7 +303,20 @@ namespace BinakayanRising.Core.Meta
             return rate == null ? 0 : Balance(goods) / rate.LotSize;
         }
 
-        /// <summary>Sells <paramref name="lots"/> lots of <paramref name="goods"/> for Reales.</summary>
+        /// <summary>
+        /// The Exchange stepper's count, kept between one lot and as many as the purse can sell.
+        /// Stays at one when not even a lot can be sold, so the stepper never reads zero.
+        /// </summary>
+        public int ClampLots(Currency goods, int lots)
+        {
+            int most = SellableLots(goods);
+            return lots < 1 ? 1 : (lots > most ? (most < 1 ? 1 : most) : lots);
+        }
+
+        /// <summary>
+        /// Sells <paramref name="lots"/> lots of <paramref name="goods"/> for Reales, all in one
+        /// trade: one purse change, one <see cref="Changed"/>.
+        /// </summary>
         /// <returns>Reales received, or 0 when the trade was refused.</returns>
         public int Exchange(Currency goods, int lots)
         {

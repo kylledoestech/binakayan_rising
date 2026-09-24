@@ -17,7 +17,9 @@ namespace BinakayanRising.UI.Shell
     /// This is the panel's "harvest purpose — conversion to coins": the two producing buildings
     /// fill a store over real time, and the Exchange turns what they make into the coin that
     /// recruits and drills soldiers. Every number shown comes from <see cref="MetaRules"/>, so
-    /// tuning a rate changes the screen and nothing else.
+    /// tuning a rate changes the screen and nothing else. Each Exchange line has a stepper — a
+    /// count of lots from one to all the purse holds, a Max button and a preview of the trade —
+    /// and one Sell button that makes the whole trade at once.
     /// </remarks>
     public sealed class ResourceScreen : CampPanelScreen
     {
@@ -25,6 +27,9 @@ namespace BinakayanRising.UI.Shell
         private const int MineTab = 1;
         private const int ExchangeTab = 2;
         private const float KeeperWidth = 360f;
+
+        /// <summary>The stepper row: 48 + 96 + 48 + 92 and three gaps of 8.</summary>
+        private const float ControlsWidth = 308f;
 
         private static readonly string[] TabPlaces = { Places.Farm, Places.Mine, Places.Exchange };
         private static readonly Currency[] Goods = { Currency.Rations, Currency.Scrap };
@@ -44,8 +49,15 @@ namespace BinakayanRising.UI.Shell
 
         private readonly TextMeshProUGUI[] lotLabels = new TextMeshProUGUI[2];
         private readonly TextMeshProUGUI[] haveLabels = new TextMeshProUGUI[2];
-        private readonly Button[] sellOne = new Button[2];
-        private readonly Button[] sellAll = new Button[2];
+        private readonly TextMeshProUGUI[] previewLabels = new TextMeshProUGUI[2];
+        private readonly TextMeshProUGUI[] lotCounts = new TextMeshProUGUI[2];
+        private readonly Button[] fewer = new Button[2];
+        private readonly Button[] more = new Button[2];
+        private readonly Button[] most = new Button[2];
+        private readonly Button[] sell = new Button[2];
+
+        /// <summary>The stepper's count per line, before clamping to what the purse holds.</summary>
+        private readonly int[] lots = { 1, 1 };
 
         private int shownStored = -1;
         private int shownNext = -1;
@@ -167,12 +179,31 @@ namespace BinakayanRising.UI.Shell
                 UiLayout.OneLine(haveLabels[i], Theme.Type.Body);
                 UiLayout.Fix(haveLabels[i].rectTransform, 0f, 28f);
 
-                RectTransform buttons = UiKit.Column(row, "Buttons", Theme.Space.Tight, 0f, TextAnchor.MiddleRight);
-                UiLayout.Fix(buttons, 230f, 112f);
-                sellOne[i] = UiKit.SealButton(buttons, TextKey.ExSellOne, () => Sell(goods, false), 230f, 52f, Theme.Type.Body, "Button Sell One " + goods);
-                UiLayout.Fix((RectTransform)sellOne[i].transform, 230f, 52f);
-                sellAll[i] = UiKit.SealButton(buttons, TextKey.ExSellAll, () => Sell(goods, true), 230f, 52f, Theme.Type.Body, "Button Sell All " + goods);
-                UiLayout.Fix((RectTransform)sellAll[i].transform, 230f, 52f);
+                previewLabels[i] = UiKit.Body(text, string.Empty, Theme.Type.Body + 2f, TextAlignmentOptions.Left);
+                previewLabels[i].fontStyle = FontStyles.Bold;
+                UiLayout.OneLine(previewLabels[i], Theme.Type.Body + 2f);
+                UiLayout.Fix(previewLabels[i].rectTransform, 0f, 30f);
+
+                // [-] N lots [+] [Max] over one wide Sell.
+                int line = i;
+                RectTransform controls = UiKit.Column(row, "Controls", Theme.Space.Tight, 0f, TextAnchor.MiddleRight);
+                UiLayout.Fix(controls, ControlsWidth, 112f);
+
+                RectTransform stepper = UiKit.Row(controls, "Stepper", Theme.Space.Tight, 0f, TextAnchor.MiddleLeft);
+                UiLayout.Fix(stepper, ControlsWidth, 52f);
+                fewer[i] = UiKit.SealButton(stepper, "–", () => Step(line, -1), 48f, 48f, Theme.Type.Heading, "Button Lots Fewer " + goods);
+                UiLayout.Fix((RectTransform)fewer[i].transform, 48f, 48f);
+                lotCounts[i] = UiKit.Body(stepper, string.Empty, Theme.Type.Body + 2f, TextAlignmentOptions.Center);
+                lotCounts[i].fontStyle = FontStyles.Bold;
+                UiLayout.OneLine(lotCounts[i], Theme.Type.Body + 2f);
+                UiLayout.Fix(lotCounts[i].rectTransform, 96f, 48f);
+                more[i] = UiKit.SealButton(stepper, "+", () => Step(line, 1), 48f, 48f, Theme.Type.Heading, "Button Lots More " + goods);
+                UiLayout.Fix((RectTransform)more[i].transform, 48f, 48f);
+                most[i] = UiKit.SealButton(stepper, TextKey.ExMax, () => Max(line), 92f, 48f, Theme.Type.Body, "Button Lots Max " + goods);
+                UiLayout.Fix((RectTransform)most[i].transform, 92f, 48f);
+
+                sell[i] = UiKit.SealButton(controls, TextKey.ExSell, () => Sell(line), ControlsWidth, 52f, Theme.Type.Body, "Button Sell " + goods);
+                UiLayout.Fix((RectTransform)sell[i].transform, ControlsWidth, 52f);
             }
 
             return column;
@@ -276,14 +307,26 @@ namespace BinakayanRising.UI.Shell
             {
                 ExchangeRate rate = game.Rules.RateFor(Goods[i]);
                 int have = game.Balance(Goods[i]);
-                int lots = game.SellableLots(Goods[i]);
+                int sellable = game.SellableLots(Goods[i]);
                 string goodsName = CurrencyName(Goods[i]);
 
+                bool can = sellable > 0;
+                int count = game.ClampLots(Goods[i], lots[i]);
+                lots[i] = count;
+
                 lotLabels[i].text = rate != null ? Loc.Format(TextKey.ExLot, rate.LotSize, goodsName, rate.RealesPerLot) : goodsName;
-                haveLabels[i].text = Loc.Format(TextKey.ExHave, have + " " + goodsName)
-                    + (lots > 0 ? string.Empty : "   " + Loc.Get(TextKey.ExShort));
-                sellOne[i].interactable = lots > 0;
-                sellAll[i].interactable = lots > 0;
+                haveLabels[i].text = Loc.Format(TextKey.ExHave, have + " " + goodsName);
+                lotCounts[i].text = count == 1 ? Loc.Get(TextKey.ExLotsOne) : Loc.Format(TextKey.ExLots, count);
+                lotCounts[i].color = can ? Theme.Ink : Theme.InkSoft;
+                previewLabels[i].text = can && rate != null
+                    ? Loc.Format(TextKey.ExPreview, count * rate.LotSize, goodsName, count * rate.RealesPerLot)
+                    : Loc.Get(TextKey.ExShort);
+                previewLabels[i].color = can ? Theme.Revolution : Theme.Danger;
+
+                fewer[i].interactable = can && count > 1;
+                more[i].interactable = can && count < sellable;
+                most[i].interactable = can && count < sellable;
+                sell[i].interactable = can;
             }
         }
 
@@ -321,15 +364,38 @@ namespace BinakayanRising.UI.Shell
             shownStored = -1;
         }
 
-        private void Sell(Currency goods, bool everything)
+        private void Step(int line, int by)
         {
             if (Game == null)
             {
                 return;
             }
 
-            int lots = everything ? Game.SellableLots(goods) : 1;
-            int reales = Game.Exchange(goods, lots);
+            lots[line] = Game.ClampLots(Goods[line], lots[line] + by);
+            UiSfx.Play(UiSfx.Cue.Toggle);
+        }
+
+        private void Max(int line)
+        {
+            if (Game == null)
+            {
+                return;
+            }
+
+            lots[line] = Game.ClampLots(Goods[line], int.MaxValue);
+            UiSfx.Play(UiSfx.Cue.Toggle);
+        }
+
+        /// <summary>Sells the stepper's count in one trade, then sets the stepper back to one lot.</summary>
+        private void Sell(int line)
+        {
+            if (Game == null)
+            {
+                return;
+            }
+
+            Currency goods = Goods[line];
+            int reales = Game.Exchange(goods, Game.ClampLots(goods, lots[line]));
             if (reales <= 0)
             {
                 UiSfx.Play(UiSfx.Cue.Error);
@@ -337,8 +403,19 @@ namespace BinakayanRising.UI.Shell
                 return;
             }
 
+            lots[line] = 1;
             UiSfx.Play(UiSfx.Cue.Confirm);
             UiControls.Toast(Loc.Format(TextKey.ExSold, reales));
+        }
+
+        /// <summary>Sets a line's stepper, clamped. For the screenshot autopilot.</summary>
+        public void SetLots(Currency goods, int count)
+        {
+            int line = System.Array.IndexOf(Goods, goods);
+            if (line >= 0 && Game != null)
+            {
+                lots[line] = Game.ClampLots(goods, count);
+            }
         }
     }
 }
