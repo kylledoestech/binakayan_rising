@@ -111,6 +111,10 @@ namespace BinakayanRising.UI.Shell
                     yield return Roster();
                     break;
 
+                case "bench":
+                    yield return Bench();
+                    break;
+
                 default:
                     yield return Phase1();
                     break;
@@ -1202,6 +1206,53 @@ namespace BinakayanRising.UI.Shell
             yield return DrainPromotions(prefix);
             yield return DrainRankCards();
             yield return Wait(0.5f);
+        }
+
+        /// <summary>
+        /// The frame-rate benchmark (#52): q10, the largest battle, played start to finish at normal
+        /// speed. Run with <c>-brFps</c> (<c>Tools/qa/fps.sh</c>) so <see cref="QaProbes"/> records it.
+        /// </summary>
+        private IEnumerator Bench()
+        {
+            Shell.Session.DeleteSave();
+            Shell.StartNewCampaign();
+            yield return Wait(0.6f);
+            MetaGame game = Shell.Session.Game;
+            game.Earn(Currency.Rations, 200);
+            foreach (string id in new[] { "q01", "q02", "q03", "q04", "q05", "q06", "q07", "q08", "q09" })
+            {
+                game.Data.clearedQuests.Add(id);
+            }
+
+            Hub().Dialogue.Finish();
+            yield return DrainRankCards();
+            yield return OpenMissionTent();
+            Shell.LaunchQuest(Campaign.Find("q10"));
+            yield return Wait(0.5f);
+            CutscenePlayer.Current?.Skip();
+            yield return WaitWhile(() => Shell.Battle == null, 4f);
+            yield return Wait(1f);
+            Gameplay.BattlePlaytest battle = Shell.Battle;
+            if (battle == null)
+            {
+                Note("bench", "the q10 battle did not open");
+                yield break;
+            }
+
+            battle.RequestAutoDeploy();
+            yield return Wait(0.5f);
+            battle.RequestAssault();
+            battle.SetSpeed(1f);
+            float waited = 0f;
+            while (Shell.Battle != null && Shell.Battle.CurrentPhase != Gameplay.BattlePlaytest.Phase.Finished && waited < 400f)
+            {
+                AnswerQuiz();
+                yield return Wait(0.5f);
+                waited += 0.5f;
+            }
+
+            audit.AppendFormat("\n-- bench: battle ran {0:0} s\n", waited);
+            yield return Shot("bench_end", 1f);
         }
 
         /// <summary>Answers and closes an open battle question, if one is up.</summary>
