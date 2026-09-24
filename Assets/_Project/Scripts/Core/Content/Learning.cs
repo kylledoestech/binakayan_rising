@@ -23,11 +23,45 @@ namespace BinakayanRising.Core.Content
         }
     }
 
+    /// <summary>How hard a <see cref="Question"/> is for a first-time player.</summary>
+    public enum QuestionDifficulty
+    {
+        /// <summary>Stated plainly in the lesson or obvious from play.</summary>
+        Easy,
+
+        /// <summary>A specific date, place or rule the player has to have read.</summary>
+        Medium,
+
+        /// <summary>A detail easily confused with another (Magdalo/Magdiwang), or a reasoned why.</summary>
+        Hard
+    }
+
+    /// <summary>What a <see cref="Question"/> is about, for filtering and the level-test breakdown.</summary>
+    public enum QuestionCategory
+    {
+        /// <summary>People: Evangelista, Bonifacio, Blanco.</summary>
+        Figures,
+
+        /// <summary>Dates and the course of the revolution and the battle.</summary>
+        Events,
+
+        /// <summary>Provinces, towns and terrain of Cavite.</summary>
+        Places,
+
+        /// <summary>The Katipunan: its councils, members, oaths and secrecy.</summary>
+        Society,
+
+        /// <summary>Fieldcraft and the game rules that model it: trenches, supply, Kapatiran.</summary>
+        Tactics
+    }
+
     /// <summary>A multiple-choice question, asked mid-battle and in the Library's level tests.</summary>
     public sealed class Question
     {
         public readonly string Id;
         public readonly int Level;
+        public readonly QuestionDifficulty Difficulty;
+        public readonly QuestionCategory Category;
         public readonly LocString Text;
 
         /// <summary>Always four choices.</summary>
@@ -39,10 +73,13 @@ namespace BinakayanRising.Core.Content
         /// <summary>Shown after the player answers, right or wrong.</summary>
         public readonly LocString Explanation;
 
-        public Question(string id, int level, LocString text, LocString[] choices, int answer, LocString explanation)
+        public Question(string id, int level, QuestionDifficulty difficulty, QuestionCategory category,
+            LocString text, LocString[] choices, int answer, LocString explanation)
         {
             Id = id;
             Level = level;
+            Difficulty = difficulty;
+            Category = category;
             Text = text;
             Choices = choices;
             Answer = answer;
@@ -126,98 +163,98 @@ namespace BinakayanRising.Core.Content
         private static readonly List<Question> questions = new List<Question>
         {
             // ---------------------------------------------------------------- Level 1
-            Q("k1_01", 1, "Where did Edilberto Evangelista study engineering?", "Saan nag-aral ng inhinyeriya si Edilberto Evangelista?",
+            Q("k1_01", 1, QuestionDifficulty.Medium, QuestionCategory.Figures, "Where did Edilberto Evangelista study engineering?", "Saan nag-aral ng inhinyeriya si Edilberto Evangelista?",
                 C("Madrid, Spain", "Madrid, Espanya"), C("Ghent, Belgium", "Ghent, Belhika"), C("Hong Kong", "Hong Kong"), C("Manila", "Maynila"), 1,
                 "He studied civil engineering at the University of Ghent.", "Nag-aral siya ng inhinyeriyang sibil sa Unibersidad ng Ghent."),
-            Q("k1_02", 1, "What did Evangelista study?", "Ano ang pinag-aralan ni Evangelista?",
+            Q("k1_02", 1, QuestionDifficulty.Easy, QuestionCategory.Figures, "What did Evangelista study?", "Ano ang pinag-aralan ni Evangelista?",
                 C("Medicine", "Medisina"), C("Law", "Batas"), C("Civil engineering", "Inhinyeriyang sibil"), C("Painting", "Pagpipinta"), 2,
                 "He was a civil engineer, which is why he could design trenches and earthworks.", "Inhinyerong sibil siya, kaya nakapagdisenyo siya ng trinsera at muog."),
-            Q("k1_03", 1, "Who founded the Katipunan?", "Sino ang nagtatag ng Katipunan?",
+            Q("k1_03", 1, QuestionDifficulty.Easy, QuestionCategory.Figures, "Who founded the Katipunan?", "Sino ang nagtatag ng Katipunan?",
                 C("Andrés Bonifacio", "Andrés Bonifacio"), C("Emilio Aguinaldo", "Emilio Aguinaldo"), C("José Rizal", "José Rizal"), C("Antonio Luna", "Antonio Luna"), 0,
                 "Andrés Bonifacio founded the Katipunan in 1892.", "Itinatag ni Andrés Bonifacio ang Katipunan noong 1892."),
-            Q("k1_04", 1, "In what year was the Katipunan founded?", "Anong taon itinatag ang Katipunan?",
+            Q("k1_04", 1, QuestionDifficulty.Medium, QuestionCategory.Events, "In what year was the Katipunan founded?", "Anong taon itinatag ang Katipunan?",
                 C("1872", "1872"), C("1892", "1892"), C("1896", "1896"), C("1898", "1898"), 1,
                 "It was founded in 1892; the revolution began in 1896.", "Itinatag ito noong 1892; nagsimula ang himagsikan noong 1896."),
-            Q("k1_05", 1, "When did the Katipunan's revolution begin?", "Kailan nagsimula ang himagsikan ng Katipunan?",
+            Q("k1_05", 1, QuestionDifficulty.Medium, QuestionCategory.Events, "When did the Katipunan's revolution begin?", "Kailan nagsimula ang himagsikan ng Katipunan?",
                 C("August 1896", "Agosto 1896"), C("June 1898", "Hunyo 1898"), C("December 1896", "Disyembre 1896"), C("January 1872", "Enero 1872"), 0,
                 "The revolution broke out in August 1896.", "Sumiklab ang himagsikan noong Agosto 1896."),
-            Q("k1_06", 1, "Why did early charges across open fields fail?", "Bakit nabigo ang mga unang pagsugod sa bukas na parang?",
+            Q("k1_06", 1, QuestionDifficulty.Easy, QuestionCategory.Tactics, "Why did early charges across open fields fail?", "Bakit nabigo ang mga unang pagsugod sa bukas na parang?",
                 C("The fighters were cowards", "Duwag ang mga mandirigma"), C("It rained too much", "Masyadong umulan"), C("There was no cover from rifles and artillery", "Walang masisilungan mula sa riple at kanyon"), C("They had too many soldiers", "Sobra ang kanilang sundalo"), 2,
                 "Courage alone could not stop modern firepower; cover and planning could.", "Hindi kayang pigilan ng tapang lamang ang makabagong armas; kaya ito ng silungan at pagpaplano."),
-            Q("k1_07", 1, "Which Katipunan council was based in Kawit?", "Aling sanggunian ng Katipunan ang nakabase sa Kawit?",
+            Q("k1_07", 1, QuestionDifficulty.Hard, QuestionCategory.Society, "Which Katipunan council was based in Kawit?", "Aling sanggunian ng Katipunan ang nakabase sa Kawit?",
                 C("Magdiwang", "Magdiwang"), C("Magdalo", "Magdalo"), C("Balintawak", "Balintawak"), C("La Liga", "La Liga"), 1,
                 "The Magdalo was based in Kawit; the Magdiwang in Noveleta.", "Nakabase sa Kawit ang Magdalo; sa Noveleta ang Magdiwang."),
-            Q("k1_08", 1, "Who made up most of the revolutionary army?", "Sino ang bumubuo sa karamihan ng hukbong rebolusyonaryo?",
+            Q("k1_08", 1, QuestionDifficulty.Easy, QuestionCategory.Society, "Who made up most of the revolutionary army?", "Sino ang bumubuo sa karamihan ng hukbong rebolusyonaryo?",
                 C("Foreign soldiers", "Mga dayuhang sundalo"), C("Only rich landowners", "Mga mayamang may-lupa lamang"), C("Ordinary people: farmers, teachers, workers", "Karaniwang tao: magsasaka, guro, manggagawa"), C("Spanish deserters only", "Mga tumalikod na Kastila lamang"), 2,
                 "It was a people's army of ordinary Filipinos.", "Hukbo ito ng bayan, ng mga karaniwang Pilipino."),
-            Q("k1_09", 1, "Why does an army need logistics?", "Bakit kailangan ng hukbo ang lohistika?",
+            Q("k1_09", 1, QuestionDifficulty.Easy, QuestionCategory.Tactics, "Why does an army need logistics?", "Bakit kailangan ng hukbo ang lohistika?",
                 C("To feed and supply soldiers so they can keep fighting", "Upang pakainin at tustusan ang sundalo para patuloy na lumaban"), C("To write letters home", "Upang sumulat ng liham pauwi"), C("To choose uniforms", "Upang pumili ng uniporme"), C("It does not need it", "Hindi nito kailangan"), 0,
                 "Food, iron and powder decide how long an army can fight.", "Ang pagkain, bakal at pulbura ang nagpapasya kung gaano katagal makalalaban ang hukbo."),
-            Q("k1_10", 1, "In what province did the Battle of Binakayan-Dalahican take place?", "Sa anong lalawigan naganap ang Labanan sa Binakayan-Dalahican?",
+            Q("k1_10", 1, QuestionDifficulty.Easy, QuestionCategory.Places, "In what province did the Battle of Binakayan-Dalahican take place?", "Sa anong lalawigan naganap ang Labanan sa Binakayan-Dalahican?",
                 C("Manila", "Maynila"), C("Bulacan", "Bulakan"), C("Laguna", "Laguna"), C("Cavite", "Kabite"), 3,
                 "Binakayan is in Kawit and Dalahican is in Noveleta, both in Cavite.", "Nasa Kawit ang Binakayan at nasa Noveleta ang Dalahican, kapwa sa Kabite."),
 
             // ---------------------------------------------------------------- Level 2
-            Q("k2_01", 2, "Who was the primary engineer of the trench networks in Cavite?", "Sino ang pangunahing inhinyero ng mga trinsera sa Kabite?",
+            Q("k2_01", 2, QuestionDifficulty.Easy, QuestionCategory.Figures, "Who was the primary engineer of the trench networks in Cavite?", "Sino ang pangunahing inhinyero ng mga trinsera sa Kabite?",
                 C("Andrés Bonifacio", "Andrés Bonifacio"), C("Emilio Aguinaldo", "Emilio Aguinaldo"), C("Edilberto Evangelista", "Edilberto Evangelista"), C("Antonio Luna", "Antonio Luna"), 2,
                 "Edilberto Evangelista designed the trenches and earthworks.", "Si Edilberto Evangelista ang nagdisenyo ng mga trinsera at muog."),
-            Q("k2_02", 2, "What does \"Kapatiran\" mean?", "Ano ang ibig sabihin ng \"Kapatiran\"?",
+            Q("k2_02", 2, QuestionDifficulty.Easy, QuestionCategory.Society, "What does \"Kapatiran\" mean?", "Ano ang ibig sabihin ng \"Kapatiran\"?",
                 C("Victory", "Tagumpay"), C("Brotherhood", "Pagkakapatiran"), C("Trench", "Trinsera"), C("Harvest", "Ani"), 1,
                 "Katipuneros swore to treat each other as brothers.", "Nanumpa ang mga Katipunero na ituring ang isa't isa bilang magkapatid."),
-            Q("k2_03", 2, "What does a trench protect soldiers from?", "Mula saan pinoprotektahan ng trinsera ang sundalo?",
+            Q("k2_03", 2, QuestionDifficulty.Easy, QuestionCategory.Tactics, "What does a trench protect soldiers from?", "Mula saan pinoprotektahan ng trinsera ang sundalo?",
                 C("Rifle fire and shell fragments", "Bala at pira-piraso ng bomba"), C("Hunger", "Gutom"), C("Rain only", "Ulan lamang"), C("Disease", "Sakit"), 0,
                 "Earth stops bullets and fragments that open ground cannot.", "Pinipigilan ng lupa ang bala at pira-pirasong hindi kaya ng bukas na lupa."),
-            Q("k2_04", 2, "In the game, what does a trench tile give a unit?", "Sa laro, ano ang ibinibigay ng trinsera sa yunit?",
+            Q("k2_04", 2, QuestionDifficulty.Medium, QuestionCategory.Tactics, "In the game, what does a trench tile give a unit?", "Sa laro, ano ang ibinibigay ng trinsera sa yunit?",
                 C("+20% Defense, +15% Evasion", "+20% Depensa, +15% Iwas"), C("+50% Attack", "+50% Atake"), C("Extra Rations", "Dagdag na Rasyon"), C("Nothing", "Wala"), 0,
                 "Table 2: Evangelista's Trench, +20% Defense and +15% Evasion.", "Talahanayan 2: Trinsera ni Evangelista, +20% Depensa at +15% Iwas."),
-            Q("k2_05", 2, "What material was used for the sharp barricades?", "Anong materyales ang ginamit sa matutulis na harang?",
+            Q("k2_05", 2, QuestionDifficulty.Medium, QuestionCategory.Tactics, "What material was used for the sharp barricades?", "Anong materyales ang ginamit sa matutulis na harang?",
                 C("Steel", "Bakal"), C("Bamboo", "Kawayan"), C("Glass", "Salamin"), C("Brick", "Ladrilyo"), 1,
                 "Bamboo was plentiful and made strong, sharp barricades.", "Sagana ang kawayan at nakagagawa ng matibay at matulis na harang."),
-            Q("k2_06", 2, "Which Katipunan council was based in Noveleta?", "Aling sanggunian ng Katipunan ang nakabase sa Noveleta?",
+            Q("k2_06", 2, QuestionDifficulty.Hard, QuestionCategory.Society, "Which Katipunan council was based in Noveleta?", "Aling sanggunian ng Katipunan ang nakabase sa Noveleta?",
                 C("Magdalo", "Magdalo"), C("Magdiwang", "Magdiwang"), C("Tejeros", "Tejeros"), C("Biak-na-Bato", "Biak-na-Bato"), 1,
                 "The Magdiwang was based in Noveleta, near Dalahican.", "Nakabase sa Noveleta, malapit sa Dalahican, ang Magdiwang."),
-            Q("k2_07", 2, "Why did the Katipunan use codes and passwords?", "Bakit gumamit ang Katipunan ng kodigo at hudyat?",
+            Q("k2_07", 2, QuestionDifficulty.Medium, QuestionCategory.Society, "Why did the Katipunan use codes and passwords?", "Bakit gumamit ang Katipunan ng kodigo at hudyat?",
                 C("For fun", "Para sa kasiyahan"), C("To protect members from the colonial government", "Upang ipagtanggol ang mga kasapi mula sa pamahalaang kolonyal"), C("To trade goods", "Upang makipagkalakalan"), C("To count soldiers", "Upang bilangin ang sundalo"), 1,
                 "It began as a secret society; discovery meant arrest.", "Nagsimula ito bilang lihim na samahan; ang pagkabunyag ay nangangahulugang pagdakip."),
-            Q("k2_08", 2, "Why is scouting important before a battle?", "Bakit mahalaga ang pagmamanman bago ang labanan?",
+            Q("k2_08", 2, QuestionDifficulty.Easy, QuestionCategory.Tactics, "Why is scouting important before a battle?", "Bakit mahalaga ang pagmamanman bago ang labanan?",
                 C("It shows where the enemy is and how to prepare", "Ipinapakita nito kung nasaan ang kaaway at paano maghanda"), C("It is not important", "Hindi ito mahalaga"), C("It makes the battle shorter", "Pinaiikli nito ang labanan"), C("It feeds the army", "Pinakakain nito ang hukbo"), 0,
                 "Knowing the enemy's movements lets you place your defenses well.", "Ang pagkaalam sa galaw ng kaaway ay tumutulong sa mahusay na pagpuwesto ng depensa."),
-            Q("k2_09", 2, "In the game, what happens when bonded units stand side by side?", "Sa laro, ano ang nangyayari kapag magkatabi ang magkabuklod na yunit?",
+            Q("k2_09", 2, QuestionDifficulty.Medium, QuestionCategory.Tactics, "In the game, what happens when bonded units stand side by side?", "Sa laro, ano ang nangyayari kapag magkatabi ang magkabuklod na yunit?",
                 C("They argue", "Nagtatalo sila"), C("They gain support bonuses", "Nagkakaroon sila ng dagdag na lakas"), C("They lose health", "Nababawasan ang kanilang buhay"), C("Nothing", "Wala"), 1,
                 "Kapatiran support bonuses reward keeping trusted comrades together.", "Ginagantimpalaan ng Kapatiran ang pagsasama ng magkakatiwalang kasama."),
-            Q("k2_10", 2, "What was the engineer's main advantage over the Spanish firepower?", "Ano ang pangunahing bentahe ng inhinyero laban sa lakas-putok ng Kastila?",
+            Q("k2_10", 2, QuestionDifficulty.Hard, QuestionCategory.Tactics, "What was the engineer's main advantage over the Spanish firepower?", "Ano ang pangunahing bentahe ng inhinyero laban sa lakas-putok ng Kastila?",
                 C("More cannons", "Mas maraming kanyon"), C("Faster ships", "Mas mabilis na barko"), C("Earthworks that neutralized superior firepower", "Mga muog na nagpawalang-bisa sa nakahihigit na lakas-putok"), C("Bigger uniforms", "Mas malaking uniporme"), 2,
                 "Agoncillo credits the trench networks for neutralizing Spanish firepower.", "Ayon kay Agoncillo, ang mga trinsera ang nagpawalang-bisa sa lakas-putok ng Kastila."),
 
             // ---------------------------------------------------------------- Level 3
-            Q("k3_01", 3, "When did the Battle of Binakayan-Dalahican take place?", "Kailan naganap ang Labanan sa Binakayan-Dalahican?",
+            Q("k3_01", 3, QuestionDifficulty.Medium, QuestionCategory.Events, "When did the Battle of Binakayan-Dalahican take place?", "Kailan naganap ang Labanan sa Binakayan-Dalahican?",
                 C("August 1896", "Agosto 1896"), C("November 9-11, 1896", "Nobyembre 9-11, 1896"), C("June 12, 1898", "Hunyo 12, 1898"), C("December 30, 1896", "Disyembre 30, 1896"), 1,
                 "The battle lasted three days, November 9 to 11, 1896.", "Tatlong araw ang labanan, Nobyembre 9 hanggang 11, 1896."),
-            Q("k3_02", 3, "Who was the Spanish Governor-General who launched the attack on Cavite?", "Sino ang Gobernador-Heneral na Kastila na naglunsad ng salakay sa Kabite?",
+            Q("k3_02", 3, QuestionDifficulty.Hard, QuestionCategory.Figures, "Who was the Spanish Governor-General who launched the attack on Cavite?", "Sino ang Gobernador-Heneral na Kastila na naglunsad ng salakay sa Kabite?",
                 C("Ramón Blanco", "Ramón Blanco"), C("Camilo de Polavieja", "Camilo de Polavieja"), C("Miguel López de Legazpi", "Miguel López de Legazpi"), C("Fernando Primo de Rivera", "Fernando Primo de Rivera"), 0,
                 "Governor-General Ramón Blanco ordered the offensive.", "Si Gobernador-Heneral Ramón Blanco ang nag-utos ng opensiba."),
-            Q("k3_03", 3, "The victory at Binakayan-Dalahican was the first major Filipino victory in which province?", "Ang tagumpay sa Binakayan-Dalahican ay unang malaking tagumpay ng Pilipino sa anong lalawigan?",
+            Q("k3_03", 3, QuestionDifficulty.Easy, QuestionCategory.Places, "The victory at Binakayan-Dalahican was the first major Filipino victory in which province?", "Ang tagumpay sa Binakayan-Dalahican ay unang malaking tagumpay ng Pilipino sa anong lalawigan?",
                 C("Manila", "Maynila"), C("Bulacan", "Bulakan"), C("Laguna", "Laguna"), C("Cavite", "Kabite"), 3,
                 "It was won in Cavite.", "Napagtagumpayan ito sa Kabite."),
-            Q("k3_04", 3, "Binakayan is part of which town?", "Bahagi ng anong bayan ang Binakayan?",
+            Q("k3_04", 3, QuestionDifficulty.Medium, QuestionCategory.Places, "Binakayan is part of which town?", "Bahagi ng anong bayan ang Binakayan?",
                 C("Kawit", "Kawit"), C("Noveleta", "Noveleta"), C("Imus", "Imus"), C("Bacoor", "Bacoor"), 0,
                 "Binakayan is in Kawit; Dalahican is in Noveleta.", "Nasa Kawit ang Binakayan; nasa Noveleta ang Dalahican."),
-            Q("k3_05", 3, "Dalahican is part of which town?", "Bahagi ng anong bayan ang Dalahican?",
+            Q("k3_05", 3, QuestionDifficulty.Medium, QuestionCategory.Places, "Dalahican is part of which town?", "Bahagi ng anong bayan ang Dalahican?",
                 C("Kawit", "Kawit"), C("Noveleta", "Noveleta"), C("Rosario", "Rosario"), C("Silang", "Silang"), 1,
                 "Dalahican is on the shore of Noveleta.", "Nasa baybayin ng Noveleta ang Dalahican."),
-            Q("k3_06", 3, "How did the Spanish attack in this battle?", "Paano sumalakay ang Kastila sa labanang ito?",
+            Q("k3_06", 3, QuestionDifficulty.Medium, QuestionCategory.Events, "How did the Spanish attack in this battle?", "Paano sumalakay ang Kastila sa labanang ito?",
                 C("Only by sea", "Sa dagat lamang"), C("Only from the mountains", "Mula sa bundok lamang"), C("On two fronts at once, by land and sea", "Sa dalawang harapan nang sabay, sa lupa at dagat"), C("They did not attack", "Hindi sila sumalakay"), 2,
                 "It was a simultaneous two-front battle with naval support.", "Sabayang labanan ito sa dalawang harapan na may suporta ng hukbong-dagat."),
-            Q("k3_07", 3, "In the game, what do coastal shallows do to a unit?", "Sa laro, ano ang epekto ng mababaw na baybayin sa yunit?",
+            Q("k3_07", 3, QuestionDifficulty.Hard, QuestionCategory.Tactics, "In the game, what do coastal shallows do to a unit?", "Sa laro, ano ang epekto ng mababaw na baybayin sa yunit?",
                 C("-15% Movement, -10% Defense", "-15% Galaw, -10% Depensa"), C("+20% Attack", "+20% Atake"), C("Full healing", "Buong paggaling"), C("Nothing", "Wala"), 0,
                 "Table 2: water slows soldiers and leaves them exposed.", "Talahanayan 2: pinababagal ng tubig ang sundalo at inilalantad sila."),
-            Q("k3_08", 3, "How many days did the battle last?", "Ilang araw tumagal ang labanan?",
+            Q("k3_08", 3, QuestionDifficulty.Easy, QuestionCategory.Events, "How many days did the battle last?", "Ilang araw tumagal ang labanan?",
                 C("One", "Isa"), C("Two", "Dalawa"), C("Three", "Tatlo"), C("Ten", "Sampu"), 2,
                 "November 9, 10 and 11: three days.", "Nobyembre 9, 10 at 11: tatlong araw."),
-            Q("k3_09", 3, "What was the result of the Spanish offensive?", "Ano ang kinalabasan ng opensiba ng Kastila?",
+            Q("k3_09", 3, QuestionDifficulty.Easy, QuestionCategory.Events, "What was the result of the Spanish offensive?", "Ano ang kinalabasan ng opensiba ng Kastila?",
                 C("It captured all of Cavite", "Nasakop nito ang buong Kabite"), C("It was thrown back", "Naitaboy ito"), C("It never started", "Hindi ito nagsimula"), C("It ended in a treaty", "Nagtapos ito sa kasunduan"), 1,
                 "The defenders held and the Spanish withdrew.", "Nanindigan ang mga tagapagtanggol at umatras ang Kastila."),
-            Q("k3_10", 3, "What does the victory teach about how battles are won?", "Ano ang itinuturo ng tagumpay tungkol sa pagkapanalo sa labanan?",
+            Q("k3_10", 3, QuestionDifficulty.Medium, QuestionCategory.Tactics, "What does the victory teach about how battles are won?", "Ano ang itinuturo ng tagumpay tungkol sa pagkapanalo sa labanan?",
                 C("Only numbers matter", "Bilang lamang ang mahalaga"), C("Planning, engineering and cooperation matter", "Mahalaga ang pagpaplano, inhinyeriya at pagtutulungan"), C("Luck decides everything", "Swerte ang nagpapasya ng lahat"), C("Weapons alone win", "Sandata lamang ang nagpapanalo"), 1,
                 "Trenches, supply and brotherhood beat superior firepower.", "Tinalo ng trinsera, panustos at kapatiran ang nakahihigit na lakas-putok.")
         };
@@ -328,10 +365,10 @@ namespace BinakayanRising.Core.Content
             return new LocString(en, fil);
         }
 
-        private static Question Q(string id, int level, string en, string fil,
+        private static Question Q(string id, int level, QuestionDifficulty difficulty, QuestionCategory category, string en, string fil,
             LocString a, LocString b, LocString c, LocString d, int answer, string whyEn, string whyFil)
         {
-            return new Question(id, level, new LocString(en, fil), new[] { a, b, c, d }, answer, new LocString(whyEn, whyFil));
+            return new Question(id, level, difficulty, category, new LocString(en, fil), new[] { a, b, c, d }, answer, new LocString(whyEn, whyFil));
         }
     }
 }

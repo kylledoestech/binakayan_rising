@@ -17,7 +17,7 @@ code run, the source carries a `// TODO(design): not specified in capstone docum
 To find every open decision in the code:
 
 ```bash
-grep -rn "TODO(design)" binakayan_rising/Assets/_Project/Scripts/
+grep -rn "TODO(design)" Assets/_Project/Scripts/
 ```
 
 ## What the proposal already decided
@@ -53,6 +53,8 @@ The crit multiplier and the minimum damage floor are config fields, not constant
 order of operations before balancing anything, because changing it invalidates every stat value
 tuned under the old order.
 
+*Status: built; needs group sign-off — see [As built](#as-built-sept-2026).*
+
 **2. Base unit statistics.** The proposal names eight stats and supplies no values for any of them:
 MaxHP, AttackDamage, Defense, Evasion, RangedAccuracy, AttackRange, CriticalHitChance,
 MovementSpeed.
@@ -72,6 +74,8 @@ deterministically by unit id so that battles stay reproducible.
 Also undecided: how often a unit re-evaluates its target, and whether it has an aggro radius at
 all or engages across the whole map.
 
+*Status: built; needs group sign-off — see [As built](#as-built-sept-2026).*
+
 **4. Turn versus tick.** The proposal consistently says "AI turn" — terrain regeneration is "per AI
 turn" and a quiz buff lasts "for 1 turn" — but auto-battlers in the stated lineage (Arknights,
 Teamfight Tactics) run in real time.
@@ -81,12 +85,16 @@ makes the system testable. If the team wants real-time presentation, the recomme
 keep the turn-based simulation and have the presentation layer interpolate between turns, rather
 than rewriting the simulation. The event log is designed for exactly this.
 
+*Status: built; needs group sign-off — see [As built](#as-built-sept-2026).*
+
 **5. Grid dimensions and deployment zones.** No grid size, tile size, deployment zone shape, or
 squad size cap appears anywhere in the proposal.
 
 Suggested starting point for the vertical slice: a 12×12 grid with the player's deployment zone
 occupying the rear three rows, and a squad cap of six units. These are guesses chosen to be easy
 to change, not recommendations grounded in the document.
+
+*Status: built; needs group sign-off — see [As built](#as-built-sept-2026).*
 
 ### Priority 2 — blocks the economy and progression systems
 
@@ -96,6 +104,8 @@ unit end up at +30% or at +32%? The proposal does not say.
 Additive is implemented as the default because it is easier to reason about and easier to explain
 during the defense. Multiplicative is available as a policy switch.
 
+*Status: built; needs group sign-off — see [As built](#as-built-sept-2026).*
+
 **7. Gacha rarity tiers and pull rates.** Entirely undefined — no tiers, no percentages, no pity
 system, no pull cost in Reales, no single-versus-ten-pull distinction, no duplicate handling.
 
@@ -104,11 +114,15 @@ and keep it honest. A three-tier system with published rates and a visible pity 
 to defend academically than an opaque one, and it sidesteps the ethical questions a panel is
 likely to raise about gacha mechanics in an educational product.
 
+*Status: built; needs group sign-off — see [As built](#as-built-sept-2026).*
+
 **8. Kapatiran promotion thresholds.** The proposal says ranks are built by placing units adjacent
 to each other but never says how many battles or turns it takes to go from C to B to A.
 
 **9. What "adjacent" means.** Four-way, eight-way, or a radius. The resolver takes this as an
 injected parameter. Eight-way is the conventional choice for an isometric grid.
+
+*Status: built; needs group sign-off — see [As built](#as-built-sept-2026).*
 
 **10. Whether Kapatiran ranks persist between battles.** The proposal contradicts itself here. The
 Game Design Document calls them "permanent stat boosts"; Table 3 reads as a per-deployment
@@ -117,8 +131,12 @@ Resolve this one explicitly — it will be noticed.
 
 **11. Rations economy.** Cap, regeneration rate, and cost per mission are all undefined.
 
+*Status: built; needs group sign-off — see [As built](#as-built-sept-2026).*
+
 **12. Reales earn rate outside quizzes.** Only the +50 per correct quiz answer is specified. Mission
 completion rewards are not.
+
+*Status: built; needs group sign-off — see [As built](#as-built-sept-2026).*
 
 **13. Synthesis recipes.** The only stated example is a bolo upgrading to a captured Mauser rifle,
 "significantly increasing base damage output." Scrap Metal costs, the full weapon tier list, and
@@ -126,20 +144,30 @@ the stat delta per weapon tier all need defining.
 
 **14. Farm and Mine generation rates.** Named as encampment facilities, never quantified.
 
+*Status: built; needs group sign-off — see [As built](#as-built-sept-2026).*
+
 **15. Experience curve and level-up growth.** "Experience levels" and a Roster Training state are
 named; no curve, no per-level stat growth, no level cap.
+
+*Status: built; needs group sign-off — see [As built](#as-built-sept-2026).*
 
 ### Priority 3 — content and polish
 
 **16. Quiz trigger cadence.** "Mid-battle interval" is not defined numerically, and the number of
 quizzes per mission is unstated.
 
+*Status: built; needs group sign-off — see [As built](#as-built-sept-2026).*
+
 **17. Wrong-answer behavior.** Undefined. Consider whether a wrong answer costs anything at all —
 in an educational game, a penalty-free retry loop often teaches better than a punishment.
+
+*Status: built; needs group sign-off — see [As built](#as-built-sept-2026).*
 
 **18. Trivia bank size.** Table 4 is explicitly labeled a sample and contains four rows. The
 implementation needs an id, a difficulty, and a category column that the sample schema lacks.
 Decide the target bank size; roughly thirty questions is a reasonable target for ten sub-quests.
+
+*Status: built; needs group sign-off — see [As built](#as-built-sept-2026).*
 
 **19. Enemy roster.** The Spanish forces are referred to only as "the Spanish AI." Unit types,
 counts, per-mission composition, and stats all need to be created. Artillery is mentioned in the
@@ -154,9 +182,13 @@ built the barricades, after all.
 "Forging the Earthworks" is tagged defense/escort. Neither mechanic is described. Both are
 substantial features that do not reuse the core auto-battler loop, so scope them early or cut them.
 
+*Status: built; needs group sign-off — see [As built](#as-built-sept-2026).*
+
 **22. JSON versus SQLite split.** The proposal commits to both without saying which data lives
 where. A workable division: SQLite for the trivia bank and the unit catalog, which are read-heavy
 and query-shaped; JSON for the save file, which is written whole and read whole.
+
+*Status: built; needs group sign-off — see [As built](#as-built-sept-2026).*
 
 **23. Audio and settings scope.** BGM and SFX toggles, resolution options, and the historical
 glossary tab are named without detail.
@@ -169,6 +201,7 @@ glossary tab are named without detail.
 | Target platform | Windows 10/11 64-bit | Development is happening on Linux |
 | Development tooling | Microsoft Visual Studio | Not installed on the development machine |
 | Rendering | 2D sprites in a 3D isometric environment | Project was created from the Universal Render Pipeline **2D** template |
+| Windows release | Windows 10/11 64-bit | `.github/workflows/release-windows.yml` builds StandaloneWindows64 with game-ci on every push to `main`, wraps it in an Inno Setup `Setup.exe` (`installer/BinakayanRising.iss`) and publishes a GitHub prerelease |
 
 None of these is fatal. The Unity version difference is a minor revision. The 2D template is
 arguably the better fit for a sprite-based isometric game and the tilemap packages needed for it
@@ -207,6 +240,39 @@ concern. This keeps the battle reproducible from a seed.
 
 **Bamboo Barricade passability has exactly one source of truth** — the grid's walkability check.
 The terrain modifier table deliberately does not duplicate it, so the two can never disagree.
+
+## As built (Sept 2026)
+
+What the build actually does, checked against the code. Where the sections above only
+recommended something, the build has now chosen; every row is **built; needs group sign-off**.
+Rows marked ⚠ contradict a recommendation above or the proposal.
+
+| DD | As built | Where |
+| --- | --- | --- |
+| 1 | Evade → accuracy → crit → `max(minimumDamage, attack − defense)`; crit ×2, floor 1 | `Core/Combat/StandardDamageFormula.cs`, `Gameplay/PlaytestScenario.cs` `Config()` |
+| 3 | Nearest enemy, ties broken by lowest unit id; target re-picked every activation; no aggro radius (whole map) | `Core/Combat/TargetingStrategies.cs`, `BattleSimulator.ActivateUnits` |
+| 5 ⚠ | 14×9 grid (not 12×12). Deploy zone is set by terrain, not rows: the trench column (x = 10, 7 cells) plus the tents (x = 11, 4 cells). Squad cap 6 per quest, 3 on q07 | `PlaytestScenario.CreateGrid()`, `Core/Content/Campaign.cs` `QuestBattle` |
+| 6 | Additive percentages (+20% and +10% = +30%) | `PlaytestScenario.Config()` `StackingPolicy`, `Core/Combat/StatModifier.cs` |
+| 7 | Common / Rare / Hero at 70 / 25 / 5; pity guarantees a Hero on the 10th pull without one; 100 Reales per pull, 900 for 10; duplicate Hero → 150 XP | `Core/Meta/MetaRules.cs`, `MetaGame.Roster.cs` |
+| 9 ⚠ | **4-way** adjacency (`KapatiranProximityRule.Orthogonal`), and no diagonal movement. This conflicts with #9's 8-way recommendation — **the group must pick one** | `Core/Combat/KapatiranResolver.cs`, `PlaytestScenario.Config()` |
+| 11, 12, 14 | Start 300 Reales / 20 Rations / 10 Scrap. Farm: 1 Ration per 20 s, holds 30. Mine: 1 Scrap per 40 s, holds 20. Exchange: 10 Rations → 15 Reales, 10 Scrap → 25 Reales. Battles cost 0–12 Rations and pay 100–500 Reales | `Core/Meta/MetaRules.cs`, `Core/Content/Campaign.cs` |
+| 15 | Level cap 10; XP to next = 100 × level; +8% HP, +5% Attack, +4% Defense per level; 60 XP per win, 20 per loss; drill = 100 XP for 80 Reales + 5 Scrap | `Core/Meta/MetaRules.cs` |
+| 16 ⚠ | One quiz per battle, at `QuestBattle.QuizTurn` (turns 3–6); the q02 tutorial battle has none (`QuizTurn = 0`). The battle is simulated in full first, so the quiz pauses the replay and cannot change the outcome | `Campaign.cs`, `Gameplay/BattlePlaytest.cs` |
+| 17 | Right answer +50 Reales; wrong answer costs nothing. ⚠ Table 4's second reward (heal / attack buff / reset / revive) is **not built** | `MetaGame.Campaign.cs` `RecordQuizAnswer` |
+| 18 | 30 questions, 10 per level, each with a difficulty (Easy / Medium / Hard) and a category (Figures, Events, Places, Society, Tactics). Level tests: 5 questions, 60% to pass, 150 Reales on first pass | `Core/Content/Learning.cs`, `MetaRules.cs` |
+| 21 | No new modes: "Forging the Earthworks" (q06) is a hold-out battle (survive 30 turns); "The Silent Sabotage" (q07) is a 3-unit squad battle. `Campaign.cs:144-147` says exactly this | `Core/Content/Campaign.cs` |
+| 22 ⚠ | **JSON only, no SQLite.** Trivia and units are C# data. Save written whole to a temp file, flushed, swapped in with `File.Replace` keeping a `.bak`; SHA-256 checksum; a bad file is renamed `.corrupt` and the backup loaded. `SaveData.cs:14` cites #22 for "written whole and read whole". The proposal promises SQLite, so the document must be amended | `Gameplay/Meta/SaveStore.cs`, `Docs/SAVE-RELIABILITY.md` |
+| Table 2 ⚠ | Spanish units get **no** trench or tent bonus (`SpanishReceivesTerrainBonuses = false`); penalties such as the shallows still apply to them | `PlaytestScenario.Config()`, `Tests/EditMode/Combat/SpanishTerrainBonusTests.cs` |
+| Ranks | 8 player ranks, Kawal to Heneral, one per quest milestone: start, q02, q04, q05, q06, q07, q09, q10 | `Core/Content/PlayerRanks.cs` |
+
+### Conflicts for the group
+
+1. **Adjacency (#9):** built 4-way, doc recommends 8-way.
+2. **Grid (#5):** 14×9 with a terrain-defined deploy zone, not 12×12 with the rear three rows.
+3. **SQLite (#22):** the proposal commits to SQLite; the build uses none.
+4. **Table 4 quiz rewards:** only the +50 Reales exists; the four battle effects do not.
+5. **Table 2 for the Spanish:** the build withholds trench and tent bonuses from the Spanish; Table 2 does not say they are Katipunan-only.
+6. **Quiz cadence (#16):** one fixed-turn quiz per battle, none in the tutorial battle, and it cannot affect the result.
 
 ## Recommended order of decisions
 
