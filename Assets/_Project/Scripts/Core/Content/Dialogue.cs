@@ -6,7 +6,7 @@ namespace BinakayanRising.Core.Content
     /// <summary>One line of speech and who says it.</summary>
     public sealed class DialogueLine
     {
-        /// <summary>A <see cref="Characters"/> id.</summary>
+        /// <summary>A <see cref="Characters"/> id, or a <see cref="UnitCatalog"/> archetype id for the Kapatiran lore.</summary>
         public readonly string Speaker;
 
         public readonly LocString Text;

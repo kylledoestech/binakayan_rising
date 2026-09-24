@@ -23,7 +23,7 @@ namespace BinakayanRising.Core.Meta
     public sealed class SaveData
     {
         /// <summary>Bumped whenever a field changes meaning. Older files are migrated on load.</summary>
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
 
         public int version = CurrentVersion;
 
@@ -81,6 +81,12 @@ namespace BinakayanRising.Core.Meta
         /// <summary>Quiz questions already asked in battle, so the bank does not repeat itself.</summary>
         public List<string> askedQuestions = new List<string>();
 
+        /// <summary>
+        /// Kapatiran support earned per bonded pair (#19). Version 3 added it; a pair with no
+        /// record has earned nothing. The rank is derived from the points, never stored.
+        /// </summary>
+        public List<BondRecord> bonds = new List<BondRecord>();
+
         public bool HasFlag(string flag)
         {
             return flags.Contains(flag);
@@ -104,6 +110,7 @@ namespace BinakayanRising.Core.Meta
             if (lessons == null) { lessons = new List<string>(); changed = true; }
             if (assessments == null) { assessments = new List<AssessmentRecord>(); changed = true; }
             if (askedQuestions == null) { askedQuestions = new List<string>(); changed = true; }
+            if (bonds == null) { bonds = new List<BondRecord>(); changed = true; }
 
             if (reales < 0) { reales = 0; changed = true; }
             if (rations < 0) { rations = 0; changed = true; }
@@ -175,6 +182,26 @@ namespace BinakayanRising.Core.Meta
                 changed = true;
             }
 
+            // Version 3 added Kapatiran support. Older saves start every pair at no rank: nothing
+            // was ever earned, and the rank-A bonds the old build handed out were not progress.
+            // One record per known pair, never negative.
+            var seenBonds = new HashSet<string>();
+            var keptBonds = new List<BondRecord>(bonds.Count);
+            for (int i = 0; i < bonds.Count; i++)
+            {
+                BondRecord record = bonds[i];
+                if (record == null || BondCatalog.Find(record.bond) == null || !seenBonds.Add(record.bond))
+                {
+                    changed = true;
+                    continue;
+                }
+
+                if (record.support < 0) { record.support = 0; changed = true; }
+                keptBonds.Add(record);
+            }
+
+            bonds = keptBonds;
+
             if (version < CurrentVersion) { version = CurrentVersion; changed = true; }
 
             return changed;
@@ -215,6 +242,17 @@ namespace BinakayanRising.Core.Meta
 
         /// <summary>Weapon type id from the weapon catalog.</summary>
         public string weapon;
+    }
+
+    /// <summary>Kapatiran support earned by one bonded pair.</summary>
+    [Serializable]
+    public sealed class BondRecord
+    {
+        /// <summary>A <see cref="BondCatalog"/> pair id.</summary>
+        public string bond;
+
+        /// <summary>Battles fought side by side, in support points.</summary>
+        public int support;
     }
 
     /// <summary>The player's record on one level's assessment.</summary>
