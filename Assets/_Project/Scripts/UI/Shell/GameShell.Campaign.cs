@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using BinakayanRising.Core.Combat;
 using BinakayanRising.Core.Content;
 using BinakayanRising.Core.Localization;
 using BinakayanRising.Core.Meta;
@@ -44,7 +45,8 @@ namespace BinakayanRising.UI.Shell
             {
                 return PromotionCard.Current != null || RankUpCard.Current != null || RecruitReveal.Current != null
                     || CutscenePlayer.Current != null || QuizCard.Current != null || LibraryPanel.Current != null
-                    || PauseMenu.Current != null;
+                    || PauseMenu.Current != null || TacticianCommandCard.Current != null || BondRankCard.Current != null
+                    || BondLorePanel.Current != null || LorePlayer.Current != null;
             }
         }
 
@@ -139,27 +141,51 @@ namespace BinakayanRising.UI.Shell
                 }
             }
 
+            // #43: a right answer pays Table 4's Reales (credited by RecordQuizAnswer, announced by
+            // the receiver) and then the Tactician's Command the player picks, re-fought into the
+            // rest of the battle before the replay resumes. A wrong answer gives nothing.
+            var rewards = new CampaignQuizRewards(asking);
+            bool earnedCommand = false;
             QuizCard.Show(list, Loc.Get(TextKey.QuizTitle),
                 (q, correct) =>
                 {
                     int reales = game.RecordQuizAnswer(q.Id, correct);
-                    if (reales > 0)
-                    {
-                        UiControls.Toast(Loc.Format(TextKey.QuizReales, reales));
-                    }
+                    rewards.AwardReales(reales);
+                    earnedCommand = correct;
                 },
                 score =>
                 {
-                    if (Machine.CurrentState == GameState.Quiz)
+                    if (!earnedCommand || asking == null)
                     {
-                        Machine.ReturnToCombat();
+                        ResumeAfterQuiz(asking);
+                        return;
                     }
 
-                    if (asking != null)
+                    TacticianCommandCard.Show(asking.CanIssueCommand, command =>
                     {
-                        asking.SetPaused(false);
-                    }
+                        if (command != TacticianCommand.None)
+                        {
+                            rewards.ApplyRewardEffect(CampaignQuizRewards.ToEffect(command),
+                                TacticianCommands.DefaultMagnitude(command), TacticianCommands.AttackTurns);
+                        }
+
+                        ResumeAfterQuiz(asking);
+                    });
                 });
+        }
+
+        /// <summary>Figure 2's Quiz --Continue--> Combat, and the replay runs on.</summary>
+        private void ResumeAfterQuiz(BattlePlaytest asking)
+        {
+            if (Machine.CurrentState == GameState.Quiz)
+            {
+                Machine.ReturnToCombat();
+            }
+
+            if (asking != null)
+            {
+                asking.SetPaused(false);
+            }
         }
 
         /// <summary>The quest's rules and the roster the player may deploy from.</summary>
@@ -178,7 +204,11 @@ namespace BinakayanRising.UI.Shell
                 HoldWins = rules.WinRule == WinRule.Hold,
                 Tutorial = rules.Tutorial,
                 QuizTurn = rules.QuizTurn,
-                Level = quest.Level
+                Level = quest.Level,
+
+                // #19: the pairs fight at the ranks they have earned. The teaching battle keeps
+                // every bond at rank A: it teaches what a bond does, and its win was checked so.
+                Bonds = rules.Tutorial ? BondCatalog.AllAtRankA() : game.BattleBonds()
             };
 
             // The teaching battle is fought with exactly the five soldiers, and the stat blocks,
@@ -297,8 +327,14 @@ namespace BinakayanRising.UI.Shell
                 UiControls.Toast(Loc.Get(TextKey.MissionLostToast), 3.4f);
             }
 
+            // #19: every pair that fought side by side earns support; new ranks get their card
+            // after the soldiers' promotions and before the player's own rank.
+            List<BondRankUp> bondUps = game.RecordBondSupport(report.Placements);
+
             string closing = report.Won && reward.FirstClear ? quest.PostCutscene : null;
-            PromotionCard.Show(reward.LevelUps, () => ShowRankUp(() => CutscenePlayer.Play(closing, null)));
+            PromotionCard.Show(reward.LevelUps,
+                () => BondRankCard.Show(game, bondUps,
+                    () => ShowRankUp(() => CutscenePlayer.Play(closing, null))));
         }
 
         /// <summary>Shows the rank-up card if a rank was earned and not yet shown, then continues.</summary>

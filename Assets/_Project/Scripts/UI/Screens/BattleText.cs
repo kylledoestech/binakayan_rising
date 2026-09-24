@@ -93,6 +93,22 @@ namespace BinakayanRising.UI.Screens
                 case BattlePlaytest.FieldReportKind.BattleResolved:
                     into.Append(Loc.Format(TextKey.LogResolved, Outcome(entry.Outcome), entry.TurnsElapsed));
                     break;
+
+                case BattlePlaytest.FieldReportKind.CommandHeal:
+                    into.Append(Loc.Get(TextKey.LogCmdHeal));
+                    break;
+
+                case BattlePlaytest.FieldReportKind.CommandAttack:
+                    into.Append(Loc.Get(TextKey.LogCmdAttack));
+                    break;
+
+                case BattlePlaytest.FieldReportKind.CommandReset:
+                    into.Append(Loc.Get(TextKey.LogCmdReset));
+                    break;
+
+                case BattlePlaytest.FieldReportKind.CommandRevive:
+                    into.Append(Loc.Format(TextKey.LogCmdRevive, UnitName(entry.ActorArchetypeId, entry.ActorOrdinal)));
+                    break;
             }
         }
     }

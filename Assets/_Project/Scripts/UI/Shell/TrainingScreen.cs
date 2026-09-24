@@ -44,9 +44,6 @@ namespace BinakayanRising.UI.Shell
         /// <summary>The combat stats that do not grow with level, shown in one compact row.</summary>
         private static readonly TextKey[] CombatLabels = { TextKey.TrnStatEva, TextKey.TrnStatAcc, TextKey.TrnStatRng, TextKey.TrnStatCrit };
 
-        /// <summary>Kapatiran pairs, read once: the same table the battle resolves bonds from.</summary>
-        private static List<KapatiranBond> bonds;
-
         private KeeperCard keeper;
         private readonly List<Button> tiles = new List<Button>();
         private readonly List<Image> tileRims = new List<Image>();
@@ -274,6 +271,15 @@ namespace BinakayanRising.UI.Shell
             UiLayout.OneLine(drillCost, Theme.Type.Body + 2f);
             UiLayout.Flexible(drillCost.rectTransform);
             UiLayout.Fix(drillCost.rectTransform, 0f, 40f);
+
+            // Every pair's lore dialogue, heard or still locked (#20).
+            Button lore = UiKit.SealButton(actions, TextKey.LoreButton, OpenLore, 170f, 60f, 0f, "Button Lore");
+            UiLayout.Fix((RectTransform)lore.transform, 170f, 60f);
+        }
+
+        private void OpenLore()
+        {
+            BondLorePanel.Show(Game, null);
         }
 
         private static RectTransform StatRow(RectTransform parent, string name, float height)
@@ -454,8 +460,8 @@ namespace BinakayanRising.UI.Shell
             combatValues[2].text = PromotionCard.StatNumber(now.AttackRange);
             combatValues[3].text = Percent(now.CriticalHitChance);
 
-            string bond = BondText(unit.archetype);
-            bondLine.text = bond != null ? Loc.Format(TextKey.TrnBond, bond) : Loc.Get(TextKey.TrnNoBond);
+            string bond = KapatiranText.ForUnit(game, unit.archetype);
+            bondLine.text = bond ?? Loc.Get(TextKey.TrnNoBond);
             bondLine.color = bond != null ? Theme.Revolution : Theme.InkSoft;
 
             drill.gameObject.SetActive(!top);
@@ -475,75 +481,6 @@ namespace BinakayanRising.UI.Shell
         private static string Percent(float fraction)
         {
             return Mathf.RoundToInt(fraction * 100f) + "%";
-        }
-
-        /// <summary>
-        /// "Partner — effect" for every Kapatiran pair the archetype is in, or null when it has none.
-        /// </summary>
-        private static string BondText(string archetypeId)
-        {
-            if (bonds == null)
-            {
-                bonds = PlaytestScenario.Bonds();
-            }
-
-            var parts = new List<string>();
-            for (int i = 0; i < bonds.Count; i++)
-            {
-                KapatiranBond bond = bonds[i];
-                string partner = bond.ArchetypeA == archetypeId ? bond.ArchetypeB
-                    : (bond.ArchetypeB == archetypeId ? bond.ArchetypeA : null);
-                if (partner == null)
-                {
-                    continue;
-                }
-
-                UnitArchetype other = UnitCatalog.Find(partner);
-                var effects = new List<string>();
-                for (int m = 0; m < bond.Modifiers.Count; m++)
-                {
-                    effects.Add(ModifierText(bond.Modifiers[m]));
-                }
-
-                parts.Add((other != null ? other.Name.Get() : partner) + " — " + string.Join(", ", effects));
-            }
-
-            return parts.Count > 0 ? string.Join("  ·  ", parts) : null;
-        }
-
-        private static string ModifierText(StatModifier modifier)
-        {
-            string name = Loc.Get(StatShort(modifier.Stat));
-            var text = new System.Text.StringBuilder(name);
-            if (modifier.HasPercent)
-            {
-                text.Append(' ').Append(modifier.PercentDelta >= 0f ? "+" : string.Empty)
-                    .Append(Mathf.RoundToInt(modifier.PercentDelta * 100f)).Append('%');
-            }
-
-            if (modifier.HasFlat)
-            {
-                text.Append(' ').Append(modifier.FlatDelta >= 0f ? "+" : string.Empty)
-                    .Append(PromotionCard.StatNumber(modifier.FlatDelta));
-            }
-
-            return text.ToString();
-        }
-
-        private static TextKey StatShort(StatKind stat)
-        {
-            switch (stat)
-            {
-                case StatKind.MaxHP: return TextKey.TrnStatHp;
-                case StatKind.AttackDamage: return TextKey.TrnStatAtk;
-                case StatKind.Defense: return TextKey.TrnStatDef;
-                case StatKind.Evasion: return TextKey.TrnStatEva;
-                case StatKind.RangedAccuracy: return TextKey.TrnStatAcc;
-                case StatKind.AttackRange: return TextKey.TrnStatRng;
-                case StatKind.CriticalHitChance: return TextKey.TrnStatCrit;
-                case StatKind.MovementSpeed: return TextKey.TrnStatMove;
-                default: return TextKey.TrnStatHeal;
-            }
         }
 
         private static string CostText(Cost cost)

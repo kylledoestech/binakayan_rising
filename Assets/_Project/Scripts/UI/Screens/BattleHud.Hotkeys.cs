@@ -32,6 +32,7 @@ namespace BinakayanRising.UI.Screens
             Keyboard keyboard = Keyboard.current;
             // A question card owns the keyboard: its 1 to 4 answer, not change the speed.
             if (keyboard == null || BinakayanRising.UI.Shell.QuizCard.Current != null
+                || BinakayanRising.UI.Shell.TacticianCommandCard.Current != null
                 || BinakayanRising.UI.Shell.CutscenePlayer.Current != null
                 || BinakayanRising.UI.Shell.PauseMenu.Current != null
                 || BinakayanRising.UI.Shell.PauseMenu.ClosedFrame == UnityEngine.Time.frameCount)
