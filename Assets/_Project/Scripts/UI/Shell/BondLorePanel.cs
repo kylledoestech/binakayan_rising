@@ -153,8 +153,13 @@ namespace BinakayanRising.UI.Shell
             tags.Add(tag);
 
             TextMeshProUGUI detail = UiKit.Caption(words, string.Empty, TextAlignmentOptions.Left);
-            UiLayout.OneLine(detail, Theme.Type.Body);
-            UiLayout.Fix(detail.rectTransform, 0f, 26f);
+            // Two lines when it needs them: the Filipino pair names and lock hint run long.
+            detail.textWrappingMode = TextWrappingModes.Normal;
+            detail.enableAutoSizing = true;
+            detail.fontSizeMax = Theme.Type.Body;
+            detail.fontSizeMin = Theme.Type.Small;
+            detail.overflowMode = TextOverflowModes.Ellipsis;
+            UiLayout.Fix(detail.rectTransform, 0f, 54f);
             details.Add(detail);
 
             int which = index;
@@ -195,9 +200,11 @@ namespace BinakayanRising.UI.Shell
 
                 string pairName = pair != null ? KapatiranText.PairName(pair) : lore.BondId;
                 int next = game.BondSupportForNext(lore.BondId);
-                string progress = next > 0
-                    ? Loc.Format(TextKey.LoreSupport, BondCatalog.Label(rank), game.BondSupport(lore.BondId), next)
-                    : BondCatalog.Label(rank);
+                string progress = next <= 0
+                    ? BondCatalog.Label(rank)
+                    : rank == BondRank.None
+                        ? Loc.Format(TextKey.LoreSupportUnranked, game.BondSupport(lore.BondId), next)
+                        : Loc.Format(TextKey.LoreSupport, BondCatalog.Label(rank), game.BondSupport(lore.BondId), next);
                 details[i].text = open
                     ? pairName + "  ·  " + lore.Setting.Get() + "  ·  " + progress
                     : pairName + "  ·  " + Loc.Get(TextKey.LoreLocked) + "  ·  " + progress;

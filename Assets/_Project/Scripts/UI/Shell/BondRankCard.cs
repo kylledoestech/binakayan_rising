@@ -145,8 +145,14 @@ namespace BinakayanRising.UI.Shell
 
             pairName = UiKit.Display(column, string.Empty, Theme.Type.Heading + 8f, TextAlignmentOptions.Center);
             pairName.color = Theme.Revolution;
-            UiLayout.OneLine(pairName, Theme.Type.Heading + 8f);
-            UiLayout.Fix(pairName.rectTransform, 0f, 44f);
+            // Two lines rather than a shrunken one: "Gen. Edilberto Evangelista + Emilio Aguinaldo".
+            pairName.textWrappingMode = TextWrappingModes.Normal;
+            pairName.enableAutoSizing = true;
+            pairName.fontSizeMax = Theme.Type.Heading + 8f;
+            pairName.fontSizeMin = Theme.Type.Heading;
+            pairName.overflowMode = TextOverflowModes.Ellipsis;
+            pairName.lineSpacing = -12f;
+            UiLayout.Fix(pairName.rectTransform, 0f, 84f);
 
             rankStep = UiKit.Caption(column, string.Empty, TextAlignmentOptions.Center);
             rankStep.fontStyle = FontStyles.UpperCase | FontStyles.Bold;
@@ -197,7 +203,9 @@ namespace BinakayanRising.UI.Shell
             BondPair pair = showing.Pair;
             pairName.text = KapatiranText.PairName(pair);
             rankLetter.text = BondCatalog.Label(showing.To);
-            rankStep.text = Loc.Format(TextKey.BondRankStep, BondCatalog.Label(showing.From), BondCatalog.Label(showing.To));
+            rankStep.text = showing.From == BondRank.None
+                ? Loc.Format(TextKey.BondRankStepFirst, BondCatalog.Label(showing.To))
+                : Loc.Format(TextKey.BondRankStep, BondCatalog.Label(showing.From), BondCatalog.Label(showing.To));
             SetFace(leftFace, pair.ArchetypeA);
             SetFace(rightFace, pair.ArchetypeB);
 
@@ -275,7 +283,17 @@ namespace BinakayanRising.UI.Shell
 
             UiSfx.Play(UiSfx.Cue.Click);
             Settle();
-            LorePlayer.Play(BondLore.For(showing.Pair.Id), game, () => openedFrame = Time.frameCount);
+
+            // The dialogue takes the screen; the card would only peek out between its two panels.
+            card.gameObject.SetActive(false);
+            LorePlayer.Play(BondLore.For(showing.Pair.Id), game, () =>
+            {
+                openedFrame = Time.frameCount;
+                if (card != null)
+                {
+                    card.gameObject.SetActive(true);
+                }
+            });
         }
 
         /// <summary>Finishes the animation if it is still going; otherwise the next pair, or closes.</summary>

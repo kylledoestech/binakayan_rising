@@ -2102,7 +2102,20 @@ namespace BinakayanRising.Gameplay
                     int byDistance = GridDistance.Manhattan(a, focus).CompareTo(GridDistance.Manhattan(b, focus));
                     return byDistance != 0 ? byDistance : cells.IndexOf(a).CompareTo(cells.IndexOf(b));
                 });
-                cells = ordered;
+
+                // The nearest cells, then back into grid order among themselves: the squad still
+                // guards the cart, and the bonded pairs still land side by side as they do on the
+                // trench (#19). Filled nearest-first, the pairs ended up diagonal and lost their bond.
+                int wanted = 0;
+                foreach (RosterEntry entry in roster)
+                {
+                    wanted += placements.ContainsKey(entry.Id) ? 0 : 1;
+                }
+
+                wanted = Mathf.Min(wanted, Mathf.Max(0, SquadCap - placements.Count), ordered.Count);
+                List<GridCoord> nearest = ordered.GetRange(0, wanted);
+                nearest.Sort((a, b) => cells.IndexOf(a).CompareTo(cells.IndexOf(b)));
+                cells = nearest;
             }
 
             int index = 0;

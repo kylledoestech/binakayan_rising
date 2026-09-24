@@ -590,6 +590,11 @@ namespace BinakayanRising.Core.Localization
             Add(TextKey.LoreSupport, "Rank {0} · support {1} / {2}", "Ranggo {0} · suporta {1} / {2}");
             Add(TextKey.LoreNew, "NEW", "BAGO");
             Add(TextKey.LoreClose, "Close", "Isara");
+
+            // ---------------------------------------------------------------- fix round: unranked bonds (#19, #20)
+            Add(TextKey.TrnBondUnranked, "Bond: {0} · no rank yet", "Kabuklod: {0} · wala pang ranggo");
+            Add(TextKey.LoreSupportUnranked, "No rank yet · support {0} / {1}", "Wala pang ranggo · suporta {0} / {1}");
+            Add(TextKey.BondRankStepFirst, "No rank  ▸  Rank {0}", "Walang ranggo  ▸  Ranggo {0}");
         }
 
         /// <summary>The text for a key, falling back to English and then to the key's name.</summary>

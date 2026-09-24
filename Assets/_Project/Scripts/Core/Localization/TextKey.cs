@@ -368,6 +368,11 @@ namespace BinakayanRising.Core.Localization
         LoreNew,
         LoreClose,
 
+        // Fix round: bonds below rank C, which read "rank -" before (#19, #20).
+        TrnBondUnranked,
+        LoreSupportUnranked,
+        BondRankStepFirst,
+
         Count
     }
 }

@@ -61,6 +61,11 @@ namespace BinakayanRising.UI.Shell
             }
 
             BondRank rank = game != null ? game.BondRankOf(pair.Id) : BondRank.None;
+            if (rank == BondRank.None)
+            {
+                return Loc.Format(TextKey.TrnBondUnranked, UnitName(pair.PartnerOf(archetypeId)));
+            }
+
             string bonus = Bonus(pair.Id, rank) ?? Loc.Get(TextKey.BondNoBonusShort);
             return Loc.Format(TextKey.TrnBondRanked, UnitName(pair.PartnerOf(archetypeId)), BondCatalog.Label(rank), bonus);
         }
