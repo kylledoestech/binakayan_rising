@@ -16,15 +16,18 @@ namespace BinakayanRising.UI.Shell
     /// </summary>
     /// <remarks>
     /// Resources list where each comes from and what spends it, so the page doubles as a legend
-    /// for the economy. Weapons carry their tier and flat attack bonus; reforging shows its full
-    /// price before the button is pressed, and the button stays off until the purse can pay.
+    /// for the economy. Weapons carry their tier and every bonus they give; reforging shows its
+    /// full price before the button is pressed, and the button stays off until the purse can pay.
+    /// A weapon reserved to one kind of soldier (the Lantaka) greys out everyone else and says why.
+    /// The list pages once the rack outgrows it.
     /// </remarks>
     public sealed class InventoryScreen : CampPanelScreen
     {
         private const int ResourcesTab = 0;
         private const int WeaponsTab = 1;
         private const float ListWidth = 420f;
-        private const float RowHeight = 84f;
+        private const float RowHeight = 66f;
+        private const int PerPage = 6;
 
         private static readonly Currency[] Kinds = { Currency.Reales, Currency.Rations, Currency.Scrap };
 
@@ -41,7 +44,10 @@ namespace BinakayanRising.UI.Shell
         private TextMeshProUGUI weaponFacts;
         private TextMeshProUGUI weaponNote;
         private TextMeshProUGUI holderLine;
+        private TextMeshProUGUI restrictLine;
         private RectTransform giveRow;
+        private RectTransform pager;
+        private TextMeshProUGUI pageLabel;
         private TextMeshProUGUI reforgeLine;
         private TextMeshProUGUI reforgeCost;
         private Button reforge;
@@ -50,6 +56,7 @@ namespace BinakayanRising.UI.Shell
         private readonly List<Image> weaponRims = new List<Image>();
         private readonly List<int> weaponIds = new List<int>();
         private int selectedWeapon;
+        private int page;
         private MetaGame bound;
         private bool stale = true;
         private int renderedVersion = -1;
@@ -57,6 +64,62 @@ namespace BinakayanRising.UI.Shell
         public override GameState State
         {
             get { return GameState.Inventory; }
+        }
+
+        /// <summary>The weapon shown in the detail. Setting it also turns to its page.</summary>
+        public int SelectedWeapon
+        {
+            get { return selectedWeapon; }
+            set
+            {
+                selectedWeapon = value;
+                MetaGame game = Game;
+                if (game != null)
+                {
+                    for (int i = 0; i < game.Weapons.Count; i++)
+                    {
+                        if (game.Weapons[i].id == value)
+                        {
+                            page = i / PerPage;
+                        }
+                    }
+                }
+
+                stale = true;
+            }
+        }
+
+        /// <summary>
+        /// A weapon's bonuses in one short line, e.g. "ATK +7 · ACC –5% · RNG +1". Shared with the
+        /// Training Grounds.
+        /// </summary>
+        public static string BonusText(WeaponDef weapon)
+        {
+            var parts = new List<string>();
+            parts.Add(Loc.Get(TextKey.TrnStatAtk) + " " + Signed(weapon.AttackBonus, false));
+            if (weapon.AccuracyBonus != 0f)
+            {
+                parts.Add(Loc.Get(TextKey.TrnStatAcc) + " " + Signed(weapon.AccuracyBonus * 100f, true));
+            }
+
+            if (weapon.CritBonus != 0f)
+            {
+                parts.Add(Loc.Get(TextKey.TrnStatCrit) + " " + Signed(weapon.CritBonus * 100f, true));
+            }
+
+            if (weapon.RangeBonus != 0f)
+            {
+                parts.Add(Loc.Get(TextKey.TrnStatRng) + " " + Signed(weapon.RangeBonus, false));
+            }
+
+            return string.Join(" · ", parts);
+        }
+
+        /// <summary>"+3" or "–3", with an en dash: the fonts carry no true minus sign.</summary>
+        private static string Signed(float value, bool percent)
+        {
+            int whole = Mathf.RoundToInt(value);
+            return (whole < 0 ? "–" : "+") + Mathf.Abs(whole) + (percent ? "%" : string.Empty);
         }
 
         protected override void BuildTabs(RectTransform row)
@@ -123,6 +186,22 @@ namespace BinakayanRising.UI.Shell
             emptyNote.textWrappingMode = TextWrappingModes.Normal;
             UiLayout.Fix(emptyNote.rectTransform, 0f, 80f);
 
+            // Every row up front, so the pager sits below the last of them.
+            for (int i = 0; i < PerPage; i++)
+            {
+                SyncWeaponRows(i + 1);
+            }
+
+            pager = UiKit.Row(weaponList, "Pager", Theme.Space.Base, 0f, TextAnchor.MiddleCenter);
+            UiLayout.Fix(pager, 0f, 52f);
+            Button previous = UiKit.SealButton(pager, "◂", () => Turn(-1), 64f, 48f, Theme.Type.Heading, "Button Weapon Page Back");
+            UiLayout.Fix((RectTransform)previous.transform, 64f, 48f);
+            pageLabel = UiKit.Body(pager, string.Empty, Theme.Type.Body + 2f, TextAlignmentOptions.Center);
+            UiLayout.OneLine(pageLabel, Theme.Type.Body + 2f);
+            UiLayout.Fix(pageLabel.rectTransform, 96f, 40f);
+            Button next = UiKit.SealButton(pager, "▸", () => Turn(1), 64f, 48f, Theme.Type.Heading, "Button Weapon Page Next");
+            UiLayout.Fix((RectTransform)next.transform, 64f, 48f);
+
             detail = UiKit.Column(row, "Detail", Theme.Space.Tight, 0f, TextAnchor.UpperLeft);
             UiLayout.Flexible(detail);
             UiLayout.FlexibleHeight(detail);
@@ -150,10 +229,20 @@ namespace BinakayanRising.UI.Shell
             Image rule = UiKit.Divider(detail);
             UiLayout.Fix(rule.rectTransform, 0f, 16f);
 
-            TextMeshProUGUI giveHeading = UiKit.Caption(detail, Loc.Get(TextKey.InvGiveTo), TextAlignmentOptions.Left);
+            RectTransform giveHead = UiKit.Row(detail, "Give Heading", Theme.Space.Base, 0f, TextAnchor.MiddleLeft);
+            UiLayout.Fix(giveHead, 0f, 24f);
+            TextMeshProUGUI giveHeading = UiKit.Caption(giveHead, Loc.Get(TextKey.InvGiveTo), TextAlignmentOptions.Left);
             giveHeading.fontStyle = FontStyles.Bold | FontStyles.UpperCase;
             UiKit.Localize(giveHeading, TextKey.InvGiveTo);
-            UiLayout.Fix(giveHeading.rectTransform, 0f, 24f);
+            UiLayout.OneLine(giveHeading, Theme.Type.Small);
+            UiLayout.Fix(giveHeading.rectTransform, 130f, 24f);
+
+            restrictLine = UiKit.Caption(giveHead, string.Empty, TextAlignmentOptions.Left);
+            restrictLine.fontStyle = FontStyles.Italic;
+            restrictLine.color = Theme.Danger;
+            UiLayout.OneLine(restrictLine, Theme.Type.Body);
+            UiLayout.Flexible(restrictLine.rectTransform);
+            UiLayout.Fix(restrictLine.rectTransform, 0f, 24f);
 
             giveRow = UiKit.Row(detail, "Give To", Theme.Space.Tight, 0f, TextAnchor.MiddleLeft);
             UiLayout.Fix(giveRow, 0f, 112f);
@@ -297,24 +386,31 @@ namespace BinakayanRising.UI.Shell
         private void RedrawWeapons(MetaGame game)
         {
             IReadOnlyList<OwnedWeapon> owned = game.Weapons;
-            SyncWeaponRows(owned.Count);
+            int pages = Mathf.Max(1, (owned.Count + PerPage - 1) / PerPage);
+            page = Mathf.Clamp(page, 0, pages - 1);
+            int first = page * PerPage;
+            int shown = Mathf.Clamp(owned.Count - first, 0, PerPage);
+            SyncWeaponRows(shown);
+            pager.gameObject.SetActive(pages > 1);
+            pageLabel.text = Loc.Format(TextKey.TrnPage, page + 1, pages);
 
             if (game.FindWeapon(selectedWeapon) == null)
             {
-                selectedWeapon = owned.Count > 0 ? owned[0].id : 0;
+                selectedWeapon = shown > 0 ? owned[first].id : 0;
             }
 
-            for (int i = 0; i < owned.Count; i++)
+            for (int i = 0; i < shown; i++)
             {
-                WeaponDef def = WeaponCatalog.Find(owned[i].weapon);
-                OwnedUnit holder = game.HolderOf(owned[i].id);
-                weaponIds[i] = owned[i].id;
+                OwnedWeapon item = owned[first + i];
+                WeaponDef def = WeaponCatalog.Find(item.weapon);
+                OwnedUnit holder = game.HolderOf(item.id);
+                weaponIds[i] = item.id;
 
                 TextMeshProUGUI[] labels = weaponRows[i].GetComponentsInChildren<TextMeshProUGUI>(true);
-                labels[0].text = def != null ? def.Name.Get() : owned[i].weapon;
+                labels[0].text = def != null ? def.Name.Get() : item.weapon;
                 labels[1].text = (def != null ? Loc.Format(TextKey.InvTier, def.Tier) + " · " : string.Empty)
                     + (holder != null ? Loc.Format(TextKey.InvHeldBy, UnitName(holder)) : Loc.Get(TextKey.InvOnRack));
-                weaponRims[i].color = owned[i].id == selectedWeapon ? Theme.Gold : Theme.ParchmentDeep;
+                weaponRims[i].color = item.id == selectedWeapon ? Theme.Gold : Theme.ParchmentDeep;
             }
 
             emptyNote.gameObject.SetActive(owned.Count == 0);
@@ -330,10 +426,12 @@ namespace BinakayanRising.UI.Shell
             OwnedUnit carrier = game.HolderOf(weapon.id);
             weaponName.text = chosen != null ? chosen.Name.Get() : weapon.weapon;
             weaponFacts.text = chosen != null
-                ? Loc.Format(TextKey.InvTier, chosen.Tier) + "   " + Loc.Format(TextKey.InvAttack, chosen.AttackBonus)
+                ? Loc.Format(TextKey.InvTier, chosen.Tier) + "   " + BonusText(chosen)
                 : string.Empty;
             weaponNote.text = chosen != null ? chosen.Note.Get() : string.Empty;
             holderLine.text = carrier != null ? Loc.Format(TextKey.InvHeldBy, UnitName(carrier)) : Loc.Get(TextKey.InvOnRack);
+            UnitArchetype only = chosen != null && chosen.RequiredArchetype != null ? UnitCatalog.Find(chosen.RequiredArchetype) : null;
+            restrictLine.text = only != null ? Loc.Format(TextKey.InvOnlyFor, only.Name.Get()) : string.Empty;
 
             RebuildGiveRow(game, weapon, carrier);
 
@@ -341,7 +439,7 @@ namespace BinakayanRising.UI.Shell
             reforge.gameObject.SetActive(next != null);
             if (next == null)
             {
-                reforgeLine.text = Loc.Get(TextKey.InvTopTier);
+                reforgeLine.text = Loc.Get(chosen != null && chosen.RequiredArchetype != null ? TextKey.InvNoReforge : TextKey.InvTopTier);
                 reforgeCost.text = string.Empty;
                 return;
             }
@@ -387,17 +485,20 @@ namespace BinakayanRising.UI.Shell
                 int index = weaponRows.Count;
                 Image rim;
                 Button row = UiKit.SelectableRow(weaponList, "Weapon " + index, out rim);
+                row.transform.SetSiblingIndex(index + 1);
                 UiLayout.Fix((RectTransform)row.transform, 0f, RowHeight);
                 row.onClick.AddListener(() => SelectWeapon(index));
 
                 RectTransform text = UiKit.Column(row.transform, "Text", 0f, 0f, TextAnchor.MiddleLeft);
-                UiKit.Stretch(text, Theme.Space.Base);
+                UiKit.Stretch(text);
+                text.offsetMin = new Vector2(Theme.Space.Base, Theme.Space.Tight);
+                text.offsetMax = new Vector2(-Theme.Space.Base, -Theme.Space.Tight);
                 UiLayout.FillWidth(text);
 
                 TextMeshProUGUI name = UiKit.Body(text, string.Empty, Theme.Type.Heading, TextAlignmentOptions.Left);
                 name.fontStyle = FontStyles.Bold;
                 UiLayout.OneLine(name, Theme.Type.Heading);
-                UiLayout.Fix(name.rectTransform, 0f, 30f);
+                UiLayout.Fix(name.rectTransform, 0f, 28f);
 
                 TextMeshProUGUI note = UiKit.Caption(text, string.Empty, TextAlignmentOptions.Left);
                 UiLayout.OneLine(note, Theme.Type.Small);
@@ -412,6 +513,13 @@ namespace BinakayanRising.UI.Shell
             {
                 weaponRows[i].gameObject.SetActive(i < count);
             }
+        }
+
+        private void Turn(int step)
+        {
+            page += step;
+            UiSfx.Play(UiSfx.Cue.Toggle);
+            stale = true;
         }
 
         private void SelectWeapon(int row)
@@ -437,6 +545,8 @@ namespace BinakayanRising.UI.Shell
                 Button button = UiKit.SelectableRow(giveRow, "Give " + unit.id, out rim);
                 UiLayout.Fix((RectTransform)button.transform, 104f, 112f);
                 rim.color = carrier != null && carrier.id == unit.id ? Theme.Gold : Theme.ParchmentDeep;
+                bool allowed = game.CanWield(unit, weapon);
+                button.interactable = allowed;
                 int unitId = unit.id;
                 int weaponId = weapon.id;
                 button.onClick.AddListener(() => Equip(unitId, weaponId));
@@ -445,12 +555,20 @@ namespace BinakayanRising.UI.Shell
                 Image portrait = UiKit.Icon(button.transform, face, 72f, Color.white);
                 UiKit.Anchor((RectTransform)portrait.transform.parent, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -8f), new Vector2(72f, 72f));
                 portrait.enabled = face != null;
+                if (!allowed)
+                {
+                    portrait.color = new Color(0.6f, 0.6f, 0.6f, 0.5f);
+                }
 
                 UnitArchetype archetype = UnitCatalog.Find(unit.archetype);
                 TextMeshProUGUI label = UiKit.Caption(button.transform, archetype != null ? archetype.ShortName : unit.archetype, TextAlignmentOptions.Center);
                 label.fontStyle = FontStyles.Bold;
                 UiKit.Anchor(label.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 6f), new Vector2(100f, 24f));
                 UiLayout.OneLine(label, Theme.Type.Small);
+                if (!allowed)
+                {
+                    label.color = Theme.InkSoft;
+                }
             }
         }
 
@@ -472,6 +590,13 @@ namespace BinakayanRising.UI.Shell
             if (!Game.TryEquip(unitId, weaponId))
             {
                 UiSfx.Play(UiSfx.Cue.Error);
+                OwnedWeapon refused = Game.FindWeapon(weaponId);
+                WeaponDef refusedDef = refused != null ? WeaponCatalog.Find(refused.weapon) : null;
+                if (refusedDef != null && Game.FindUnit(unitId) != null)
+                {
+                    UiControls.Toast(Loc.Format(TextKey.InvRefused, UnitName(Game.FindUnit(unitId)), refusedDef.Name.Get()));
+                }
+
                 return;
             }
 

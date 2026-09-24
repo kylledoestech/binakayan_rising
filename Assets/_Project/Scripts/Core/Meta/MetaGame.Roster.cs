@@ -76,7 +76,10 @@ namespace BinakayanRising.Core.Meta
             return stats;
         }
 
-        /// <summary>A unit's battle stats: its level plus its weapon.</summary>
+        /// <summary>
+        /// A unit's battle stats: its level plus its weapon's attack, and any accuracy, critical
+        /// chance or reach the weapon adds or takes away. Chances stay within 0..1.
+        /// </summary>
         public UnitStats StatsOf(OwnedUnit unit)
         {
             UnitStats stats = StatsAt(unit.archetype, unit.level);
@@ -84,9 +87,22 @@ namespace BinakayanRising.Core.Meta
             if (weapon != null)
             {
                 stats = stats.With(StatKind.AttackDamage, stats.AttackDamage + weapon.AttackBonus);
+                stats = stats.With(StatKind.RangedAccuracy, Clamp01(Round2(stats.RangedAccuracy + weapon.AccuracyBonus)));
+                stats = stats.With(StatKind.CriticalHitChance, Clamp01(Round2(stats.CriticalHitChance + weapon.CritBonus)));
+                stats = stats.With(StatKind.AttackRange, stats.AttackRange + weapon.RangeBonus);
             }
 
             return stats;
+        }
+
+        private static float Round2(float value)
+        {
+            return (float)System.Math.Round(value, 2);
+        }
+
+        private static float Clamp01(float value)
+        {
+            return value < 0f ? 0f : (value > 1f ? 1f : value);
         }
 
         private static float Round1(float value)
@@ -244,13 +260,29 @@ namespace BinakayanRising.Core.Meta
         }
 
         /// <summary>
+        /// Whether <paramref name="unit"/> may hold <paramref name="weapon"/>: false only for a
+        /// weapon reserved to another archetype, such as the Engineer's Lantaka.
+        /// </summary>
+        public bool CanWield(OwnedUnit unit, OwnedWeapon weapon)
+        {
+            if (unit == null || weapon == null)
+            {
+                return false;
+            }
+
+            WeaponDef def = WeaponCatalog.Find(weapon.weapon);
+            return def == null || def.Allows(unit.archetype);
+        }
+
+        /// <summary>
         /// Puts <paramref name="weaponId"/> in <paramref name="unitId"/>'s hands, taking it from
-        /// whoever held it. Pass 0 to disarm the unit.
+        /// whoever held it. Pass 0 to disarm the unit. Refused when the weapon is reserved to
+        /// another archetype.
         /// </summary>
         public bool TryEquip(int unitId, int weaponId)
         {
             OwnedUnit unit = FindUnit(unitId);
-            if (unit == null || (weaponId != 0 && FindWeapon(weaponId) == null))
+            if (unit == null || (weaponId != 0 && !CanWield(unit, FindWeapon(weaponId))))
             {
                 return false;
             }

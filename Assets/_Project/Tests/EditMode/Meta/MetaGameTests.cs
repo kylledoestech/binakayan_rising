@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using BinakayanRising.Core.Combat;
 using BinakayanRising.Core.Content;
 using BinakayanRising.Core.Meta;
 using NUnit.Framework;
@@ -51,15 +52,45 @@ namespace BinakayanRising.Tests.Meta
         // ------------------------------------------------------------------ new game
 
         [Test]
-        public void NewGameStartsWithTheOpeningRosterPurseAndBolos()
+        public void NewGameStartsWithTheOpeningRosterPurseAndKit()
         {
             Assert.AreEqual(5, game.Units.Count);
-            Assert.AreEqual(3, game.Weapons.Count);
+            Assert.AreEqual(6, game.Weapons.Count);
             Assert.AreEqual(rules.StartingReales, game.Balance(Currency.Reales));
             Assert.AreEqual(rules.StartingRations, game.Balance(Currency.Rations));
             Assert.AreEqual(rules.StartingScrap, game.Balance(Currency.Scrap));
             Assert.AreEqual("q01", game.CurrentQuest.Id);
             Assert.AreEqual("Kawal", game.Rank.Title);
+        }
+
+        [Test]
+        public void EachStarterHoldsItsOwnWeaponAndABalarawWaitsOnTheRack()
+        {
+            var expected = new Dictionary<string, string>
+            {
+                { UnitCatalog.Evangelista, WeaponCatalog.Bolo },
+                { UnitCatalog.Aguinaldo, WeaponCatalog.Sibat },
+                { UnitCatalog.Marksman, WeaponCatalog.Paltik },
+                { UnitCatalog.Engineer, WeaponCatalog.Gulok },
+                { UnitCatalog.Vanguard, WeaponCatalog.Talibong }
+            };
+
+            foreach (OwnedUnit unit in game.Units)
+            {
+                Assert.AreEqual(expected[unit.archetype], game.WeaponOf(unit).Id, unit.archetype);
+            }
+
+            var rack = new List<OwnedWeapon>();
+            foreach (OwnedWeapon weapon in game.Weapons)
+            {
+                if (game.HolderOf(weapon.id) == null)
+                {
+                    rack.Add(weapon);
+                }
+            }
+
+            Assert.AreEqual(1, rack.Count);
+            Assert.AreEqual(WeaponCatalog.Balaraw, rack[0].weapon);
         }
 
         // ------------------------------------------------------------------ farm and mine
@@ -182,33 +213,178 @@ namespace BinakayanRising.Tests.Meta
 
         // ------------------------------------------------------------------ armoury
 
+        private OwnedUnit UnitOf(string archetype)
+        {
+            foreach (OwnedUnit unit in game.Units)
+            {
+                if (unit.archetype == archetype)
+                {
+                    return unit;
+                }
+            }
+
+            return null;
+        }
+
+        private OwnedWeapon Owned(string weapon)
+        {
+            foreach (OwnedWeapon owned in game.Weapons)
+            {
+                if (owned.weapon == weapon)
+                {
+                    return owned;
+                }
+            }
+
+            return null;
+        }
+
         [Test]
         public void EquippingMovesAWeaponOutOfItsPreviousHandsAndRaisesAttack()
         {
-            OwnedUnit vanguard = game.Units[4];
-            OwnedUnit evangelista = game.Units[0];
-            int bolo = vanguard.weaponId;
-            float bareAttack = game.StatsOf(evangelista).AttackDamage;
+            OwnedUnit vanguard = UnitOf(UnitCatalog.Vanguard);
+            OwnedUnit evangelista = UnitOf(UnitCatalog.Evangelista);
+            int talibong = vanguard.weaponId;
+            float bareAttack = game.StatsAt(evangelista.archetype, evangelista.level).AttackDamage;
 
-            Assert.IsTrue(game.TryEquip(evangelista.id, bolo));
-            Assert.AreEqual(bolo, evangelista.weaponId);
-            Assert.AreEqual(0, vanguard.weaponId, "one bolo, one pair of hands");
-            Assert.AreEqual(bareAttack + WeaponCatalog.Find(WeaponCatalog.Bolo).AttackBonus, game.StatsOf(evangelista).AttackDamage, 0.001f);
+            Assert.IsTrue(game.TryEquip(evangelista.id, talibong));
+            Assert.AreEqual(talibong, evangelista.weaponId);
+            Assert.AreEqual(0, vanguard.weaponId, "one talibong, one pair of hands");
+            Assert.AreEqual(bareAttack + WeaponCatalog.Find(WeaponCatalog.Talibong).AttackBonus, game.StatsOf(evangelista).AttackDamage, 0.001f);
+            Assert.IsNull(game.HolderOf(Owned(WeaponCatalog.Bolo).id), "Evangelista's bolo went back to the rack");
+        }
+
+        [Test]
+        public void EquippingTheRackBalarawOrSwappingCountsForTheEquipTask()
+        {
+            ClearThrough("q02");
+            Quest q03 = Campaign.Find("q03");
+            Assert.AreEqual(q03, game.CurrentQuest);
+
+            Assert.IsTrue(game.TryEquip(UnitOf(UnitCatalog.Aguinaldo).id, Owned(WeaponCatalog.Balaraw).id));
+            Assert.IsTrue(game.IsTaskDone(q03, Campaign.TaskEquip));
+
+            var swap = new MetaGame(MetaGame.NewGame(rules, now, 7), rules, () => now);
+            foreach (Quest quest in Campaign.Quests)
+            {
+                swap.Data.clearedQuests.Add(quest.Id);
+                if (quest.Id == "q02")
+                {
+                    break;
+                }
+            }
+
+            OwnedUnit engineer = swap.Units[3];
+            Assert.IsTrue(swap.TryEquip(engineer.id, swap.Units[0].weaponId), "a swap between two soldiers");
+            Assert.IsTrue(swap.IsTaskDone(q03, Campaign.TaskEquip));
+        }
+
+        [TestCase(WeaponCatalog.Bolo, 2f, 0f, 0f, 0f)]
+        [TestCase(WeaponCatalog.Talibong, 2f, 0f, 0.03f, 0f)]
+        [TestCase(WeaponCatalog.Gulok, 3f, -0.03f, 0f, 0f)]
+        [TestCase(WeaponCatalog.Sibat, 1f, 0.05f, 0f, 0f)]
+        [TestCase(WeaponCatalog.Balaraw, 1f, 0f, 0.06f, 0f)]
+        [TestCase(WeaponCatalog.Lantaka, 7f, -0.05f, 0f, 1f)]
+        public void EachWeaponAppliesItsTwistToTheHoldersStats(string weapon, float attack, float accuracy, float crit, float range)
+        {
+            OwnedUnit engineer = UnitOf(UnitCatalog.Engineer);
+            OwnedWeapon owned = Owned(weapon) ?? game.FindWeapon(AddWeapon(weapon));
+            Assert.IsTrue(game.TryEquip(engineer.id, owned.id));
+
+            UnitStats bare = game.StatsAt(engineer.archetype, engineer.level);
+            UnitStats armed = game.StatsOf(engineer);
+            Assert.AreEqual(bare.AttackDamage + attack, armed.AttackDamage, 0.001f);
+            Assert.AreEqual(bare.RangedAccuracy + accuracy, armed.RangedAccuracy, 0.001f);
+            Assert.AreEqual(bare.CriticalHitChance + crit, armed.CriticalHitChance, 0.001f);
+            Assert.AreEqual(bare.AttackRange + range, armed.AttackRange, 0.001f);
+            Assert.AreEqual(bare.MaxHP, armed.MaxHP, 0.001f, "weapons never touch health");
+        }
+
+        private int AddWeapon(string weapon)
+        {
+            var owned = new OwnedWeapon { id = game.Data.nextWeaponId++, weapon = weapon };
+            game.Data.weapons.Add(owned);
+            return owned.id;
+        }
+
+        [Test]
+        public void OnlyTheTrenchEngineerCanHoldTheLantaka()
+        {
+            int lantaka = AddWeapon(WeaponCatalog.Lantaka);
+            OwnedUnit engineer = UnitOf(UnitCatalog.Engineer);
+
+            foreach (OwnedUnit unit in game.Units)
+            {
+                if (unit == engineer)
+                {
+                    continue;
+                }
+
+                int before = unit.weaponId;
+                Assert.IsFalse(game.CanWield(unit, game.FindWeapon(lantaka)), unit.archetype);
+                Assert.IsFalse(game.TryEquip(unit.id, lantaka), unit.archetype);
+                Assert.AreEqual(before, unit.weaponId, "a refused equip leaves the old weapon in hand");
+            }
+
+            Assert.IsTrue(game.TryEquip(engineer.id, lantaka));
+            Assert.AreEqual(lantaka, engineer.weaponId);
+            Assert.IsNull(WeaponCatalog.Find(WeaponCatalog.Lantaka).UpgradesTo, "the Lantaka cannot be reforged");
+            Assert.IsFalse(game.CanSynthesize(game.FindWeapon(lantaka)));
+
+            // An edited save that hands it to someone else is put right on load.
+            UnitOf(UnitCatalog.Vanguard).weaponId = lantaka;
+            engineer.weaponId = 0;
+            Assert.IsTrue(game.Data.Repair(rules));
+            Assert.AreEqual(0, UnitOf(UnitCatalog.Vanguard).weaponId);
+        }
+
+        [Test]
+        public void ForgingTheEarthworksRewardsTheLantaka()
+        {
+            Quest q06 = Campaign.Find("q06");
+            Assert.AreEqual(WeaponCatalog.Lantaka, q06.RewardWeapon);
+
+            ClearThrough("q05");
+            int weapons = game.Weapons.Count;
+            QuestReward reward = game.CompleteBattle(q06, true, new List<int> { game.Units[0].id });
+
+            Assert.AreEqual(WeaponCatalog.Lantaka, reward.Weapon);
+            Assert.AreEqual(weapons + 1, game.Weapons.Count);
+            Assert.AreEqual(WeaponCatalog.Lantaka, game.Weapons[game.Weapons.Count - 1].weapon);
+        }
+
+        [TestCase(WeaponCatalog.Bolo)]
+        [TestCase(WeaponCatalog.Talibong)]
+        [TestCase(WeaponCatalog.Gulok)]
+        [TestCase(WeaponCatalog.Sibat)]
+        [TestCase(WeaponCatalog.Balaraw)]
+        public void EveryTierOneWeaponReforgesIntoAPaltikAtTheBoloPrice(string weapon)
+        {
+            WeaponDef def = WeaponCatalog.Find(weapon);
+            WeaponDef bolo = WeaponCatalog.Find(WeaponCatalog.Bolo);
+            Assert.AreEqual(1, def.Tier);
+            Assert.AreEqual(WeaponCatalog.Paltik, def.UpgradesTo);
+            Assert.AreEqual(bolo.SynthesisCost.Reales, def.SynthesisCost.Reales);
+            Assert.AreEqual(bolo.SynthesisCost.Rations, def.SynthesisCost.Rations);
+            Assert.AreEqual(bolo.SynthesisCost.Scrap, def.SynthesisCost.Scrap);
         }
 
         [Test]
         public void SynthesisUpgradesTheWeaponInPlaceAndCharges()
         {
-            OwnedUnit vanguard = game.Units[4];
-            OwnedWeapon bolo = game.FindWeapon(vanguard.weaponId);
-            WeaponDef def = WeaponCatalog.Find(WeaponCatalog.Bolo);
+            OwnedUnit vanguard = UnitOf(UnitCatalog.Vanguard);
+            OwnedWeapon talibong = game.FindWeapon(vanguard.weaponId);
+            WeaponDef def = WeaponCatalog.Find(WeaponCatalog.Talibong);
+            game.Data.reales = def.SynthesisCost.Reales;
             game.Data.scrap = def.SynthesisCost.Scrap;
 
-            Assert.IsTrue(game.TrySynthesize(bolo.id));
-            Assert.AreEqual(WeaponCatalog.Paltik, bolo.weapon);
-            Assert.AreEqual(bolo.id, vanguard.weaponId, "the holder keeps the upgraded weapon");
+            Assert.IsTrue(game.TrySynthesize(talibong.id));
+            Assert.AreEqual(WeaponCatalog.Paltik, talibong.weapon);
+            Assert.AreEqual(talibong.id, vanguard.weaponId, "the holder keeps the upgraded weapon");
             Assert.AreEqual(0, game.Balance(Currency.Scrap));
-            Assert.IsFalse(game.TrySynthesize(bolo.id), "no scrap left for the next tier");
+            Assert.AreEqual(0.0f, game.StatsOf(vanguard).CriticalHitChance - game.StatsAt(vanguard.archetype, 1).CriticalHitChance, 0.001f,
+                "the talibong's edge goes with it");
+            Assert.IsFalse(game.TrySynthesize(talibong.id), "no scrap left for the next tier");
         }
 
         // ------------------------------------------------------------------ recruiting
@@ -476,6 +652,38 @@ namespace BinakayanRising.Tests.Meta
             Assert.IsNotNull(data.lessons);
             Assert.Greater(data.nextWeaponId, 3, "new weapons must never reuse an existing id");
             Assert.IsFalse(data.Repair(rules), "a repaired save needs no further repair");
+        }
+
+        [Test]
+        public void ASaveFromBeforeTheNamedWeaponsStillLoadsWithItsBolos()
+        {
+            // The old opening kit: three bolos, one in the Vanguard's hands.
+            SaveData data = MetaGame.NewGame(rules, Start, 3);
+            data.weapons.Clear();
+            data.nextWeaponId = 1;
+            foreach (OwnedUnit unit in data.units)
+            {
+                unit.weaponId = 0;
+            }
+
+            for (int i = 0; i < 3; i++)
+            {
+                data.weapons.Add(new OwnedWeapon { id = data.nextWeaponId++, weapon = "bolo" });
+            }
+
+            data.units[4].weaponId = data.weapons[0].id;
+
+            Assert.IsFalse(data.Repair(rules), "nothing in an old save needs migrating");
+            var old = new MetaGame(data, rules, () => now);
+            OwnedUnit vanguard = old.Units[4];
+            Assert.AreEqual(WeaponCatalog.Bolo, old.WeaponOf(vanguard).Id);
+            Assert.AreEqual(old.StatsAt(vanguard.archetype, 1).AttackDamage + 2f, old.StatsOf(vanguard).AttackDamage, 0.001f);
+            Assert.IsTrue(old.TryEquip(old.Units[0].id, data.weapons[1].id));
+
+            old.Data.reales = 1000;
+            old.Data.scrap = 1000;
+            Assert.IsTrue(old.TrySynthesize(data.weapons[2].id));
+            Assert.AreEqual(WeaponCatalog.Paltik, data.weapons[2].weapon);
         }
     }
 }

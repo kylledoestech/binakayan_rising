@@ -373,6 +373,11 @@ namespace BinakayanRising.Core.Localization
         LoreSupportUnranked,
         BondRankStepFirst,
 
+        // Named period weapons: the Lantaka's restriction and the armory's pages.
+        InvOnlyFor,
+        InvNoReforge,
+        InvRefused,
+
         Count
     }
 }

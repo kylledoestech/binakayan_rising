@@ -237,7 +237,7 @@ namespace BinakayanRising.UI.Shell
             yield return Shot("p2_14_inventory");
             ClickIn("Tab 1");
             yield return Shot("p2_15_weapons");
-            ClickIn("Give 1");
+            ClickIn("Give 2");
             yield return Shot("p2_16_weapon_given");
             ClickIn("Button Back To Camp");
             yield return Wait(0.4f);
@@ -764,6 +764,9 @@ namespace BinakayanRising.UI.Shell
             UserPrefs.ChooseLanguage(Language.English);
             ClickIn("Button Back To Camp");
             yield return Wait(0.6f);
+
+            // The named period weapons in the Armory and the Training Grounds.
+            yield return ArmoryWeapons();
 
             // Too few Rations for q05: the Mission Tent flashes the Rations chip.
             game.TrySpend(Cost.Of(Currency.Rations, game.Balance(Currency.Rations)));

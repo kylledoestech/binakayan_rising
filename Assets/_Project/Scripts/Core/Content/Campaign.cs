@@ -292,6 +292,8 @@ namespace BinakayanRising.Core.Content
                     "Dumarating sa kampo ang mga magsasaka, guro at mediko. Kalapin, sanayin at armasan sila."),
                 PreCutscene = Cutscenes.Act3,
                 Tasks = new[] { TaskRecruit, TaskTrain, TaskEquip },
+
+                // The farmers who answer the rally bring the blade they work with.
                 RewardReales = 150, RewardWeapon = WeaponCatalog.Bolo, RewardLesson = "l03",
                 MapX = 0.50f, MapY = 0.48f
             },
@@ -337,8 +339,9 @@ namespace BinakayanRising.Core.Content
                     "Kalahati pa lang ang trinsera. Iligtas ang kariton ng panustos sa likod ng hanay hanggang yugto 20 upang matapos ng mga manghuhukay."),
                 PreCutscene = "c06_earthworks",
                 // Escort: the cart must still stand at the end of turn 20. One gun shells the line.
+                // The earthworks earn a Lantaka for the Trench Engineer to mount on them.
                 Battle = new QuestBattle(new[] { new EnemyGroup(5, UnitCatalog.SpanishRegular), new EnemyGroup(3, UnitCatalog.SpanishCazador), new EnemyGroup(1, UnitCatalog.SpanishOfficer), new EnemyGroup(1, UnitCatalog.SpanishArtillery) }, 6, WinRule.Escort, 20, 1902, false, 5),
-                RationsCost = 6, RewardReales = 200, RewardLesson = "l06",
+                RationsCost = 6, RewardReales = 200, RewardWeapon = WeaponCatalog.Lantaka, RewardLesson = "l06",
                 MapX = 0.58f, MapY = 0.40f
             },
             new Quest

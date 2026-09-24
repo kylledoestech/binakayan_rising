@@ -45,8 +45,24 @@ namespace BinakayanRising.Core.Meta
         public event Action<QuestReward> QuestCompleted;
 
         /// <summary>
+        /// The opening roster and what each starts with, as archetype/weapon pairs in roster
+        /// order. A null archetype leaves the weapon on the rack: the Balaraw waits for the Field
+        /// Medic, and handing it to anyone clears q03's "equip a weapon" task.
+        /// </summary>
+        private static readonly string[] StartingKit =
+        {
+            UnitCatalog.Evangelista, WeaponCatalog.Bolo,
+            UnitCatalog.Aguinaldo, WeaponCatalog.Sibat,
+            UnitCatalog.Marksman, WeaponCatalog.Paltik,
+            UnitCatalog.Engineer, WeaponCatalog.Gulok,
+            UnitCatalog.Vanguard, WeaponCatalog.Talibong,
+            null, WeaponCatalog.Balaraw
+        };
+
+        /// <summary>
         /// A fresh campaign: the starting purse, the five units Table 3 names for the opening
-        /// battles, three bolos, and both facilities starting to produce now.
+        /// battles, each holding a weapon of its own, a Balaraw on the rack for the Field Medic
+        /// who joins later, and both facilities starting to produce now.
         /// </summary>
         public static SaveData NewGame(MetaRules rules, DateTime utcNow, int seed)
         {
@@ -63,25 +79,15 @@ namespace BinakayanRising.Core.Meta
             data.farm.sinceUtcTicks = utcNow.Ticks;
             data.mine.sinceUtcTicks = utcNow.Ticks;
 
-            string[] starters =
+            for (int i = 0; i < StartingKit.Length; i += 2)
             {
-                UnitCatalog.Evangelista, UnitCatalog.Aguinaldo, UnitCatalog.Marksman,
-                UnitCatalog.Engineer, UnitCatalog.Vanguard
-            };
-
-            for (int i = 0; i < starters.Length; i++)
-            {
-                data.units.Add(new OwnedUnit { id = data.nextUnitId++, archetype = starters[i], level = 1 });
+                var weapon = new OwnedWeapon { id = data.nextWeaponId++, weapon = StartingKit[i + 1] };
+                data.weapons.Add(weapon);
+                if (StartingKit[i] != null)
+                {
+                    data.units.Add(new OwnedUnit { id = data.nextUnitId++, archetype = StartingKit[i], level = 1, weaponId = weapon.id });
+                }
             }
-
-            for (int i = 0; i < 3; i++)
-            {
-                data.weapons.Add(new OwnedWeapon { id = data.nextWeaponId++, weapon = WeaponCatalog.Bolo });
-            }
-
-            // The Vanguard starts armed so the armoury has something to show; the other two
-            // bolos wait on the rack for the player's first equip.
-            data.units[4].weaponId = data.weapons[0].id;
 
             return data;
         }

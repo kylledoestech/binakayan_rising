@@ -226,7 +226,7 @@ namespace BinakayanRising.UI.Shell
                 UiLayout.Fix(statNext[i].rectTransform, 0f, StatRowHeight);
             }
 
-            // EVA / ACC / RNG / CRIT: fixed by archetype, so no "next" column, four to a row.
+            // EVA / ACC / RNG / CRIT: set by archetype and weapon, not level, so no "next" column.
             RectTransform combat = StatRow(detail, "Combat Stats", 26f);
             for (int i = 0; i < CombatLabels.Length; i++)
             {
@@ -458,7 +458,7 @@ namespace BinakayanRising.UI.Shell
 
             WeaponDef weapon = game.WeaponOf(unit);
             weaponLine.text = weapon != null
-                ? Loc.Format(TextKey.TrnWeapon, weapon.Name.Get() + "  " + Loc.Format(TextKey.InvAttack, weapon.AttackBonus))
+                ? Loc.Format(TextKey.TrnWeapon, weapon.Name.Get() + "   " + InventoryScreen.BonusText(weapon))
                 : Loc.Get(TextKey.TrnNoWeapon);
 
             combatValues[0].text = Percent(now.Evasion);

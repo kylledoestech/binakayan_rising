@@ -92,6 +92,12 @@ namespace BinakayanRising.Core.Meta
             return flags.Contains(flag);
         }
 
+        private static bool MayHold(OwnedUnit unit, string weapon)
+        {
+            WeaponDef def = WeaponCatalog.Find(weapon);
+            return def == null || def.Allows(unit.archetype);
+        }
+
         /// <summary>
         /// Brings a loaded file back into a state every system can trust: no null lists, no
         /// negative purse, no duplicate or dangling ids, no level outside the cap.
@@ -154,12 +160,19 @@ namespace BinakayanRising.Core.Meta
 
             weapons = keptWeapons;
 
-            // A unit holding a weapon that no longer exists, or two units holding the same one.
+            // A unit holding a weapon that no longer exists, two units holding the same one, or a
+            // unit holding a weapon reserved to another archetype (the Engineer's Lantaka).
+            var kinds = new Dictionary<int, string>();
+            for (int i = 0; i < weapons.Count; i++)
+            {
+                kinds[weapons[i].id] = weapons[i].weapon;
+            }
+
             var held = new HashSet<int>();
             for (int i = 0; i < units.Count; i++)
             {
                 int weaponId = units[i].weaponId;
-                if (weaponId != 0 && (!seenWeapons.Contains(weaponId) || !held.Add(weaponId)))
+                if (weaponId != 0 && (!seenWeapons.Contains(weaponId) || !held.Add(weaponId) || !MayHold(units[i], kinds[weaponId])))
                 {
                     units[i].weaponId = 0;
                     changed = true;

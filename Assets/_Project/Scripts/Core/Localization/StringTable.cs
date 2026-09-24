@@ -595,6 +595,11 @@ namespace BinakayanRising.Core.Localization
             Add(TextKey.TrnBondUnranked, "Bond: {0} · no rank yet", "Kabuklod: {0} · wala pang ranggo");
             Add(TextKey.LoreSupportUnranked, "No rank yet · support {0} / {1}", "Wala pang ranggo · suporta {0} / {1}");
             Add(TextKey.BondRankStepFirst, "No rank  ▸  Rank {0}", "Walang ranggo  ▸  Ranggo {0}");
+
+            // ---------------------------------------------------------------- named period weapons
+            Add(TextKey.InvOnlyFor, "Only the {0} can use it", "Ang {0} lamang ang makagagamit nito");
+            Add(TextKey.InvNoReforge, "It cannot be reforged into anything else.", "Hindi na ito maipapanday bilang ibang sandata.");
+            Add(TextKey.InvRefused, "{0} cannot use the {1}.", "Hindi magagamit ni {0} ang {1}.");
         }
 
         /// <summary>The text for a key, falling back to English and then to the key's name.</summary>

@@ -67,9 +67,9 @@ namespace BinakayanRising.Tests.Content
         }
 
         [Test]
-        public void TheGlossaryHasTwentyFiveToThirtyUniqueTerms()
+        public void TheGlossaryHasTwentyFiveToFortyUniqueTerms()
         {
-            Assert.That(Glossary.All.Count, Is.InRange(25, 30));
+            Assert.That(Glossary.All.Count, Is.InRange(25, 40));
             var ids = new HashSet<string>();
             var english = new HashSet<string>();
             var filipino = new HashSet<string>();
@@ -85,7 +85,7 @@ namespace BinakayanRising.Tests.Content
         [Test]
         public void TheGlossaryCoversTheTermsTheStoryNames()
         {
-            foreach (string id in new[] { "katipunan", "magdalo", "magdiwang", "binakayan", "dalahican", "cavite", "kawit", "aguinaldo", "bonifacio", "evangelista", "trench", "bolo", "reales", "guardiacivil", "cazadores" })
+            foreach (string id in new[] { "katipunan", "magdalo", "magdiwang", "binakayan", "dalahican", "cavite", "kawit", "aguinaldo", "bonifacio", "evangelista", "trench", "bolo", "talibong", "gulok", "sibat", "balaraw", "lantaka", "paltik", "reales", "guardiacivil", "cazadores" })
             {
                 Assert.IsNotNull(Glossary.Find(id), "The glossary is missing " + id);
             }
