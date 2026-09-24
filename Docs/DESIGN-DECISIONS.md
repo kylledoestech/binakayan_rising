@@ -119,6 +119,8 @@ likely to raise about gacha mechanics in an educational product.
 **8. Kapatiran promotion thresholds.** The proposal says ranks are built by placing units adjacent
 to each other but never says how many battles or turns it takes to go from C to B to A.
 
+*Status: built; needs group sign-off — see [As built](#as-built-sept-2026).*
+
 **9. What "adjacent" means.** Four-way, eight-way, or a radius. The resolver takes this as an
 injected parameter. Eight-way is the conventional choice for an isometric grid.
 
@@ -128,6 +130,10 @@ injected parameter. Eight-way is the conventional choice for an isometric grid.
 Game Design Document calls them "permanent stat boosts"; Table 3 reads as a per-deployment
 proximity bonus. These are different systems with different implications for progression pacing.
 Resolve this one explicitly — it will be noticed.
+
+*Status: resolved in the build (#19) — both readings kept, as one system: the **rank** is permanent
+(saved, never drops) and the **bonus** of that rank applies only while the pair stands side by side,
+exactly as Table 3 reads. See [As built](#as-built-sept-2026).*
 
 **11. Rations economy.** Cap, regeneration rate, and cost per mission are all undefined.
 
@@ -205,7 +211,7 @@ glossary tab are named without detail.
 | Storage | Offline JSON/SQLite | JSON only, atomic write + backup + checksum (`Gameplay/Meta/SaveStore.cs`); no SQLite |
 | Grid | 12×12, rear rows deploy | 14×9; deploy zone is the trench column plus the tents; squad cap 6 (3 on q07) |
 | Kapatiran adjacency | 8-way recommended (#9) | 4-way, no diagonals (`KapatiranProximityRule.Orthogonal`) |
-| Quiz rewards (Table 4) | Reales, heal, buff, reset, revive | Only +50 Reales is built; the battle is pre-simulated, so the quiz can't change the outcome yet (#43) |
+| Quiz rewards (Table 4) | Reales, heal, buff, reset, revive | All built (#43). Table 4 ties one effect to each sample question; the build lets the player pick any one of the four after a right answer |
 | Spanish terrain (Table 2) | Bonuses not limited by side | Spanish get no trench/tent bonus (`SpanishReceivesTerrainBonuses = false`) |
 
 None of these is fatal. The Unity version difference is a minor revision. The 2D template is
@@ -262,22 +268,37 @@ Rows marked ⚠ contradict a recommendation above or the proposal.
 | 9 ⚠ | **4-way** adjacency (`KapatiranProximityRule.Orthogonal`), and no diagonal movement. This conflicts with #9's 8-way recommendation — **the group must pick one** | `Core/Combat/KapatiranResolver.cs`, `PlaytestScenario.Config()` |
 | 11, 12, 14 | Start 300 Reales / 20 Rations / 10 Scrap. Farm: 1 Ration per 20 s, holds 30. Mine: 1 Scrap per 40 s, holds 20. Exchange: 10 Rations → 15 Reales, 10 Scrap → 25 Reales. Battles cost 0–12 Rations and pay 100–500 Reales | `Core/Meta/MetaRules.cs`, `Core/Content/Campaign.cs` |
 | 15 | Level cap 10; XP to next = 100 × level; +8% HP, +5% Attack, +4% Defense per level; 60 XP per win, 20 per loss; drill = 100 XP for 80 Reales + 5 Scrap | `Core/Meta/MetaRules.cs` |
-| 16 ⚠ | One quiz per battle, at `QuestBattle.QuizTurn` (turns 3–6); the q02 tutorial battle has none (`QuizTurn = 0`). The battle is simulated in full first, so the quiz pauses the replay and cannot change the outcome | `Campaign.cs`, `Gameplay/BattlePlaytest.cs` |
-| 17 | Right answer +50 Reales; wrong answer costs nothing. ⚠ Table 4's second reward (heal / attack buff / reset / revive) is **not built** | `MetaGame.Campaign.cs` `RecordQuizAnswer` |
+| 16 | One quiz per battle, at `QuestBattle.QuizTurn` (turns 3–6); the q02 tutorial battle has none (`QuizTurn = 0`). The battle is still simulated in full first, but a right answer's command **re-fights** it: the same deployment, seed and bonds are run to the turn before the quiz, the command is queued, and the battle runs to its end. Nothing before the command draws a different die, so the new log matches the one already shown up to the quiz turn (checked at run time), and the replay carries on into the new ending — the quiz **can** change the outcome | `Core/Combat/TacticianCommand.cs` `RunWithCommand`, `Gameplay/BattlePlaytest.cs` `ApplyTacticianCommand` |
+| 17 | Right answer: +50 Reales (coin and toast), then the player picks **one** Tactician's Command from four (Table 4): heal every ally 10% of Max HP; +10% Attack for all allies for 1 turn; send every enemy back to its starting cell (nearest free cell if taken); revive the ally who fell last at 50% of base Max HP on its deployment cell, or the nearest free deploy cell (greyed out when no one has fallen). The command lands at the start of the quiz turn. Wrong answer: nothing | `MetaGame.Campaign.cs` `RecordQuizAnswer`, `Core/Combat/BattleSimulator.Commands.cs`, `UI/Shell/TacticianCommandCard.cs`, `UI/Shell/CampaignQuizRewards.cs` (`IQuizRewardReceiver`) |
 | 18 | 30 questions, 10 per level, each with a difficulty (Easy / Medium / Hard) and a category (Figures, Events, Places, Society, Tactics). Level tests: 5 questions, 60% to pass, 150 Reales on first pass | `Core/Content/Learning.cs`, `MetaRules.cs` |
 | 21 | No new modes: "Forging the Earthworks" (q06) is a hold-out battle (survive 30 turns); "The Silent Sabotage" (q07) is a 3-unit squad battle. `Campaign.cs:144-147` says exactly this | `Core/Content/Campaign.cs` |
 | 22 ⚠ | **JSON only, no SQLite.** Trivia and units are C# data. Save written whole to a temp file, flushed, swapped in with `File.Replace` keeping a `.bak`; SHA-256 checksum; a bad file is renamed `.corrupt` and the backup loaded. `SaveData.cs:14` cites #22 for "written whole and read whole". The proposal promises SQLite, so the document must be amended | `Gameplay/Meta/SaveStore.cs`, `Docs/SAVE-RELIABILITY.md` |
 | Table 2 ⚠ | Spanish units get **no** trench or tent bonus (`SpanishReceivesTerrainBonuses = false`); penalties such as the shallows still apply to them | `PlaytestScenario.Config()`, `Tests/EditMode/Combat/SpanishTerrainBonusTests.cs` |
 | Ranks | 8 player ranks, Kawal to Heneral, one per quest milestone: start, q02, q04, q05, q06, q07, q09, q10 | `Core/Content/PlayerRanks.cs` |
+| 8 | Kapatiran support (#19): +1 per battle fought (won or lost, not retreated) with both partners deployed side by side. Rank C at 1, B at 3, A at 5 — so rank A is reachable within the 7 campaign battles only by keeping a pair together in most of them. Rank C gives no bonus (Table 3: it opens the lore dialogue); B and A give Table 3's bonus, A replacing B. The tutorial battle (q02) still fights every pair at rank A, since it teaches what a bond does. A card after the battle shows each new rank | `Core/Meta/MetaRules.cs` `BondRankSupport`, `Core/Meta/MetaGame.Bonds.cs`, `UI/Shell/BondRankCard.cs` |
+| 9 (bonds) | Support is earned by the same adjacency the battle's bonus uses (`KapatiranResolver`'s default rule, currently 4-way), so switching #9 to 8-way changes both together | `MetaGame.Bonds.cs` |
+| 10 | Rank permanent, saved per pair (`SaveData.bonds`, save version 3; older saves start every pair at no rank); bonus only while side by side | `Core/Meta/SaveData.cs`, `Core/Content/BondCatalog.cs` |
+| Table 3 lore | The four lore dialogues, one per pair, open at rank C, play in the dialogue box, and can be heard again from **Lore** in the Training Grounds. ⚠ **SME check pending** — see below | `Core/Content/BondLore.cs`, `UI/Shell/BondLorePanel.cs` |
 
 ### Conflicts for the group
 
 1. **Adjacency (#9):** built 4-way, doc recommends 8-way.
 2. **Grid (#5):** 14×9 with a terrain-defined deploy zone, not 12×12 with the rear three rows.
 3. **SQLite (#22):** the proposal commits to SQLite; the build uses none.
-4. **Table 4 quiz rewards:** only the +50 Reales exists; the four battle effects do not.
+4. ~~**Table 4 quiz rewards:** only the +50 Reales exists; the four battle effects do not.~~ **Resolved (#43):** all four are built; the player picks one after a right answer.
 5. **Table 2 for the Spanish:** the build withholds trench and tent bonuses from the Spanish; Table 2 does not say they are Katipunan-only.
-6. **Quiz cadence (#16):** one fixed-turn quiz per battle, none in the tutorial battle, and it cannot affect the result.
+6. ~~**Quiz cadence (#16):** one fixed-turn quiz per battle, none in the tutorial battle, and it cannot affect the result.~~ **Resolved (#43):** the command re-fights the battle from the quiz turn, so the result can change. Still one fixed-turn quiz per battle, none in the tutorial.
+
+### Kapatiran lore — SME check pending
+
+The four lore dialogues (`Core/Content/BondLore.cs`, #20) are drafts. The conversations are
+invented; the history they lean on is kept to what the standard accounts agree on — Evangelista's
+engineering studies at Ghent, Aguinaldo as capitán municipal of Kawit, the Magdalo (Kawit) and
+Magdiwang (Noveleta) councils with Santiago Álvarez leading Magdiwang's forces, Binakayan and
+Dalahican held against Blanco's offensive of November 1896, and the shortage of rifles. The
+Vanguard, Field Medic, Marksman, Engineer and the two infantrymen are composites, not named
+people. **The adviser or a subject-matter expert should check both the English and the Filipino
+before the defense.**
 
 ## Recommended order of decisions
 

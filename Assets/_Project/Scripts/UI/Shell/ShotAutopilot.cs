@@ -28,7 +28,7 @@ namespace BinakayanRising.UI.Shell
     /// group or off the screen. Lines go to <c>audit.txt</c> beside the images.
     /// </para>
     /// </remarks>
-    public sealed class ShotAutopilot : MonoBehaviour
+    public sealed partial class ShotAutopilot : MonoBehaviour
     {
         private string directory;
         private readonly StringBuilder audit = new StringBuilder();
@@ -85,6 +85,10 @@ namespace BinakayanRising.UI.Shell
 
                 case "issues":
                     yield return Issues();
+                    break;
+
+                case "bonds":
+                    yield return Bonds();
                     break;
 
                 default:
@@ -426,6 +430,7 @@ namespace BinakayanRising.UI.Shell
                 PickFirst();
                 yield return Shot("p4_17_battle_quiz_answered");
                 QuizCard.Current?.Continue();
+                yield return TakeAnyCommand();
                 yield return WaitWhile(() => Shell.Battle != null && Shell.Battle.CurrentPhase != BinakayanRising.Gameplay.BattlePlaytest.Phase.Finished, 120f);
                 yield return Shot("p4_18_battle_report", 1.5f);
                 if (Shell.Battle != null)
@@ -665,6 +670,7 @@ namespace BinakayanRising.UI.Shell
             yield return WaitWhile(() => QuizCard.Current == null && Shell.Battle != null && Shell.Battle.CurrentPhase != BinakayanRising.Gameplay.BattlePlaytest.Phase.Finished, 90f);
             PickFirst();
             QuizCard.Current?.Continue();
+            yield return TakeAnyCommand();
             yield return Wait(2.5f);
             yield return Shot("i_09_hp_bars_later", 0.1f);
         }
