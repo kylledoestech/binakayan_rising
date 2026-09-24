@@ -20,7 +20,7 @@ namespace BinakayanRising.Core.Grid
         /// <summary>The cell is on the map but outside the deployment zone.</summary>
         NotDeployable,
 
-        /// <summary>Another unit already stands on the cell.</summary>
+        /// <summary>Another unit, or a fixed piece such as the supply cart, already stands on the cell.</summary>
         Occupied,
 
         /// <summary>The squad is full and the unit is not already on the board.</summary>
@@ -44,8 +44,13 @@ namespace BinakayanRising.Core.Grid
         /// <param name="unitId">The unit being put down.</param>
         /// <param name="cell">The cell it is put down on.</param>
         /// <param name="squadCap">How many units the board takes at most.</param>
+        /// <param name="blocked">
+        /// Cells something other than the squad already stands on, such as the Escort supply cart
+        /// (#37). They refuse a unit exactly as a placed unit's cell does. Null for none.
+        /// </param>
         public static DropVerdict Judge(
-            IBattleGrid grid, IReadOnlyDictionary<int, GridCoord> placements, int unitId, GridCoord cell, int squadCap)
+            IBattleGrid grid, IReadOnlyDictionary<int, GridCoord> placements, int unitId, GridCoord cell, int squadCap,
+            ICollection<GridCoord> blocked = null)
         {
             if (grid == null || !grid.InBounds(cell))
             {
@@ -62,6 +67,11 @@ namespace BinakayanRising.Core.Grid
             if (onBoard && current == cell)
             {
                 return DropVerdict.Unchanged;
+            }
+
+            if (blocked != null && blocked.Contains(cell))
+            {
+                return DropVerdict.Occupied;
             }
 
             if (placements != null)

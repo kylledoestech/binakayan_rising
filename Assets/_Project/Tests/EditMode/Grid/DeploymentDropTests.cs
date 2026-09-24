@@ -56,6 +56,18 @@ namespace BinakayanRising.Tests.Grid
         }
 
         [Test]
+        public void BlockedCell_RefusesReserveAndPlacedUnits()
+        {
+            // The Escort supply cart (#37) stands on a lit tile but is not in the placements.
+            var blocked = new List<GridCoord> { new GridCoord(0, 2) };
+            placements[1] = new GridCoord(0, 0);
+
+            Assert.AreEqual(DropVerdict.Occupied, DeploymentDrop.Judge(grid, placements, 2, new GridCoord(0, 2), 6, blocked));
+            Assert.AreEqual(DropVerdict.Occupied, DeploymentDrop.Judge(grid, placements, 1, new GridCoord(0, 2), 6, blocked));
+            Assert.AreEqual(DropVerdict.Placed, DeploymentDrop.Judge(grid, placements, 2, new GridCoord(0, 1), 6, blocked));
+        }
+
+        [Test]
         public void UnitOnBoard_MovesToFreeCell()
         {
             placements[1] = new GridCoord(0, 0);

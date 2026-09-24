@@ -797,7 +797,7 @@ namespace BinakayanRising.Gameplay
 
             // The rule drag-and-drop uses too: a free lit tile, and a full squad takes no more
             // though a unit already down may still be moved.
-            if (!DeploymentDrop.Accepts(DeploymentDrop.Judge(grid, placements, roster[selectedSlot].Id, cell, SquadCap)))
+            if (!DeploymentDrop.Accepts(DeploymentDrop.Judge(grid, placements, roster[selectedSlot].Id, cell, SquadCap, FixedCells)))
             {
                 return false;
             }
@@ -2127,8 +2127,25 @@ namespace BinakayanRising.Gameplay
             RaiseStateChanged();
         }
 
+        /// <summary>
+        /// Cells a piece outside the squad stands on during deployment: the supply cart under
+        /// Escort (#37). No unit may be put down there, by click, drag or auto-deploy.
+        /// </summary>
+        private ICollection<GridCoord> FixedCells
+        {
+            get { return Rule == WinRule.Escort ? EscortFixedCells : NoFixedCells; }
+        }
+
+        private static readonly GridCoord[] EscortFixedCells = { PlaytestScenario.CartCell };
+        private static readonly GridCoord[] NoFixedCells = new GridCoord[0];
+
         private bool IsOccupied(GridCoord cell)
         {
+            if (FixedCells.Contains(cell))
+            {
+                return true;
+            }
+
             foreach (KeyValuePair<int, GridCoord> placement in placements)
             {
                 if (placement.Value == cell)

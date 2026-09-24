@@ -65,7 +65,7 @@ namespace BinakayanRising.Gameplay
             }
 
             dragHover = hover;
-            DropVerdict verdict = onBoard ? DeploymentDrop.Judge(grid, placements, dragUnitId, cell, SquadCap) : DropVerdict.OutOfBounds;
+            DropVerdict verdict = onBoard ? DeploymentDrop.Judge(grid, placements, dragUnitId, cell, SquadCap, FixedCells) : DropVerdict.OutOfBounds;
             dragHoverValid = DeploymentDrop.Accepts(verdict) || verdict == DropVerdict.Unchanged;
             PaintDragHighlights();
         }
@@ -107,7 +107,7 @@ namespace BinakayanRising.Gameplay
 
             GridCoord cell;
             DropVerdict verdict = TryScreenToCell(screen, out cell)
-                ? DeploymentDrop.Judge(grid, placements, unitId, cell, SquadCap)
+                ? DeploymentDrop.Judge(grid, placements, unitId, cell, SquadCap, FixedCells)
                 : DropVerdict.OutOfBounds;
 
             if (verdict == DropVerdict.Unchanged)
@@ -257,7 +257,7 @@ namespace BinakayanRising.Gameplay
                 }
 
                 GridCoord cell = deployHighlightCells[i];
-                DropVerdict verdict = DeploymentDrop.Judge(grid, placements, dragUnitId, cell, SquadCap);
+                DropVerdict verdict = DeploymentDrop.Judge(grid, placements, dragUnitId, cell, SquadCap, FixedCells);
                 bool takes = DeploymentDrop.Accepts(verdict) || verdict == DropVerdict.Unchanged;
                 marker.color = !takes ? DragRefusedTint : (cell == dragHover ? DragHoverTint : DragValidTint);
             }
