@@ -285,3 +285,39 @@ Settle Priority 1 first. Items 1 through 5 gate the vertical slice, and the vert
 proves the concept works. Priority 2 can be decided while the slice is being built. Priority 3 is
 content work that scales with available time and is the natural place to cut scope if the schedule
 tightens.
+
+## Final decisions (Sept 24, 2026)
+
+The group asked for the open questions to be settled from this document and the build. Each is now
+**decided**; the GitHub issue is closed with a link here. To change one, reopen its issue.
+
+| Issue | DD | Decision | Why |
+| --- | --- | --- | --- |
+| #1 | 2 | Magdalo Infantry is the baseline (110 HP, 12 ATK, 6 DEF, 5% EVA, 80% ACC, range 1, 8% CRIT). Every other unit deviates from it; the full table is below. Spanish types: see the DD 19 row in [As built](#as-built-sept-2026) | DD 2 suggests the Magdalo as the baseline; round numbers make the table defensible |
+| #2 | 1 | Evade → accuracy → crit → `max(1, ATK − DEF)`, crit ×2, damage floor 1 | DD 1's recommended order, already built and tested; changing it would invalidate the tuned stats |
+| #3 | 3 | Nearest enemy; ties go to the lowest unit id; target re-picked every activation; no aggro radius (the whole map engages) | Deterministic and reproducible from a seed, as DD 3 requires. On a 14×9 board an aggro radius only adds stalls |
+| #4 | 4 | Turn-based simulation; the board replays each turn's event log with interpolated movement | DD 4's recommendation. It matches the proposal's own "per AI turn" wording and keeps the simulation testable |
+| #5 | 5 | 14×9 grid. The deploy zone comes from the terrain (the trench column and the tents), not from rows. Squad cap 6, or 3 on q07 | DD 5 calls 12×12 "guesses ... not recommendations". The board art, the tutorial and every quest are built around the trench line |
+| #6 | 6 | Additive: +20% and +10% make +30% | DD 6's default; easier to explain at the defense |
+| #7 | 20 | A Bamboo Barricade blocks every unit on both sides. Walkability is its single source of truth | This is DD 20's "intuitive reading"; the proposal gives no asymmetric rule |
+| #8 | 9 | 4-way adjacency: up, down, left, right, never diagonal | Movement is 4-way too, so a bond is a unit you could step to. The tutorial and How-to-Play already teach "never diagonal". The DD 9 note that 8-way is "conventional" is a remark, not a requirement |
+| #11 | Assumptions | All ratified: fractional movement carries over; a unit moves or attacks, never both; a mutual wipe is a Draw; the turn cap ends in a Draw, which counts as a loss for rewards except in hold-out and escort battles; Healing Received is a bond-only ninth stat; bonds are same-team only; the Spanish get no trench or tent bonus | Each is already built and tested; none contradicts the proposal |
+
+#9 and #10 (how Kapatiran ranks are earned, and whether the boost is permanent or per battle) are
+settled by the Kapatiran progression work (#19) and recorded in its row of [As built](#as-built-sept-2026).
+
+### Katipunan base stats (#1)
+
+| Unit | HP | ATK | DEF | EVA | ACC | RNG | CRIT |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Magdalo Infantry (baseline) | 110 | 12 | 6 | 5% | 80% | 1 | 8% |
+| Magdiwang Infantry | 105 | 13 | 5 | 6% | 80% | 1 | 10% |
+| Gen. Edilberto Evangelista | 140 | 16 | 8 | 5% | 90% | 1 | 10% |
+| Emilio Aguinaldo | 130 | 15 | 7 | 5% | 90% | 1 | 15% |
+| Katipunero Vanguard | 150 | 15 | 10 | 5% | 85% | 1 | 10% |
+| Field Medic | 100 | 8 | 6 | 8% | 85% | 2 | 5% |
+| Caviteño Marksman | 90 | 14 | 4 | 5% | 75% | 2 | 15% |
+| Trench Engineer | 110 | 10 | 12 | 5% | 85% | 1 | 5% |
+
+Katipunan movement is 0: they hold the line from where they deploy (the Sabotage mission is the
+exception; see #38). Source: `Core/Content/UnitCatalog.cs`.
