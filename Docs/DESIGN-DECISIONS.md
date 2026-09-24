@@ -326,7 +326,7 @@ The group asked for the open questions to be settled from this document and the 
 | #6 | 6 | Additive: +20% and +10% make +30% | DD 6's default; easier to explain at the defense |
 | #7 | 20 | A Bamboo Barricade blocks every unit on both sides. Walkability is its single source of truth | This is DD 20's "intuitive reading"; the proposal gives no asymmetric rule |
 | #8 | 9 | 4-way adjacency: up, down, left, right, never diagonal | Movement is 4-way too, so a bond is a unit you could step to. The tutorial and How-to-Play already teach "never diagonal". The DD 9 note that 8-way is "conventional" is a remark, not a requirement |
-| #11 | Assumptions | All ratified: fractional movement carries over; a unit moves or attacks, never both; a mutual wipe is a Draw; the turn cap ends in a Draw, which counts as a loss for rewards except in hold-out and escort battles; Healing Received is a bond-only ninth stat; bonds are same-team only; the Spanish get no trench or tent bonus | Each is already built and tested; none contradicts the proposal |
+| #11 | Assumptions | All ratified: fractional movement carries over; a unit moves or attacks, never both; a mutual wipe is a Draw; the turn cap ends in a Draw, which counts as a loss for rewards except in escort battles, where reaching the cap with the cart alive is the win; Healing Received is a bond-only ninth stat; bonds are same-team only; the Spanish get no trench or tent bonus | Each is already built and tested; none contradicts the proposal |
 
 #9 and #10 (how Kapatiran ranks are earned, and whether the boost is permanent or per battle) are
 settled by the Kapatiran progression work (#19, #20) and recorded in the DD 8, DD 9 (bonds), DD 10 and
