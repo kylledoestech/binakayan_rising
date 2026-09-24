@@ -7,7 +7,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT="$(cd "$HERE/../.." && pwd)"
 OUT="$HERE/out/fps"
-PLAYER="$PROJECT/Builds/Linux/BinakayanRising.x86_64"
+PLAYER="${PLAYER:-$PROJECT/Builds/Linux/BinakayanRising.x86_64}"
 SAVES="$(mktemp -d)"
 trap 'rm -rf "$SAVES"' EXIT
 [[ -x "$PLAYER" ]] || { echo "error: no player at $PLAYER; build it first" >&2; exit 1; }

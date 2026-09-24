@@ -13,7 +13,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT="$(cd "$HERE/../.." && pwd)"
 ROUNDS="${1:-100}"
 OUT="$(realpath -m "${2:-$HERE/out/save-stress}")"
-PLAYER="$PROJECT/Builds/Linux/BinakayanRising.x86_64"
+PLAYER="${PLAYER:-$PROJECT/Builds/Linux/BinakayanRising.x86_64}"
 [[ -x "$PLAYER" ]] || { echo "error: no player at $PLAYER; build it first" >&2; exit 1; }
 rm -rf "$OUT" && mkdir -p "$OUT/saves"
 

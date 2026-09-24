@@ -34,6 +34,27 @@ Test Runner > EditMode), **not** in `Tools/battle-sim/test.sh`.
 What they do **not** cover: a real process kill or power cut mid-write, and the Windows file
 system's behavior under one. That is the manual test below.
 
+## Automated kill test (Sept 24, 2026)
+
+`Tools/qa/save-stress.sh` runs the player with `-brSaveStress`, which rewrites the save every frame
+through the real `SaveStore`. The script kills the process with **SIGKILL** at a random moment
+(0.05–0.95 s after writing starts), relaunches it, and checks the save. That covers a kill in the
+middle of the temp-file write, in the middle of `File.Replace`, and between the two.
+
+| Rounds | Saves written | Loaded clean | Loaded from `.bak` | Corrupt | Counter went back |
+| --- | --- | --- | --- | --- | --- |
+| 100 | ~166,000 | 99 of 99 relaunches | 0 | **0** | 0 |
+
+Linux player, ext4, Ryzen 7 6800H. After round 100 the folder held only `campaign.json` and
+`campaign.json.bak`: no leftover `.tmp` and no `.corrupt`. To rerun:
+
+```bash
+Tools/qa/save-stress.sh 100    # prints "rounds 100, corrupt 0, ..."; exits non-zero on any corruption
+```
+
+The manual Windows run below is still worth doing once on the release build, because NTFS
+`File.Replace` is a different code path from ext4 `rename`.
+
 ## Manual test: force-quit mid-save
 
 Run on the Windows release build (the installer from the GitHub prerelease), not in the editor.
