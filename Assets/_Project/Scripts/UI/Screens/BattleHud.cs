@@ -11,8 +11,8 @@ using UnityEngine.UI;
 namespace BinakayanRising.UI.Screens
 {
     /// <summary>
-    /// The in-battle interface: top bar, deployment roster, order of battle, field report and
-    /// outcome card.
+    /// The in-battle interface: top bar, deployment roster and portrait strip, order of battle,
+    /// field report and outcome card.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -104,6 +104,7 @@ namespace BinakayanRising.UI.Screens
             battle.UnitLifted += OnUnitLifted;
             battle.FieldReportAppended += OnFieldReportAppended;
             battle.SpeedChanged += OnSpeedChanged;
+            battle.DropRefused += OnDropRefused;
             Loc.LanguageChanged += OnLanguageChanged;
 
             OnPhaseChanged(battle.CurrentPhase);
@@ -133,6 +134,7 @@ namespace BinakayanRising.UI.Screens
                 battle.UnitLifted -= OnUnitLifted;
                 battle.FieldReportAppended -= OnFieldReportAppended;
                 battle.SpeedChanged -= OnSpeedChanged;
+                battle.DropRefused -= OnDropRefused;
             }
         }
 
@@ -159,6 +161,8 @@ namespace BinakayanRising.UI.Screens
             bool deploying = phase == BattlePlaytest.Phase.Deployment;
             deploymentSection.gameObject.SetActive(deploying);
             combatSection.gameObject.SetActive(!deploying);
+            strip.gameObject.SetActive(deploying);
+            ResetPanelsForPhase(phase);
 
             if (!deploying)
             {
@@ -217,8 +221,11 @@ namespace BinakayanRising.UI.Screens
             BuildTopBar(canvas.transform);
             BuildSidePanel(canvas.transform);
             BuildLogPanel(canvas.transform);
+            BuildRosterStrip(canvas.transform);
             BuildMinimap(canvas.transform);
             BuildOutcome(canvas.transform);
+            BuildDragGhost();
+            BindPanelSlide();
 
             deck = HowToPlayDeck.Create(this);
             tutorial = gameObject.AddComponent<TutorialDirector>();
@@ -274,7 +281,11 @@ namespace BinakayanRising.UI.Screens
             {
                 deploymentDirty = false;
                 RefreshDeployment();
+                RefreshStrip();
             }
+
+            RefreshDragGhost();
+            StepPanels();
 
             RefreshOrderOfBattle();
 
@@ -293,6 +304,13 @@ namespace BinakayanRising.UI.Screens
         /// </summary>
         private void PushBoardSafeArea()
         {
+            // Frozen while the panels are away or moving: reframing on every step of the slide
+            // would zoom the camera in and out under the replay, and reset the player's own zoom.
+            if (panelsIn < 1f)
+            {
+                return;
+            }
+
             float width = UnityEngine.Screen.width;
             float height = UnityEngine.Screen.height;
             if (width <= 0f || height <= 0f)
@@ -455,6 +473,9 @@ namespace BinakayanRising.UI.Screens
         Escape,
 
         /// <summary>P: open the pause menu.</summary>
-        Pause
+        Pause,
+
+        /// <summary>Tab: show or hide the side panel and field report during the replay.</summary>
+        Panels
     }
 }

@@ -77,48 +77,107 @@ namespace BinakayanRising.Core.Content
     /// told by Tadah, the Senador (panel feedback: "scenarios (cut scenes)").
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// The proposal's four acts (Appendix F, "The Lore: The Architect's Ascent") open q01, q02,
+    /// q03 and q08; the aftermath closes q10. A hub-task quest's opening scene is played by the
+    /// encampment the first time the quest is current; a battle's plays when it is launched.
+    /// </para>
+    /// <para>
+    /// SME CHECK PENDING (#34, #40). Acts 2 and 3 dramatize, as the proposal does: the veterans'
+    /// doubt and the open-field skirmish are story, not a claim about one recorded event.
+    /// </para>
+    /// <para>
     /// The history follows the capstone document's account of the Battle of
     /// Binakayan-Dalahican, 9 to 11 November 1896. The group should check every line against
     /// its sources before the defense; nothing here is meant to add a claim the document does
     /// not make.
+    /// </para>
     /// </remarks>
     public static class Cutscenes
     {
+        /// <summary>Act 1, The Scholar of Ghent: opens the campaign (q01).</summary>
+        public const string Act1 = "act1_scholar";
+
+        /// <summary>Act 2, The Catalyst of Defeat: opens the first battle (q02).</summary>
+        public const string Act2 = "act2_catalyst";
+
+        /// <summary>Act 3, Forging the Brotherhood: opens the Vanguard's Rally (q03).</summary>
+        public const string Act3 = "act3_brotherhood";
+
+        /// <summary>Act 4, The Masterpiece of Binakayan-Dalahican: opens Level 3 (q08).</summary>
+        public const string Act4 = "act4_masterpiece";
+
+        /// <summary>The visual-novel aftermath of November 11, 1896, after the final battle (q10).</summary>
+        public const string Aftermath = "c11_aftermath";
+
         private static readonly List<Cutscene> all = new List<Cutscene>
         {
-            new Cutscene("c01_ghent", Characters.Senador,
-                Slide("c01_1", SceneMood.City,
-                    "Ghent, Belgium - 1896", "Ghent, Belhika - 1896",
-                    "Far from home, a young Filipino studies to become an engineer. He learns how walls stand, how water moves, how earth is shaped.",
-                    "Malayo sa tahanan, isang binatang Pilipino ang nag-aaral upang maging inhinyero. Natutunan niya kung paano tumatayo ang pader, gumagalaw ang tubig, at hinuhubog ang lupa."),
-                Slide("c01_2", SceneMood.Night,
-                    "A letter from Cavite", "Isang liham mula sa Kabite",
-                    "Then news arrives: the Katipunan has risen. His country needs builders now, not only soldiers.",
-                    "Pagkatapos ay dumating ang balita: bumangon na ang Katipunan. Kailangan ngayon ng bayan ang mga tagapagtayo, hindi lamang mga sundalo."),
-                Slide("c01_3", SceneMood.Camp,
+            // ---------------------------------------------------------- Act 1 (#34)
+            new Cutscene(Act1, Characters.Senador,
+                Slide("act1_1", SceneMood.City,
+                    "Act 1 - The Scholar of Ghent", "Unang Yugto - Ang Iskolar ng Ghent",
+                    "Ghent, Belgium, 1896. Edilberto Evangelista studies civil engineering at the university. A comfortable future waits for him in Europe.",
+                    "Ghent, Belhika, 1896. Nag-aaral si Edilberto Evangelista ng inhinyeriyang sibil sa pamantasan. Isang maginhawang kinabukasan ang naghihintay sa kanya sa Europa."),
+                Slide("act1_2", SceneMood.Night,
+                    "Letters from home", "Mga liham mula sa tahanan",
+                    "Letters from the Philippines reach him. The Katipunan has risen against Spain.",
+                    "Dumating sa kanya ang mga liham mula sa Pilipinas. Bumangon na ang Katipunan laban sa Espanya."),
+                Slide("act1_3", SceneMood.Night,
+                    "A choice", "Isang pasya",
+                    "He can stay and prosper, or go home to a war. He packs his drawings and his books.",
+                    "Maaari siyang manatili at umunlad, o umuwi sa digmaan. Inimpake niya ang kanyang mga guhit at aklat."),
+                Slide("act1_4", SceneMood.Sea,
+                    "The voyage home", "Ang paglalayag pauwi",
+                    "He sails for Manila. An engineer knows how to shape earth and build walls that stand - skills a revolution will need.",
+                    "Naglayag siya patungong Maynila. Alam ng inhinyero kung paano hubugin ang lupa at magtayo ng pader na matibay - mga kasanayang kakailanganin ng himagsikan."),
+                Slide("act1_5", SceneMood.Camp,
                     "Kawit, Cavite", "Kawit, Kabite",
                     "He comes home to the camp at Kawit. Here, you are that engineer. Your aide Tomas is waiting.",
                     "Umuwi siya sa kampo sa Kawit. Dito, ikaw ang inhinyerong iyon. Naghihintay ang iyong katuwang na si Tomas.")),
 
-            new Cutscene("c02_reality", Characters.Senador,
-                Slide("c02_1", SceneMood.Trench,
+            // ---------------------------------------------------------- Act 2 (#34)
+            // A dramatization: the skirmish stands for the early open-field losses the lessons
+            // describe, not for one named battle.
+            new Cutscene(Act2, Characters.Senador,
+                Slide("act2_1", SceneMood.Camp,
+                    "Act 2 - The Catalyst of Defeat", "Ikalawang Yugto - Ang Pagkatalong Nagmulat",
+                    "The veteran commanders are unsure of the young engineer. Wars, they say, are won with courage and the bolo.",
+                    "Hindi pa panatag ang mga beteranong pinuno sa batang inhinyero. Ayon sa kanila, napagtatagumpayan ang digmaan sa tapang at itak."),
+                Slide("act2_2", SceneMood.Battle,
+                    "An open field", "Isang bukas na parang",
+                    "He watches brave fighters charge across open ground. Spanish rifles and artillery cut them down.",
+                    "Pinanood niya ang matatapang na mandirigmang sumugod sa bukas na lupa. Pinabagsak sila ng riple at kanyon ng Kastila."),
+                Slide("act2_3", SceneMood.Trench,
+                    "A hard lesson", "Isang mapait na aral",
+                    "Courage without cover is not enough. Soldiers need earth between them and the guns.",
+                    "Hindi sapat ang tapang kung walang kublihan. Kailangan ng sundalo ng lupang nakapagitan sa kanila at sa mga baril."),
+                Slide("act2_4", SceneMood.Trench,
                     "Kawit - the trench line", "Kawit - ang hanay ng trinsera",
-                    "Books are one thing. A Spanish patrol on the road is another. Scouts report soldiers probing the trenches.",
-                    "Iba ang aklat. Iba ang patrolyang Kastila sa daan. Iniulat ng mga tanod na may mga sundalong sumusubok sa trinsera."),
-                Slide("c02_2", SceneMood.Battle,
+                    "Now a Spanish patrol is on the road. Scouts report soldiers probing the trenches.",
+                    "Ngayon ay may patrolyang Kastila sa daan. Iniulat ng mga tanod na may mga sundalong sumusubok sa trinsera."),
+                Slide("act2_5", SceneMood.Battle,
                     "Your first command", "Ang iyong unang utos",
                     "Place your soldiers well. Once the assault begins, they fight on their own - the planning is yours.",
                     "Ipuwesto nang mabuti ang iyong mga sundalo. Kapag nagsimula na ang salakay, sila na ang lalaban - sa iyo ang pagpaplano.")),
 
-            new Cutscene("c03_rally", Characters.Senador,
-                Slide("c03_1", SceneMood.Camp,
-                    "The Vanguard's Rally", "Ang Pagtitipon ng Taliba",
-                    "Word of the skirmish spreads. Farmers, teachers and medics walk into camp, ready to serve.",
-                    "Kumalat ang balita ng sagupaan. Naglakad papasok sa kampo ang mga magsasaka, guro at mediko, handang maglingkod."),
-                Slide("c03_2", SceneMood.Camp,
-                    "Kawit encampment", "Kampo sa Kawit",
-                    "Courage is not enough. Recruit them, drill them, and put a weapon in their hands.",
-                    "Hindi sapat ang tapang. Kalapin sila, sanayin, at bigyan ng sandata.")),
+            // ---------------------------------------------------------- Act 3 (#34)
+            new Cutscene(Act3, Characters.Senador,
+                Slide("act3_1", SceneMood.Camp,
+                    "Act 3 - Forging the Brotherhood", "Ikatlong Yugto - Ang Pagbuo ng Kapatiran",
+                    "Evangelista builds a camp of his own. Word of the skirmish spreads, and farmers, teachers and medics walk in, ready to serve.",
+                    "Nagtayo si Evangelista ng sariling kampo. Kumalat ang balita ng sagupaan, at naglakad papasok ang mga magsasaka, guro at mediko, handang maglingkod."),
+                Slide("act3_2", SceneMood.Camp,
+                    "Kapatiran", "Kapatiran",
+                    "Courage is not enough. Recruit them, drill them and arm them, until they trust one another like brothers.",
+                    "Hindi sapat ang tapang. Kalapin sila, sanayin at armasan, hanggang magtiwala sila sa isa't isa na parang magkapatid."),
+                Slide("act3_3", SceneMood.Night,
+                    "Command", "Pamumuno",
+                    "The revolution's leaders see what he can do, and give him the work of fortifying the Cavite line.",
+                    "Nakita ng mga pinuno ng himagsikan ang kanyang kakayahan, at ipinagkatiwala sa kanya ang pagpapatibay ng hanay sa Kabite."),
+                Slide("act3_4", SceneMood.Trench,
+                    "Earth and bamboo", "Lupa at kawayan",
+                    "He begins to plan trenches, earthworks and bamboo defenses across the approaches to Binakayan and Dalahican.",
+                    "Sinimulan niyang planuhin ang mga trinsera, muog at depensang kawayan sa mga daanan patungong Binakayan at Dalahican.")),
 
             new Cutscene("c04_scavenge", Characters.Senador,
                 Slide("c04_1", SceneMood.Dawn,
@@ -152,15 +211,20 @@ namespace BinakayanRising.Core.Content
                     "A guard post watches the road. Only a few can slip past unseen. Choose them with care.",
                     "Isang bantayan ang nagmamasid sa daan. Iilan lamang ang makalulusot nang hindi nakikita. Piliin silang mabuti.")),
 
-            new Cutscene("c08_firstwave", Characters.Senador,
-                Slide("c08_1", SceneMood.Sea,
-                    "November 9, 1896", "Nobyembre 9, 1896",
-                    "Governor-General Ramon Blanco launches his offensive on Cavite. Spanish columns move on Binakayan.",
-                    "Sinimulan ni Gobernador-Heneral Ramon Blanco ang kanyang opensiba sa Kabite. Sumusulong sa Binakayan ang mga hanay ng Kastila."),
-                Slide("c08_2", SceneMood.Battle,
-                    "Binakayan", "Binakayan",
-                    "The trenches you built are about to be tested. Every soldier you trained stands in them.",
-                    "Masusubok na ang mga trinserang itinayo mo. Nakatayo roon ang bawat sundalong sinanay mo.")),
+            // ---------------------------------------------------------- Act 4 (#34)
+            new Cutscene(Act4, Characters.Senador,
+                Slide("act4_1", SceneMood.Sea,
+                    "Act 4 - The Masterpiece of Binakayan-Dalahican", "Ikaapat na Yugto - Ang Obra Maestra ng Binakayan-Dalahican",
+                    "November 9, 1896. Governor-General Ramón Blanco launches his offensive on Cavite: soldiers on land, warships in the bay.",
+                    "Nobyembre 9, 1896. Inilunsad ni Gobernador-Heneral Ramón Blanco ang kanyang opensiba sa Kabite: mga sundalo sa lupa, mga barkong pandigma sa look."),
+                Slide("act4_2", SceneMood.Trench,
+                    "Two fronts", "Dalawang harapan",
+                    "The Spanish attack at Binakayan and at Dalahican at once. In their way stand Evangelista's trenches.",
+                    "Sabay na sumalakay ang Kastila sa Binakayan at sa Dalahican. Nakaharang sa kanila ang mga trinsera ni Evangelista."),
+                Slide("act4_3", SceneMood.Battle,
+                    "The grand design", "Ang dakilang plano",
+                    "The trenches you built are about to be tested. Place every soldier where the earthworks protect them best.",
+                    "Masusubok na ang mga trinserang itinayo mo. Ipuwesto ang bawat sundalo kung saan sila pinakamahusay na maipagtatanggol ng mga muog.")),
 
             new Cutscene("c09_attrition", Characters.Senador,
                 Slide("c09_1", SceneMood.Sea,
@@ -178,12 +242,29 @@ namespace BinakayanRising.Core.Content
                     "Everything built, harvested, trained and learned comes down to this morning.",
                     "Ang lahat ng itinayo, inani, sinanay at natutunan ay nakasalalay sa umagang ito.")),
 
-            new Cutscene("c11_aftermath", Characters.Senador,
+            // ---------------------------------------------------------- Aftermath (#40)
+            new Cutscene(Aftermath, Characters.Senador,
                 Slide("c11_1", SceneMood.Dawn,
+                    "November 11, 1896", "Nobyembre 11, 1896",
+                    "On the third day the last Spanish assault breaks against the trenches. The columns fall back.",
+                    "Sa ikatlong araw, nabasag sa mga trinsera ang huling salakay ng Kastila. Umurong ang mga hanay nila."),
+                Slide("c11_2", SceneMood.Battle,
                     "Binakayan-Dalahican", "Binakayan-Dalahican",
-                    "The Spanish offensive is thrown back. It is one of the first great victories of the revolution.",
-                    "Naitaboy ang opensiba ng Kastila. Isa ito sa mga unang dakilang tagumpay ng himagsikan."),
-                Slide("c11_2", SceneMood.Camp,
+                    "The Spanish offensive on Cavite has failed. The Magdalo held Binakayan; the Magdiwang held Dalahican.",
+                    "Nabigo ang opensiba ng Kastila sa Kabite. Naipagtanggol ng Magdalo ang Binakayan; naipagtanggol ng Magdiwang ang Dalahican."),
+                Slide("c11_3", SceneMood.Trench,
+                    "Evangelista's works", "Ang mga gawa ni Evangelista",
+                    "The trenches did their work. Behind walls of earth, soldiers with few rifles held against a modern army.",
+                    "Nagawa ng mga trinsera ang kanilang tungkulin. Sa likod ng pader na lupa, napigilan ng mga sundalong kakaunti ang riple ang isang makabagong hukbo."),
+                Slide("c11_4", SceneMood.Camp,
+                    "The news spreads", "Kumalat ang balita",
+                    "It is one of the first great victories of the revolution. The news gives hope far beyond Cavite.",
+                    "Isa ito sa mga unang dakilang tagumpay ng himagsikan. Nagbigay ng pag-asa ang balita hanggang sa labas ng Kabite."),
+                Slide("c11_5", SceneMood.Night,
+                    "What came after", "Ang sumunod",
+                    "Within weeks, Blanco was replaced as Governor-General. The war went on, and Evangelista himself fell at Zapote Bridge in February 1897.",
+                    "Makalipas ang ilang linggo, pinalitan si Blanco bilang Gobernador-Heneral. Nagpatuloy ang digmaan, at nasawi si Evangelista sa Tulay ng Zapote noong Pebrero 1897."),
+                Slide("c11_6", SceneMood.Camp,
                     "Remember", "Alalahanin",
                     "Victories are won by planning, by people who feed and arm an army, and by soldiers who trust each other. Remember them.",
                     "Napagtatagumpayan ang digmaan sa pagpaplano, sa mga taong nagpapakain at nag-aarmas sa hukbo, at sa mga sundalong nagtitiwala sa isa't isa. Alalahanin sila."))

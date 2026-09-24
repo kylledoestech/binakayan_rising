@@ -24,7 +24,8 @@ namespace BinakayanRising.UI.Screens
         /// </list>
         /// <para>
         /// P opens the pause menu at any of the last three steps, so the replay itself can be paused
-        /// without giving up Esc's skip.
+        /// without giving up Esc's skip. Tab slides the side panel and field report back in or out
+        /// during the replay.
         /// </para>
         /// </remarks>
         private void ReadHotkeys()
@@ -79,6 +80,10 @@ namespace BinakayanRising.UI.Screens
             else if (keyboard.pKey.wasPressedThisFrame)
             {
                 HandleHotkey(HudHotkey.Pause);
+            }
+            else if (keyboard.tabKey.wasPressedThisFrame)
+            {
+                HandleHotkey(HudHotkey.Panels);
             }
             else if (keyboard.spaceKey.wasPressedThisFrame)
             {
@@ -161,6 +166,9 @@ namespace BinakayanRising.UI.Screens
 
                 case HudHotkey.Pause:
                     return OpenPauseMenu();
+
+                case HudHotkey.Panels:
+                    return ToggleCombatPanels();
             }
 
             return false;

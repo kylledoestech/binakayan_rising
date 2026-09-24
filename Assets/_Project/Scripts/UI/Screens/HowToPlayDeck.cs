@@ -1,3 +1,4 @@
+using BinakayanRising.Core.Content;
 using BinakayanRising.Core.Grid;
 using BinakayanRising.Core.Localization;
 using BinakayanRising.Gameplay;
@@ -37,19 +38,27 @@ namespace BinakayanRising.UI.Screens
         private static readonly TextKey[] Titles =
         {
             TextKey.DeckBattleTitle, TextKey.DeckDeployTitle, TextKey.DeckUnitsTitle, TextKey.DeckMoreUnitsTitle,
-            TextKey.DeckTerrainTitle, TextKey.DeckBondsTitle, TextKey.DeckCombatTitle, TextKey.DeckControlsTitle,
+            TextKey.DeckEnemiesTitle, TextKey.DeckTerrainTitle, TextKey.DeckBondsTitle, TextKey.DeckCombatTitle, TextKey.DeckControlsTitle,
         };
 
         private static readonly TextKey[] Bodies =
         {
             TextKey.DeckBattleBody, TextKey.DeckDeployBody, TextKey.DeckUnitsBody, TextKey.DeckMoreUnitsBody,
-            TextKey.DeckTerrainBody, TextKey.DeckBondsBody, TextKey.DeckCombatBody, TextKey.DeckControlsBody,
+            TextKey.DeckEnemiesBody, TextKey.DeckTerrainBody, TextKey.DeckBondsBody, TextKey.DeckCombatBody, TextKey.DeckControlsBody,
         };
 
         // The unit strip leaves the units page room for about nine body lines, so the Field Medic
         // and the two infantry councils get a page of their own right after it.
         private const int UnitsPage = 2;
-        private const int TerrainPage = 4;
+        private const int EnemiesPage = 4;
+        private const int TerrainPage = 5;
+
+        /// <summary>The Spanish roster in the order the enemy page lists it (#16).</summary>
+        private static readonly string[] EnemyRoster =
+        {
+            UnitCatalog.SpanishRegular, UnitCatalog.SpanishArtillery, UnitCatalog.SpanishCazador,
+            UnitCatalog.SpanishOfficer, UnitCatalog.SpanishMarine
+        };
 
         private BattleHud hud;
         private BattlePlaytest battle;
@@ -61,6 +70,7 @@ namespace BinakayanRising.UI.Screens
         private TextMeshProUGUI pageCounter;
         private RectTransform terrainStrip;
         private RectTransform unitStrip;
+        private RectTransform enemyStrip;
         private Image[] dots;
         private Button backButton;
         private Button nextButton;
@@ -188,6 +198,7 @@ namespace BinakayanRising.UI.Screens
             pageCounter.SetText("{0} / {1}", page + 1, Titles.Length);
             terrainStrip.gameObject.SetActive(page == TerrainPage);
             unitStrip.gameObject.SetActive(page == UnitsPage && unitStrip.childCount > 0);
+            enemyStrip.gameObject.SetActive(page == EnemiesPage && enemyStrip.childCount > 0);
 
             for (int i = 0; i < dots.Length; i++)
             {
@@ -246,6 +257,15 @@ namespace BinakayanRising.UI.Screens
 
             AddFigure(unitStrip, PlaytestScenario.SpanishColumn(1)[0].ArchetypeId, "REG", Theme.Colonial);
 
+            // The whole Spanish roster, each in its own tint while it borrows the regular's figure.
+            enemyStrip = UiKit.Row(column, "Enemies", Theme.Space.Snug, 0f, TextAnchor.MiddleLeft);
+            Fix(enemyStrip, 0f, FigureHeight + 26f);
+            foreach (string id in EnemyRoster)
+            {
+                UnitArchetype archetype = UnitCatalog.Find(id);
+                AddFigure(enemyStrip, id, archetype != null ? archetype.ShortName : id, Theme.Colonial);
+            }
+
             terrainStrip = UiKit.Row(column, "Terrain", Theme.Space.Wide, 0f, TextAnchor.MiddleLeft);
             Fix(terrainStrip, 0f, TileSize + 26f);
             AddTile(terrainStrip, TerrainType.Trench, TextKey.TerrainTrench);
@@ -300,7 +320,7 @@ namespace BinakayanRising.UI.Screens
             RectTransform cell = UiKit.Column(strip, "Unit " + archetypeId, Theme.Space.Hair, 0f, TextAnchor.UpperCenter);
             Fix(cell, 130f, FigureHeight + 26f);
 
-            Image figure = UiKit.Icon(cell, body, FigureHeight, Color.white);
+            Image figure = UiKit.Icon(cell, body, FigureHeight, BoardArt.ArchetypeTint(archetypeId));
             figure.name = "Figure";
             Fix((RectTransform)figure.transform.parent, FigureWidth, FigureHeight);
 

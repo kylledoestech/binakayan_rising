@@ -69,6 +69,8 @@ namespace BinakayanRising.Core.Combat
         private readonly bool logModifierEvents;
         private readonly bool spanishTerrainBonuses;
         private readonly BattleOutcome mutualAnnihilationOutcome;
+        private readonly BattleObjective objective;
+        private readonly float sortieSpeed;
 
         private int turnNumber;
         private BattleOutcome outcome = BattleOutcome.InProgress;
@@ -137,6 +139,8 @@ namespace BinakayanRising.Core.Combat
             logModifierEvents = this.config.LogModifierEvents;
             spanishTerrainBonuses = this.config.SpanishReceivesTerrainBonuses;
             mutualAnnihilationOutcome = this.config.MutualAnnihilationOutcome;
+            objective = this.config.Objective;
+            sortieSpeed = this.config.SortieSpeed;
 
             unitsInIdOrder = BuildUnitArray(units);
 
@@ -378,19 +382,34 @@ namespace BinakayanRising.Core.Combat
                 TerrainType terrainType = grid.GetTerrain(unit.Position);
                 IReadOnlyList<StatModifier> modifiers = terrain.GetModifiers(terrainType);
                 bool bonusesAllowed = ReceivesTerrainBonuses(unit);
+                bool atHome = unit.Abilities.HasHomeTerrain && unit.Abilities.Terrain == terrainType;
 
                 for (int m = 0; m < modifiers.Count; m++)
                 {
                     // Every stat reads higher-is-better, so a positive delta is always a benefit.
-                    if (!bonusesAllowed && (modifiers[m].PercentDelta > 0f || modifiers[m].FlatDelta > 0f))
+                    bool benefit = modifiers[m].PercentDelta > 0f || modifiers[m].FlatDelta > 0f;
+                    if (!bonusesAllowed && benefit)
                     {
                         continue;
                     }
 
-                    unit.Modifiers.Add(modifiers[m]);
-                    if (logModifierEvents)
+                    // A unit on its home terrain shrugs off that terrain's penalties.
+                    if (atHome && !benefit)
                     {
-                        Emit(turnEvents, BattleEvent.ModifierApplied(turnNumber, unit.Id, modifiers[m]));
+                        continue;
+                    }
+
+                    AddModifier(unit, modifiers[m], turnEvents);
+                }
+
+                // Its own advantage there is an ability, not a terrain bonus, so the switch that
+                // withholds fortifications from the Spanish does not withhold it.
+                if (atHome)
+                {
+                    IReadOnlyList<StatModifier> home = unit.Abilities.HomeTerrainModifiers;
+                    for (int m = 0; m < home.Count; m++)
+                    {
+                        AddModifier(unit, home[m], turnEvents);
                     }
                 }
             }
@@ -415,6 +434,81 @@ namespace BinakayanRising.Core.Combat
             }
 
             ApplyCommandModifiers(turnEvents);
+            ApplyAuras(turnEvents);
+            ApplySeekerSpeed(turnEvents);
+        }
+
+        /// <summary>Adds a modifier to a unit and logs it when modifier logging is on.</summary>
+        private void AddModifier(CombatUnit unit, StatModifier modifier, List<BattleEvent> turnEvents)
+        {
+            unit.Modifiers.Add(modifier);
+            if (logModifierEvents)
+            {
+                Emit(turnEvents, BattleEvent.ModifierApplied(turnNumber, unit.Id, modifier));
+            }
+        }
+
+        /// <summary>
+        /// Every living aura-bearer grants its modifiers to each living ally within its radius, not
+        /// counting itself. Two officers over one regular both count: the modifiers stack under
+        /// the battle's <see cref="CombatConfig.StackingPolicy"/> like any others.
+        /// </summary>
+        private void ApplyAuras(List<BattleEvent> turnEvents)
+        {
+            for (int i = 0; i < livingScratch.Count; i++)
+            {
+                CombatUnit source = livingScratch[i];
+                if (!source.Abilities.HasAura)
+                {
+                    continue;
+                }
+
+                int radius = source.Abilities.AuraRadius;
+                IReadOnlyList<StatModifier> aura = source.Abilities.AuraModifiers;
+                for (int j = 0; j < livingScratch.Count; j++)
+                {
+                    CombatUnit ally = livingScratch[j];
+                    if (ally == source || ally.Team != source.Team || DistanceBetween(source.Position, ally.Position) > radius)
+                    {
+                        continue;
+                    }
+
+                    for (int m = 0; m < aura.Count; m++)
+                    {
+                        AddModifier(ally, aura[m], turnEvents);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Under <see cref="ObjectiveKind.Sabotage"/>, brings every Katipunan unit slower than the
+        /// objective's seeker speed up to it with a flat ability modifier.
+        /// </summary>
+        private void ApplySeekerSpeed(List<BattleEvent> turnEvents)
+        {
+            if (objective.Kind != ObjectiveKind.Sabotage || objective.SeekerSpeed <= 0f)
+            {
+                return;
+            }
+
+            for (int i = 0; i < livingScratch.Count; i++)
+            {
+                CombatUnit unit = livingScratch[i];
+                if (unit.Team != Team.Katipunan || unit.Abilities.NonCombatant)
+                {
+                    continue;
+                }
+
+                float speed = unit.GetEffectiveStat(StatKind.MovementSpeed);
+                if (speed < objective.SeekerSpeed)
+                {
+                    AddModifier(
+                        unit,
+                        StatModifier.Flat(StatKind.MovementSpeed, objective.SeekerSpeed - speed, ModifierSource.Ability, "Infiltration"),
+                        turnEvents);
+                }
+            }
         }
 
         /// <summary>
@@ -482,8 +576,15 @@ namespace BinakayanRising.Core.Combat
             for (int i = 0; i < livingScratch.Count; i++)
             {
                 CombatUnit unit = livingScratch[i];
-                if (!unit.IsAlive)
+                if (!unit.IsAlive || unit.Abilities.NonCombatant)
                 {
+                    continue;
+                }
+
+                // A gun that fired is still being reloaded: it neither fires nor moves.
+                if (unit.ReloadRemaining > 0)
+                {
+                    unit.ReloadRemaining--;
                     continue;
                 }
 
@@ -493,23 +594,97 @@ namespace BinakayanRising.Core.Combat
                 }
 
                 CombatUnit target = SelectTargetFor(unit);
+                float range = unit.GetEffectiveStat(StatKind.AttackRange);
+
+                // Raiders: under Escort the Spanish want the cart. They hit it whenever it is in
+                // reach, and otherwise walk for it, fighting only what stands in reach on the way.
+                CombatUnit escorted = RaidTargetFor(unit);
+                if (escorted != null && DistanceBetween(unit.Position, escorted.Position) <= range)
+                {
+                    ResolveAttack(unit, escorted, turnEvents);
+                    continue;
+                }
+
+                bool inReach = target != null && DistanceBetween(unit.Position, target.Position) <= range;
+
+                if (inReach)
+                {
+                    ResolveAttack(unit, target, turnEvents);
+                    continue;
+                }
+
+                if (escorted != null)
+                {
+                    AdvanceTo(unit, escorted.Position, range, unit.GetEffectiveStat(StatKind.MovementSpeed), turnEvents);
+                    continue;
+                }
+
+                // A saboteur fights only what is already in reach; otherwise it makes for the target.
+                if (objective.Kind == ObjectiveKind.Sabotage && unit.Team == Team.Katipunan)
+                {
+                    AdvanceTo(unit, objective.TargetCell, 0f, unit.GetEffectiveStat(StatKind.MovementSpeed), turnEvents);
+                    continue;
+                }
+
                 if (target == null)
                 {
                     continue;
                 }
 
-                float range = unit.GetEffectiveStat(StatKind.AttackRange);
-                int distance = DistanceBetween(unit.Position, target.Position);
-
-                if (distance <= range)
+                CombatUnit provoker = SortieTargetFor(unit);
+                if (provoker != null)
                 {
-                    ResolveAttack(unit, target, turnEvents);
+                    AdvanceTo(unit, provoker.Position, range, sortieSpeed, turnEvents);
+                    continue;
                 }
-                else
+
+                AdvanceTo(unit, target.Position, range, unit.GetEffectiveStat(StatKind.MovementSpeed), turnEvents);
+            }
+        }
+
+        /// <summary>
+        /// Under <see cref="ObjectiveKind.Escort"/>, the living escorted unit when
+        /// <paramref name="unit"/> is its enemy; otherwise null.
+        /// </summary>
+        private CombatUnit RaidTargetFor(CombatUnit unit)
+        {
+            if (objective.Kind != ObjectiveKind.Escort)
+            {
+                return null;
+            }
+
+            CombatUnit escorted = FindUnit(objective.EscortUnitId);
+            return escorted != null && escorted.IsAlive && escorted.Team != unit.Team ? escorted : null;
+        }
+
+        /// <summary>
+        /// The living enemy an entrenched unit should sortie against, or null. Only a unit that
+        /// cannot move by itself sorties, only when sorties are on, and only against the enemy that
+        /// last hit it from out of reach.
+        /// </summary>
+        private CombatUnit SortieTargetFor(CombatUnit unit)
+        {
+            if (sortieSpeed <= 0f || unit.ProvokedBy < 0 || unit.GetEffectiveStat(StatKind.MovementSpeed) > 0f)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < unitsInIdOrder.Length; i++)
+            {
+                CombatUnit other = unitsInIdOrder[i];
+                if (other.Id == unit.ProvokedBy)
                 {
-                    AdvanceToward(unit, target, range, turnEvents);
+                    if (other.IsAlive)
+                    {
+                        return other;
+                    }
+
+                    break;
                 }
             }
+
+            unit.ProvokedBy = -1;
+            return null;
         }
 
         /// <summary>
@@ -588,8 +763,8 @@ namespace BinakayanRising.Core.Combat
         }
 
         /// <summary>
-        /// Steps the unit toward its target, spending this turn's whole-cell movement allowance and
-        /// stopping early once the target is in range.
+        /// Steps the unit toward a cell, spending <paramref name="allowance"/> as this turn's
+        /// whole-cell movement and stopping early once the cell is within <paramref name="range"/>.
         /// </summary>
         /// <remarks>
         /// A unit that moves does not also attack this turn. TODO(design): not specified in capstone
@@ -597,9 +772,9 @@ namespace BinakayanRising.Core.Combat
         /// whether one unit does both in a turn. Move-or-attack is the more conservative reading and
         /// keeps a turn's cost predictable.
         /// </remarks>
-        private void AdvanceToward(CombatUnit unit, CombatUnit target, float range, List<BattleEvent> turnEvents)
+        private void AdvanceTo(CombatUnit unit, GridCoord destination, float range, float allowance, List<BattleEvent> turnEvents)
         {
-            int steps = unit.TakeMovementSteps(unit.GetEffectiveStat(StatKind.MovementSpeed));
+            int steps = unit.TakeMovementSteps(allowance);
             if (steps <= 0)
             {
                 return;
@@ -615,13 +790,13 @@ namespace BinakayanRising.Core.Combat
 
             for (int step = 0; step < steps; step++)
             {
-                if (DistanceBetween(unit.Position, target.Position) <= range)
+                if (DistanceBetween(unit.Position, destination) <= range)
                 {
                     return;
                 }
 
                 GridCoord next;
-                if (!movement.TryGetNextStep(unit, target.Position, grid, unitsInIdOrder, allowDiagonals, out next))
+                if (!movement.TryGetNextStep(unit, destination, grid, unitsInIdOrder, allowDiagonals, out next))
                 {
                     return;
                 }
@@ -642,9 +817,63 @@ namespace BinakayanRising.Core.Combat
 
             Emit(turnEvents, BattleEvent.DamageDealt(turnNumber, attacker.Id, target.Id, result, applied));
 
+            // Fired on from beyond its own reach: an entrenched target remembers who did it.
+            if (applied > 0f && target.IsAlive
+                && DistanceBetween(attacker.Position, target.Position) > target.GetEffectiveStat(StatKind.AttackRange))
+            {
+                target.ProvokedBy = attacker.Id;
+            }
+
             if (!target.IsAlive)
             {
                 Emit(turnEvents, BattleEvent.UnitDied(turnNumber, target.Id, attacker.Id, target.Position));
+            }
+
+            if (result.Connected)
+            {
+                ApplySplash(attacker, target.Position, result.Amount, turnEvents);
+            }
+
+            attacker.ReloadRemaining = attacker.Abilities.ReloadTurns;
+        }
+
+        /// <summary>
+        /// Lands the attacker's splash share of <paramref name="hit"/> on every living enemy of the
+        /// attacker standing orthogonally next to <paramref name="center"/>, in the fixed neighbour
+        /// order. No rolls: the shell has already landed. Allies of the gun are never caught.
+        /// </summary>
+        /// <remarks>
+        /// TODO(design): not specified in capstone document — the story names Spanish artillery but
+        /// no blast rule. The splash is a share of the hit's rolled damage, after the target's
+        /// defense and before its health ran out, so a kill shot does not blunt the blast.
+        /// DESIGN-DECISIONS #19.
+        /// </remarks>
+        private void ApplySplash(CombatUnit attacker, GridCoord center, float hit, List<BattleEvent> turnEvents)
+        {
+            float fraction = attacker.Abilities.SplashFraction;
+            if (fraction <= 0f || hit <= 0f)
+            {
+                return;
+            }
+
+            float amount = hit * fraction;
+            foreach (GridCoord cell in GridDistance.Neighbors(center, false))
+            {
+                for (int i = 0; i < unitsInIdOrder.Length; i++)
+                {
+                    CombatUnit caught = unitsInIdOrder[i];
+                    if (!caught.IsAlive || caught.Team == attacker.Team || caught.Position != cell)
+                    {
+                        continue;
+                    }
+
+                    float applied = caught.ApplyDamage(amount);
+                    Emit(turnEvents, BattleEvent.SplashDamage(turnNumber, attacker.Id, caught.Id, applied));
+                    if (!caught.IsAlive)
+                    {
+                        Emit(turnEvents, BattleEvent.UnitDied(turnNumber, caught.Id, attacker.Id, caught.Position));
+                    }
+                }
             }
         }
 
@@ -660,6 +889,14 @@ namespace BinakayanRising.Core.Combat
         /// </summary>
         private BattleOutcome EvaluateOutcome(int katipunanAlive, int spanishAlive)
         {
+            switch (objective.Kind)
+            {
+                case ObjectiveKind.Escort:
+                    return EvaluateEscort(katipunanAlive, spanishAlive);
+                case ObjectiveKind.Sabotage:
+                    return EvaluateSabotage(katipunanAlive);
+            }
+
             if (katipunanAlive == 0 && spanishAlive == 0)
             {
                 return mutualAnnihilationOutcome;
@@ -681,6 +918,65 @@ namespace BinakayanRising.Core.Combat
             }
 
             return BattleOutcome.InProgress;
+        }
+
+        /// <summary>
+        /// <see cref="ObjectiveKind.Escort"/>: the escorted unit falling loses at once, even on the
+        /// turn the last enemy falls; routing the enemy or reaching the turn cap with it standing wins.
+        /// </summary>
+        private BattleOutcome EvaluateEscort(int katipunanAlive, int spanishAlive)
+        {
+            CombatUnit escorted = FindUnit(objective.EscortUnitId);
+            if (escorted == null || !escorted.IsAlive || katipunanAlive == 0)
+            {
+                return BattleOutcome.Defeat;
+            }
+
+            if (spanishAlive == 0 || turnNumber >= maxTurns)
+            {
+                return BattleOutcome.Victory;
+            }
+
+            return BattleOutcome.InProgress;
+        }
+
+        /// <summary>
+        /// <see cref="ObjectiveKind.Sabotage"/>: a living Katipunan unit on the target cell wins,
+        /// checked first so the unit that reaches it with its last breath still counts. Losing the
+        /// squad, or the turn cap, loses. Routing the guard does not by itself win: the squad still
+        /// has to walk in and light the fuse.
+        /// </summary>
+        private BattleOutcome EvaluateSabotage(int katipunanAlive)
+        {
+            for (int i = 0; i < unitsInIdOrder.Length; i++)
+            {
+                CombatUnit unit = unitsInIdOrder[i];
+                if (unit.IsAlive && unit.Team == Team.Katipunan && unit.Position == objective.TargetCell)
+                {
+                    return BattleOutcome.Victory;
+                }
+            }
+
+            if (katipunanAlive == 0 || turnNumber >= maxTurns)
+            {
+                return BattleOutcome.Defeat;
+            }
+
+            return BattleOutcome.InProgress;
+        }
+
+        /// <summary>The unit with <paramref name="id"/>, dead or alive, or null.</summary>
+        private CombatUnit FindUnit(int id)
+        {
+            for (int i = 0; i < unitsInIdOrder.Length; i++)
+            {
+                if (unitsInIdOrder[i].Id == id)
+                {
+                    return unitsInIdOrder[i];
+                }
+            }
+
+            return null;
         }
     }
 }

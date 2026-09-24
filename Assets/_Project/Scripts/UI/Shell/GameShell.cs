@@ -144,6 +144,15 @@ namespace BinakayanRising.UI.Shell
             // main menu appearing.
             Router.Bind(Machine);
 
+            // The title splash over the main menu (#46), and the menu's music under both (#49).
+            // -brNoSplash skips the splash, for quick testing.
+            if (!CommandLine.Has("-brNoSplash"))
+            {
+                SplashScreen.Show();
+            }
+
+            MusicPlayer.Play(MusicPlayer.Track.Menu);
+
             if (CommandLine.Has("-brShot"))
             {
                 gameObject.AddComponent<ShotAutopilot>();
@@ -172,6 +181,8 @@ namespace BinakayanRising.UI.Shell
         /// <summary>The camp is on screen in the hub and under every panel opened from it.</summary>
         private void OnStateChanged(GameState from, GameState to)
         {
+            MusicPlayer.Play(TrackFor(to));
+
             bool inCamp = InCamp(to);
             if (!inCamp)
             {
@@ -187,6 +198,29 @@ namespace BinakayanRising.UI.Shell
             if (!Camp.gameObject.activeSelf)
             {
                 Camp.Show(CampaignBar.CoveredHeight * canvas.scaleFactor);
+            }
+        }
+
+        /// <summary>
+        /// The music for a state: the title theme on the menu, the camp theme in the encampment
+        /// and at the Mission Tent, the battle theme from deployment on. The outcome states keep
+        /// what is playing; the win or loss sting plays over it.
+        /// </summary>
+        private static MusicPlayer.Track TrackFor(GameState state)
+        {
+            switch (state)
+            {
+                case GameState.MainMenu:
+                    return MusicPlayer.Track.Menu;
+                case GameState.Deployment:
+                case GameState.Combat:
+                case GameState.Quiz:
+                    return MusicPlayer.Track.Battle;
+                case GameState.Victory:
+                case GameState.Defeat:
+                    return MusicPlayer.Current;
+                default:
+                    return MusicPlayer.Track.Camp;
             }
         }
 

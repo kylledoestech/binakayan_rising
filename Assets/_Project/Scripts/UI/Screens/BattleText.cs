@@ -1,5 +1,6 @@
 using System.Text;
 using BinakayanRising.Core.Combat;
+using BinakayanRising.Core.Content;
 using BinakayanRising.Core.Localization;
 using BinakayanRising.Gameplay;
 
@@ -35,8 +36,35 @@ namespace BinakayanRising.UI.Screens
                     return Loc.Get(TextKey.UnitVanguard);
                 case "SpanishRegular":
                     return Loc.Format(TextKey.UnitSpanishRegular, ordinal);
+                case "SpanishArtillery":
+                    return Loc.Format(TextKey.UnitSpanishArtillery, ordinal);
+                case "SpanishCazador":
+                    return Loc.Format(TextKey.UnitSpanishCazador, ordinal);
+                case "SpanishOfficer":
+                    return Loc.Format(TextKey.UnitSpanishOfficer, ordinal);
+                case "SpanishMarine":
+                    return Loc.Format(TextKey.UnitSpanishMarine, ordinal);
+                case PlaytestScenario.SupplyCartArchetype:
+                    return Loc.Get(TextKey.UnitSupplyCart);
                 default:
                     return fallback ?? archetypeId ?? string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// The standing order for a battle fought under an objective (#37, #38), or null under Rout
+        /// and Hold, whose goal the phase readout already implies.
+        /// </summary>
+        public static string Objective(WinRule rule, int turnCap)
+        {
+            switch (rule)
+            {
+                case WinRule.Escort:
+                    return Loc.Format(TextKey.HudObjectiveEscort, turnCap);
+                case WinRule.Sabotage:
+                    return Loc.Format(TextKey.HudObjectiveSabotage, turnCap);
+                default:
+                    return null;
             }
         }
 

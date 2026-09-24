@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using BinakayanRising.Core.Combat;
+using BinakayanRising.Core.Grid;
 using BinakayanRising.Core.Localization;
 
 namespace BinakayanRising.Core.Content
@@ -20,7 +21,19 @@ namespace BinakayanRising.Core.Content
         Ranged,
         Defender,
         Support,
-        Infantry
+        Infantry,
+
+        /// <summary>Spanish guns: long reach, slow, a blast that catches neighbours. DESIGN-DECISIONS #19.</summary>
+        Artillery,
+
+        /// <summary>Spanish light infantry: fast, hard to hit, shoots from two tiles.</summary>
+        Skirmisher,
+
+        /// <summary>Spanish officer: sturdier, and lifts the attack of the Spanish around him.</summary>
+        Officer,
+
+        /// <summary>Spanish naval infantry: at home in the coastal shallows.</summary>
+        Marine
     }
 
     /// <summary>One kind of unit: who it is, what it does, and its level-1 stats.</summary>
@@ -55,11 +68,30 @@ namespace BinakayanRising.Core.Content
         /// <summary>Health restored to a wounded ally in place of an attack; zero for everyone but healers.</summary>
         public readonly float HealPower;
 
+        /// <summary>Splash, reload, aura or home terrain. <see cref="UnitAbilities.None"/> for most units.</summary>
+        public readonly UnitAbilities Abilities;
+
+        /// <summary>
+        /// The art folder the unit's body and portrait come from. Its own id unless it borrows
+        /// another's figure until its own is rendered.
+        /// </summary>
+        public readonly string ArtId;
+
+        /// <summary>
+        /// Colour multiplied over borrowed art so the borrower reads as a different unit, as
+        /// 0xRRGGBBAA. White (0xFFFFFFFF) for units with their own art.
+        /// </summary>
+        public readonly uint ArtTint;
+
         public UnitArchetype(
             string id, string shortName, LocString name, UnitRole role, UnitRarity rarity, bool unique,
-            UnitStats baseStats, LocString summary, LocString bio, Team team = Team.Katipunan, float healPower = 0f)
+            UnitStats baseStats, LocString summary, LocString bio, Team team = Team.Katipunan, float healPower = 0f,
+            UnitAbilities abilities = null, string artId = null, uint artTint = 0xFFFFFFFFu)
         {
             HealPower = healPower;
+            Abilities = abilities ?? UnitAbilities.None;
+            ArtId = artId ?? id;
+            ArtTint = artTint;
             Id = id;
             ShortName = shortName;
             Name = name;
@@ -75,7 +107,9 @@ namespace BinakayanRising.Core.Content
 
     /// <summary>
     /// Every unit in the game. The Katipunan roster is Table 3's eight named units; the Spanish
-    /// side, which the proposal never enumerates, is one archetype (DESIGN-DECISIONS #19).
+    /// side, which the proposal never enumerates, is five archetypes: the regular, the artillery
+    /// the story names, Cazadores skirmishers, an officer, and naval infantry for the landings
+    /// (DESIGN-DECISIONS #19).
     /// </summary>
     /// <remarks>
     /// Stats are the vertical slice's placeholders (DESIGN-DECISIONS #2), with the three newly
@@ -93,6 +127,25 @@ namespace BinakayanRising.Core.Content
         public const string MagdaloInfantry = "MagdaloInfantry";
         public const string MagdiwangInfantry = "MagdiwangInfantry";
         public const string SpanishRegular = "SpanishRegular";
+        public const string SpanishArtillery = "SpanishArtillery";
+        public const string SpanishCazador = "SpanishCazador";
+        public const string SpanishOfficer = "SpanishOfficer";
+        public const string SpanishMarine = "SpanishMarine";
+
+        /// <summary>Share of an artillery hit that lands on each enemy next to its target.</summary>
+        public const float ArtillerySplash = 0.5f;
+
+        /// <summary>Turns an artillery crew spends reloading after each shot.</summary>
+        public const int ArtilleryReload = 1;
+
+        /// <summary>Reach of an officer's aura, in tiles.</summary>
+        public const int OfficerAuraRadius = 2;
+
+        /// <summary>Attack an officer's aura adds to each Spanish unit inside it.</summary>
+        public const float OfficerAuraAttack = 0.10f;
+
+        /// <summary>Attack and Defense a marine gains while standing in the coastal shallows.</summary>
+        public const float MarineShallowsBonus = 0.15f;
 
         private static readonly List<UnitArchetype> all = new List<UnitArchetype>
         {
@@ -189,7 +242,68 @@ namespace BinakayanRising.Core.Content
                 new LocString(
                     "Colonial infantry sent by Governor-General Ramon Blanco to retake Cavite in November 1896.",
                     "Impanteriyang kolonyal na ipinadala ni Gobernador-Heneral Ramon Blanco upang bawiin ang Kabite noong Nobyembre 1896."),
-                Team.Spanish)
+                Team.Spanish),
+
+            // DESIGN-DECISIONS #19. Each is a small deviation from the regular above. They borrow
+            // the regular's figure, tinted, until Tools/sprites/units.py renders their own.
+            new UnitArchetype(
+                SpanishArtillery, "ART",
+                new LocString("Spanish Artillery", "Artilyeryang Kastila"),
+                UnitRole.Artillery, UnitRarity.Common, false,
+                new UnitStats(70f, 24f, 2f, 0f, 0.70f, 4f, 0.05f, 0.5f),
+                new LocString("Enemy gun. Fires from 4 tiles every other turn; the blast also hits the units beside its target.",
+                    "Kanyon ng kaaway. Nagpapaputok mula 4 tile tuwing ikalawang yugto; tinatamaan din ng pagsabog ang katabi ng tinudla."),
+                new LocString(
+                    "Field guns and mountain howitzers shelled the Katipunan trenches before every Spanish assault on Cavite.",
+                    "Binomba ng mga kanyon at obus ang mga trinsera ng Katipunan bago ang bawat salakay ng Kastila sa Kabite."),
+                Team.Spanish,
+                abilities: UnitAbilities.Artillery(ArtillerySplash, ArtilleryReload),
+                artId: SpanishRegular, artTint: 0x8A8A8AFFu),
+            new UnitArchetype(
+                SpanishCazador, "CAZ",
+                new LocString("Spanish Cazador", "Kasador na Kastila"),
+                UnitRole.Skirmisher, UnitRarity.Common, false,
+                new UnitStats(80f, 12f, 3f, 0.20f, 0.80f, 2f, 0.10f, 2f),
+                new LocString("Enemy skirmisher. Moves 2 tiles a turn, dodges often, and shoots from 2 tiles.",
+                    "Kaaway na eskirmisador. Gumagalaw nang 2 tile bawat yugto, madalas umiwas, at bumabaril mula 2 tile."),
+                new LocString(
+                    "Cazadores were Spain's light rifle battalions, trained to fight in open order ahead of the main column.",
+                    "Ang mga Kasador ang magagaang batalyon ng riple ng Espanya, sinanay na lumaban nang nakakalat sa unahan ng pangunahing hanay."),
+                Team.Spanish,
+                artId: SpanishRegular, artTint: 0x9FD08CFFu),
+            new UnitArchetype(
+                SpanishOfficer, "OFF",
+                new LocString("Spanish Officer", "Opisyal na Kastila"),
+                UnitRole.Officer, UnitRarity.Common, false,
+                new UnitStats(130f, 13f, 8f, 0.05f, 0.85f, 1f, 0.10f, 1f),
+                new LocString("Enemy commander. Tougher than a regular; Spanish units within 2 tiles of him gain +10% attack.",
+                    "Pinuno ng kaaway. Mas matibay kaysa sa regular; may +10% atake ang mga Kastilang nasa loob ng 2 tile mula sa kaniya."),
+                new LocString(
+                    "Peninsular officers led the columns Blanco sent against Binakayan and Dalahican, often from the front.",
+                    "Pinamunuan ng mga opisyal na peninsular ang mga hanay na ipinadala ni Blanco laban sa Binakayan at Dalahican, kadalasan mula sa unahan."),
+                Team.Spanish,
+                abilities: UnitAbilities.Officer(OfficerAuraRadius, new[]
+                {
+                    StatModifier.Percent(StatKind.AttackDamage, OfficerAuraAttack, ModifierSource.Ability, "OfficerAura")
+                }),
+                artId: SpanishRegular, artTint: 0xF0C75AFFu),
+            new UnitArchetype(
+                SpanishMarine, "MAR",
+                new LocString("Spanish Marine", "Marinong Kastila"),
+                UnitRole.Marine, UnitRarity.Common, false,
+                new UnitStats(105f, 14f, 6f, 0.05f, 0.85f, 1f, 0.10f, 1f),
+                new LocString("Enemy naval infantry. The shallows do not slow it; there it gains +15% attack and defense.",
+                    "Kaaway na impanteriya ng hukbong-dagat. Hindi ito binabagalan ng mababaw na tubig; doon ito may +15% atake at depensa."),
+                new LocString(
+                    "Infanteria de Marina landed from the ships of the Spanish squadron to strike the Cavite shore from the bay.",
+                    "Dumaong ang Infanteria de Marina mula sa mga barko ng eskwadrang Kastila upang salakayin ang baybayin ng Kabite mula sa look."),
+                Team.Spanish,
+                abilities: UnitAbilities.HomeTerrain(TerrainType.CoastalShallows, new[]
+                {
+                    StatModifier.Percent(StatKind.AttackDamage, MarineShallowsBonus, ModifierSource.Ability, "MarineFooting"),
+                    StatModifier.Percent(StatKind.Defense, MarineShallowsBonus, ModifierSource.Ability, "MarineFooting")
+                }),
+                artId: SpanishRegular, artTint: 0x7FA8E0FFu)
         };
 
         /// <summary>Every archetype, Katipunan first.</summary>
@@ -210,6 +324,13 @@ namespace BinakayanRising.Core.Content
             }
 
             return null;
+        }
+
+        /// <summary>True for a Spanish archetype.</summary>
+        public static bool IsSpanish(string id)
+        {
+            UnitArchetype archetype = Find(id);
+            return archetype != null && archetype.Team == Team.Spanish;
         }
 
         /// <summary>Katipunan archetypes of <paramref name="rarity"/>, in catalog order.</summary>
@@ -237,6 +358,10 @@ namespace BinakayanRising.Core.Content
                 case UnitRole.Ranged: return new LocString("Ranged", "Malayuan");
                 case UnitRole.Defender: return new LocString("Defender", "Tagapagtanggol");
                 case UnitRole.Support: return new LocString("Support", "Suporta");
+                case UnitRole.Artillery: return new LocString("Artillery", "Artilerya");
+                case UnitRole.Skirmisher: return new LocString("Skirmisher", "Eskirmisador");
+                case UnitRole.Officer: return new LocString("Officer", "Opisyal");
+                case UnitRole.Marine: return new LocString("Marine", "Marino");
                 default: return new LocString("Infantry", "Impanteriya");
             }
         }

@@ -72,6 +72,43 @@ namespace BinakayanRising.Gameplay
         public const int SpanishIdBase = 1000;
 
         /// <summary>
+        /// The supply cart's id under the Escort rule. Below <see cref="SpanishIdBase"/>, so it
+        /// sorts with the Katipunan, and far above any save's unit ids.
+        /// </summary>
+        public const int SupplyCartId = 999;
+
+        /// <summary>The supply cart's archetype id, for its name and view. Not in the unit catalog: nobody recruits a cart.</summary>
+        public const string SupplyCartArchetype = "SupplyCart";
+
+        /// <summary>
+        /// Where the supply cart stands (#37): at the back of the camp, behind the trench end away
+        /// from the shore. The Spanish must break the line or walk around its end to reach it, so
+        /// the squad guards it by deploying nearest it (see <c>BattlePlaytest.AutoDeploy</c>).
+        /// </summary>
+        public static readonly GridCoord CartCell = new GridCoord(12, 7);
+
+        /// <summary>
+        /// The powder magazine the Sabotage squad makes for (#38), at the back of the Spanish
+        /// ground, ten tiles from the trench.
+        /// </summary>
+        public static readonly GridCoord MagazineCell = new GridCoord(0, 4);
+
+        /// <summary>The Spanish front rank, filled first by everyone but the guns and the marines.</summary>
+        private static readonly GridCoord[] FrontCells = Column(1, 2, 3, 4, 5, 6, 7, 8);
+
+        /// <summary>The rear rank, where the guns stand, centre first.</summary>
+        private static readonly GridCoord[] GunCells = Column(0, 5, 4, 6, 3, 7, 2, 8);
+
+        /// <summary>The rear rank in order, for whoever overflows the front.</summary>
+        private static readonly GridCoord[] RearCells = Column(0, 2, 3, 4, 5, 6, 7, 8);
+
+        /// <summary>The dry corner beside the shallows, where marines land first.</summary>
+        private static readonly GridCoord[] ShoreCells =
+        {
+            new GridCoord(1, 1), new GridCoord(1, 0), new GridCoord(0, 1), new GridCoord(0, 0)
+        };
+
+        /// <summary>
         /// Builds the battlefield: Evangelista's trench line on the Katipunan right, the encampment
         /// tents behind it, the Dalahican tidal shallows along the shore, and bamboo barricades
         /// anchoring both flanks. Only the trench and the tents are marked deployable.
@@ -136,21 +173,149 @@ namespace BinakayanRising.Gameplay
         /// <param name="count">How many regulars advance, 1 to 14.</param>
         public static List<CombatUnit> SpanishColumn(int count)
         {
-            List<CombatUnit> column = new List<CombatUnit>();
             int clamped = count < 1 ? 1 : (count > 14 ? 14 : count);
-
+            List<string> regulars = new List<string>();
             for (int i = 0; i < clamped; i++)
             {
+                regulars.Add(UnitCatalog.SpanishRegular);
+            }
+
+            return SpanishForce(regulars);
+        }
+
+        /// <summary>
+        /// A mixed Spanish column (DESIGN-DECISIONS #19), formed up on the far side of the open
+        /// ground. Ids follow the list order; each unit is numbered among its own archetype.
+        /// </summary>
+        /// <remarks>
+        /// Guns take the rear rank, centre first, so they fire over the infantry; marines take the
+        /// dry corner by the shallows; everyone else fills the front rank top to bottom, then the
+        /// rear. A column of regulars alone therefore stands exactly where it always has.
+        /// </remarks>
+        /// <param name="archetypes">Spanish archetype ids, at most 18.</param>
+        /// <param name="reserved">A cell no unit may start on, e.g. the Sabotage magazine; null for none.</param>
+        public static List<CombatUnit> SpanishForce(IReadOnlyList<string> archetypes, GridCoord? reserved = null)
+        {
+            List<CombatUnit> column = new List<CombatUnit>();
+            if (archetypes == null)
+            {
+                return column;
+            }
+
+            HashSet<GridCoord> taken = new HashSet<GridCoord>();
+            if (reserved.HasValue)
+            {
+                taken.Add(reserved.Value);
+            }
+
+            GridCoord?[] cells = new GridCoord?[archetypes.Count];
+
+            // Guns and marines claim their places first, so the infantry cannot crowd them out.
+            for (int pass = 0; pass < 3; pass++)
+            {
+                for (int i = 0; i < archetypes.Count; i++)
+                {
+                    UnitArchetype archetype = UnitCatalog.Find(archetypes[i]);
+                    UnitRole role = archetype != null ? archetype.Role : UnitRole.Infantry;
+                    int wantedPass = role == UnitRole.Artillery ? 0 : (role == UnitRole.Marine ? 1 : 2);
+                    if (pass != wantedPass)
+                    {
+                        continue;
+                    }
+
+                    cells[i] = role == UnitRole.Artillery ? Claim(taken, GunCells, FrontCells, ShoreCells)
+                        : role == UnitRole.Marine ? Claim(taken, ShoreCells, FrontCells, RearCells)
+                        : Claim(taken, FrontCells, RearCells, ShoreCells);
+                }
+            }
+
+            Dictionary<string, int> numbering = new Dictionary<string, int>();
+            for (int i = 0; i < archetypes.Count; i++)
+            {
+                if (!cells[i].HasValue)
+                {
+                    continue;
+                }
+
+                UnitArchetype archetype = UnitCatalog.Find(archetypes[i]) ?? UnitCatalog.Find(UnitCatalog.SpanishRegular);
+                int ordinal;
+                numbering.TryGetValue(archetype.Id, out ordinal);
+                numbering[archetype.Id] = ++ordinal;
+
                 column.Add(new CombatUnit(
                     SpanishIdBase + i,
-                    "Spanish Regular " + (i + 1),
-                    "SpanishRegular",
+                    archetype.Name.English + " " + ordinal,
+                    archetype.Id,
                     Team.Spanish,
-                    new UnitStats(100f, 14f, 5f, 0.05f, 0.85f, 1f, 0.10f, 1f),
-                    new GridCoord(1 - (i / 7), 2 + (i % 7))));
+                    archetype.BaseStats,
+                    cells[i].Value)
+                {
+                    Abilities = archetype.Abilities
+                });
             }
 
             return column;
+        }
+
+        /// <summary>The first free cell of the first list that has one, or null when all are full.</summary>
+        private static GridCoord? Claim(HashSet<GridCoord> taken, params GridCoord[][] preferences)
+        {
+            for (int p = 0; p < preferences.Length; p++)
+            {
+                for (int c = 0; c < preferences[p].Length; c++)
+                {
+                    if (taken.Add(preferences[p][c]))
+                    {
+                        return preferences[p][c];
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static GridCoord[] Column(int x, params int[] rows)
+        {
+            GridCoord[] cells = new GridCoord[rows.Length];
+            for (int i = 0; i < rows.Length; i++)
+            {
+                cells[i] = new GridCoord(x, rows[i]);
+            }
+
+            return cells;
+        }
+
+        /// <summary>
+        /// The supply cart of the Escort rule (#37): a Katipunan unit that never acts. Sturdy
+        /// enough to take a few blows, not enough to be left alone with a column.
+        /// </summary>
+        public static CombatUnit SupplyCart(ModifierStackingPolicy policy = ModifierStackingPolicy.AdditivePercent)
+        {
+            return new CombatUnit(
+                SupplyCartId,
+                "Supply Cart",
+                SupplyCartArchetype,
+                Team.Katipunan,
+                new UnitStats(160f, 0f, 6f, 0f, 0f, 0f, 0f, 0f),
+                CartCell,
+                policy)
+            {
+                Abilities = UnitAbilities.NonCombatantCargo()
+            };
+        }
+
+        /// <summary>The simulator's objective for a quest's win rule. Hold stays a Rout battle whose draw the mission counts as a win.</summary>
+        public static BattleObjective ObjectiveFor(WinRule rule)
+        {
+            switch (rule)
+            {
+                case WinRule.Escort:
+                    return BattleObjective.Escort(SupplyCartId);
+                case WinRule.Sabotage:
+                    return BattleObjective.Sabotage(MagazineCell);
+                default:
+                    return BattleObjective.RoutAll;
+            }
         }
 
         /// <summary>
@@ -189,7 +354,11 @@ namespace BinakayanRising.Gameplay
 
                 // Trenches and tents are Katipunan works. A regular who reaches an empty one should
                 // not inherit its cover or its healing.
-                SpanishReceivesTerrainBonuses = false
+                SpanishReceivesTerrainBonuses = false,
+
+                // The line never moves, so a gun or a Cazador that outranges it would be untouchable.
+                // Whoever it fires on climbs out and goes for it, one tile a turn (#19).
+                SortieSpeed = 1f
             };
         }
     }

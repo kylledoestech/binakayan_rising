@@ -67,6 +67,8 @@ namespace BinakayanRising.Core.Combat
         private bool logModifierEvents = true;
         private bool spanishReceivesTerrainBonuses = true;
         private float healBelowFraction = 0.75f;
+        private BattleObjective objective = BattleObjective.RoutAll;
+        private float sortieSpeed;
 
         /// <summary>
         /// Hard cap on AI turns. When a battle reaches it, the outcome is
@@ -272,6 +274,34 @@ namespace BinakayanRising.Core.Combat
             set { spanishReceivesTerrainBonuses = value; }
         }
 
+        /// <summary>
+        /// The battle's win rule. Default <see cref="BattleObjective.RoutAll"/>, the document's
+        /// rule. Null resets it to that. DESIGN-DECISIONS #21.
+        /// </summary>
+        public BattleObjective Objective
+        {
+            get { return objective; }
+            set { objective = value ?? BattleObjective.RoutAll; }
+        }
+
+        /// <summary>
+        /// Cells per turn an entrenched unit — one whose effective Movement Speed is zero — may
+        /// advance on an enemy that hit it from beyond its own reach. Zero, the default, keeps
+        /// entrenched units rooted whatever happens.
+        /// </summary>
+        /// <remarks>
+        /// TODO(design): not specified in capstone document. The Katipunan never move, so without
+        /// this any Spanish unit with a longer reach than its target — the artillery, a Cazador
+        /// against a bolo line — could shoot forever and never be answered, and a Rout battle
+        /// against it could not be won. The sortie answers only the unit that fired on it, so
+        /// a trench line still holds against infantry that walks up to it. DESIGN-DECISIONS #19.
+        /// </remarks>
+        public float SortieSpeed
+        {
+            get { return sortieSpeed; }
+            set { sortieSpeed = value > 0f ? value : 0f; }
+        }
+
         /// <summary>Returns an independent copy, so a caller can tweak one battle without affecting others.</summary>
         /// <summary>
         /// A healer only spends its turn on an ally whose health is below this fraction of its
@@ -300,7 +330,9 @@ namespace BinakayanRising.Core.Combat
                 mutualAnnihilationOutcome = mutualAnnihilationOutcome,
                 logModifierEvents = logModifierEvents,
                 spanishReceivesTerrainBonuses = spanishReceivesTerrainBonuses,
-                healBelowFraction = healBelowFraction
+                healBelowFraction = healBelowFraction,
+                objective = objective,
+                sortieSpeed = sortieSpeed
             };
         }
     }

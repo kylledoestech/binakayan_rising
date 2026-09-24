@@ -179,6 +179,8 @@ Decide the target bank size; roughly thirty questions is a reasonable target for
 counts, per-mission composition, and stats all need to be created. Artillery is mentioned in the
 narrative sections and is the obvious first enemy archetype.
 
+*Status: built; needs group sign-off — see [As built](#as-built-sept-2026).*
+
 **20. Does Bamboo Barricade block player units?** Table 2 says it "blocks enemy pathfinding" and is
 silent about player units. The implementation currently blocks both, which is the intuitive
 reading, but the asymmetric reading would be a genuinely interesting mechanic — the Katipuneros
@@ -265,20 +267,22 @@ Rows marked ⚠ contradict a recommendation above or the proposal.
 | 5 ⚠ | 14×9 grid (not 12×12). Deploy zone is set by terrain, not rows: the trench column (x = 10, 7 cells) plus the tents (x = 11, 4 cells). Squad cap 6 per quest, 3 on q07 | `PlaytestScenario.CreateGrid()`, `Core/Content/Campaign.cs` `QuestBattle` |
 | 6 | Additive percentages (+20% and +10% = +30%) | `PlaytestScenario.Config()` `StackingPolicy`, `Core/Combat/StatModifier.cs` |
 | 7 | Common / Rare / Hero at 70 / 25 / 5; pity guarantees a Hero on the 10th pull without one; 100 Reales per pull, 900 for 10; duplicate Hero → 150 XP | `Core/Meta/MetaRules.cs`, `MetaGame.Roster.cs` |
+| 8 | Kapatiran support (#19): +1 per battle fought (won or lost, not retreated) with both partners deployed side by side. Rank C at 1, B at 3, A at 5 — so rank A is reachable within the 7 campaign battles only by keeping a pair together in most of them. Rank C gives no bonus (Table 3: it opens the lore dialogue); B and A give Table 3's bonus, A replacing B. The tutorial battle (q02) still fights every pair at rank A, since it teaches what a bond does. A card after the battle shows each new rank | `Core/Meta/MetaRules.cs` `BondRankSupport`, `Core/Meta/MetaGame.Bonds.cs`, `UI/Shell/BondRankCard.cs` |
 | 9 ⚠ | **4-way** adjacency (`KapatiranProximityRule.Orthogonal`), and no diagonal movement. This conflicts with #9's 8-way recommendation — **the group must pick one** | `Core/Combat/KapatiranResolver.cs`, `PlaytestScenario.Config()` |
+| 9 (bonds) | Support is earned by the same adjacency the battle's bonus uses (`KapatiranResolver`'s default rule, currently 4-way), so switching #9 to 8-way changes both together | `MetaGame.Bonds.cs` |
+| 10 | Rank permanent, saved per pair (`SaveData.bonds`, save version 3; older saves start every pair at no rank); bonus only while side by side | `Core/Meta/SaveData.cs`, `Core/Content/BondCatalog.cs` |
 | 11, 12, 14 | Start 300 Reales / 20 Rations / 10 Scrap. Farm: 1 Ration per 20 s, holds 30. Mine: 1 Scrap per 40 s, holds 20. Exchange: 10 Rations → 15 Reales, 10 Scrap → 25 Reales. Battles cost 0–12 Rations and pay 100–500 Reales | `Core/Meta/MetaRules.cs`, `Core/Content/Campaign.cs` |
 | 15 | Level cap 10; XP to next = 100 × level; +8% HP, +5% Attack, +4% Defense per level; 60 XP per win, 20 per loss; drill = 100 XP for 80 Reales + 5 Scrap | `Core/Meta/MetaRules.cs` |
 | 16 | One quiz per battle, at `QuestBattle.QuizTurn` (turns 3–6); the q02 tutorial battle has none (`QuizTurn = 0`). The battle is still simulated in full first, but a right answer's command **re-fights** it: the same deployment, seed and bonds are run to the turn before the quiz, the command is queued, and the battle runs to its end. Nothing before the command draws a different die, so the new log matches the one already shown up to the quiz turn (checked at run time), and the replay carries on into the new ending — the quiz **can** change the outcome | `Core/Combat/TacticianCommand.cs` `RunWithCommand`, `Gameplay/BattlePlaytest.cs` `ApplyTacticianCommand` |
 | 17 | Right answer: +50 Reales (coin and toast), then the player picks **one** Tactician's Command from four (Table 4): heal every ally 10% of Max HP; +10% Attack for all allies for 1 turn; send every enemy back to its starting cell (nearest free cell if taken); revive the ally who fell last at 50% of base Max HP on its deployment cell, or the nearest free deploy cell (greyed out when no one has fallen). The command lands at the start of the quiz turn. Wrong answer: nothing | `MetaGame.Campaign.cs` `RecordQuizAnswer`, `Core/Combat/BattleSimulator.Commands.cs`, `UI/Shell/TacticianCommandCard.cs`, `UI/Shell/CampaignQuizRewards.cs` (`IQuizRewardReceiver`) |
 | 18 | 30 questions, 10 per level, each with a difficulty (Easy / Medium / Hard) and a category (Figures, Events, Places, Society, Tactics). Level tests: 5 questions, 60% to pass, 150 Reales on first pass | `Core/Content/Learning.cs`, `MetaRules.cs` |
-| 21 | No new modes: "Forging the Earthworks" (q06) is a hold-out battle (survive 30 turns); "The Silent Sabotage" (q07) is a 3-unit squad battle. `Campaign.cs:144-147` says exactly this | `Core/Content/Campaign.cs` |
+| 19 | **Five Spanish types** (base stats HP / ATK / DEF / EVA / ACC / RNG / CRIT / MOVE). **Regular** 100 / 14 / 5 / 5% / 85% / 1 / 10% / 1. **Artillery (ART)** 70 / 24 / 2 / 0 / 70% / **4** / 5% / 0.5: a connecting hit also deals **50%** of its damage to every enemy orthogonally beside the target (never its own side), then the gun spends **1 turn reloading** (fires every other turn). **Cazador (CAZ)** 80 / 12 / 3 / **20%** / 80% / **2** / 10% / **2**. **Officer (OFF)** 130 / 13 / 8 / 5% / 85% / 1 / 10% / 1: every other Spanish unit within **2 tiles** gets **+10% attack** (auras from two officers stack, additively). **Marine (MAR)** 105 / 14 / 6 / 5% / 85% / 1 / 10% / 1: ignores the shallows' penalties and gets **+15% attack and defense** while in them. **Sortie** (new rule, so a rooted line is not helpless against ART and CAZ): a Katipunan unit hit from beyond its own reach charges that shooter at 1 tile per turn while no enemy is in its reach (`CombatConfig.SortieSpeed = 1`). **Compositions:** q02 3 REG (tutorial, unchanged); q05 3 REG + 2 MAR; q06 5 REG + 3 CAZ + 1 OFF + 1 ART; q07 2 REG + 1 CAZ + 1 OFF; q08 4 REG + 1 CAZ + 1 OFF + 2 ART; q09 3 REG + 4 MAR + 2 CAZ + 1 OFF; q10 6 REG + 2 MAR + 3 CAZ + 2 OFF + 1 ART. Guns form up in the rear rank, marines in the shore corner. Checked over 200 seeds per quest with a scripted squad at the level a player reaches by then: every battle wins 93–100%. ⚠ **Art needed:** ART, CAZ, OFF and MAR have no figures or portraits yet; they wear the regular's, tinted (grey, green, gold, blue). The supply cart is a tinted token | `Core/Content/UnitCatalog.cs`, `Core/Combat/UnitAbilities.cs`, `BattleSimulator` (`ApplySplash`, `ApplyAuras`, `SortieTargetFor`), `PlaytestScenario.SpanishForce`, `Tests/EditMode/Combat/UnitAbilityTests.cs` |
+| 21 | **Two new win rules**, both in the simulator (`BattleObjective`), so the event log ends with the outcome the player got. **Escort (q06, #37):** a **Supply Cart** (160 HP, DEF 6, never acts) stands behind the trench at (12, 7). Losing it loses at once; still standing at the end of **turn 20**, or every Spaniard routed, wins. Under Escort the Spanish are raiders: they strike the cart whenever it is in reach, fight whatever else is in reach, and otherwise walk for the cart. Auto-deploy puts the squad in the cells nearest the cart. **Sabotage (q07, #38):** a squad of **3** must end a turn with any member on the powder magazine (★ on the board) at (0, 4), behind the Spanish line, within **30 turns**. The squad marches at 1 tile per turn (rooted units are brought up to it), attacks only what is already in its reach, and otherwise heads for the magazine; routing the guard does not win on its own. Losing the squad, or reaching the cap, loses. The Hold rule (survive N turns) is kept but no quest uses it | `Core/Combat/BattleObjective.cs`, `BattleSimulator.EvaluateEscort/EvaluateSabotage`, `Core/Content/Campaign.cs`, `PlaytestScenario.SupplyCart/ObjectiveFor`, `Tests/EditMode/Combat/BattleObjectiveTests.cs` |
 | 22 ⚠ | **JSON only, no SQLite.** Trivia and units are C# data. Save written whole to a temp file, flushed, swapped in with `File.Replace` keeping a `.bak`; SHA-256 checksum; a bad file is renamed `.corrupt` and the backup loaded. `SaveData.cs:14` cites #22 for "written whole and read whole". The proposal promises SQLite, so the document must be amended | `Gameplay/Meta/SaveStore.cs`, `Docs/SAVE-RELIABILITY.md` |
+| 23 | **Audio:** separate Music and SFX sliders (plus master) in Settings; three CC0 loops (menu, camp, battle) crossfade by screen, win/loss stings, coin and hit effects, all loaded from `Resources/` and credited in `Docs/CREDITS.md`. No resolution options beyond what Settings already had. **Glossary:** a Glossary tab in the Library, 29 EN/FIL terms (people, places, factions, weapons, Filipino words), sorted per language, 10 per page. ⚠ Glossary definitions, the Act 1–4 story scenes and the Nov 9–11 aftermath are **SME check pending**; Acts 2–3 are dramatized | `Core/Content/Glossary.cs`, `Core/Content/Cutscenes.cs`, `UI/Shell/LibraryPanel.cs`, `UI/Kit/MusicPlayer.cs`, `UI/Kit/UiSfx.cs` |
 | Table 2 ⚠ | Spanish units get **no** trench or tent bonus (`SpanishReceivesTerrainBonuses = false`); penalties such as the shallows still apply to them | `PlaytestScenario.Config()`, `Tests/EditMode/Combat/SpanishTerrainBonusTests.cs` |
-| Ranks | 8 player ranks, Kawal to Heneral, one per quest milestone: start, q02, q04, q05, q06, q07, q09, q10 | `Core/Content/PlayerRanks.cs` |
-| 8 | Kapatiran support (#19): +1 per battle fought (won or lost, not retreated) with both partners deployed side by side. Rank C at 1, B at 3, A at 5 — so rank A is reachable within the 7 campaign battles only by keeping a pair together in most of them. Rank C gives no bonus (Table 3: it opens the lore dialogue); B and A give Table 3's bonus, A replacing B. The tutorial battle (q02) still fights every pair at rank A, since it teaches what a bond does. A card after the battle shows each new rank | `Core/Meta/MetaRules.cs` `BondRankSupport`, `Core/Meta/MetaGame.Bonds.cs`, `UI/Shell/BondRankCard.cs` |
-| 9 (bonds) | Support is earned by the same adjacency the battle's bonus uses (`KapatiranResolver`'s default rule, currently 4-way), so switching #9 to 8-way changes both together | `MetaGame.Bonds.cs` |
-| 10 | Rank permanent, saved per pair (`SaveData.bonds`, save version 3; older saves start every pair at no rank); bonus only while side by side | `Core/Meta/SaveData.cs`, `Core/Content/BondCatalog.cs` |
 | Table 3 lore | The four lore dialogues, one per pair, open at rank C, play in the dialogue box, and can be heard again from **Lore** in the Training Grounds. ⚠ **SME check pending** — see below | `Core/Content/BondLore.cs`, `UI/Shell/BondLorePanel.cs` |
+| Ranks | 8 player ranks, Kawal to Heneral, one per quest milestone: start, q02, q04, q05, q06, q07, q09, q10 | `Core/Content/PlayerRanks.cs` |
 
 ### Conflicts for the group
 
@@ -306,3 +310,41 @@ Settle Priority 1 first. Items 1 through 5 gate the vertical slice, and the vert
 proves the concept works. Priority 2 can be decided while the slice is being built. Priority 3 is
 content work that scales with available time and is the natural place to cut scope if the schedule
 tightens.
+
+## Final decisions (Sept 24, 2026)
+
+The group asked for the open questions to be settled from this document and the build. Each is now
+**decided**; the GitHub issue is closed with a link here. To change one, reopen its issue.
+
+| Issue | DD | Decision | Why |
+| --- | --- | --- | --- |
+| #1 | 2 | Magdalo Infantry is the baseline (110 HP, 12 ATK, 6 DEF, 5% EVA, 80% ACC, range 1, 8% CRIT). Every other unit deviates from it; the full table is below. Spanish types: see the DD 19 row in [As built](#as-built-sept-2026) | DD 2 suggests the Magdalo as the baseline; round numbers make the table defensible |
+| #2 | 1 | Evade → accuracy → crit → `max(1, ATK − DEF)`, crit ×2, damage floor 1 | DD 1's recommended order, already built and tested; changing it would invalidate the tuned stats |
+| #3 | 3 | Nearest enemy; ties go to the lowest unit id; target re-picked every activation; no aggro radius (the whole map engages) | Deterministic and reproducible from a seed, as DD 3 requires. On a 14×9 board an aggro radius only adds stalls |
+| #4 | 4 | Turn-based simulation; the board replays each turn's event log with interpolated movement | DD 4's recommendation. It matches the proposal's own "per AI turn" wording and keeps the simulation testable |
+| #5 | 5 | 14×9 grid. The deploy zone comes from the terrain (the trench column and the tents), not from rows. Squad cap 6, or 3 on q07 | DD 5 calls 12×12 "guesses ... not recommendations". The board art, the tutorial and every quest are built around the trench line |
+| #6 | 6 | Additive: +20% and +10% make +30% | DD 6's default; easier to explain at the defense |
+| #7 | 20 | A Bamboo Barricade blocks every unit on both sides. Walkability is its single source of truth | This is DD 20's "intuitive reading"; the proposal gives no asymmetric rule |
+| #8 | 9 | 4-way adjacency: up, down, left, right, never diagonal | Movement is 4-way too, so a bond is a unit you could step to. The tutorial and How-to-Play already teach "never diagonal". The DD 9 note that 8-way is "conventional" is a remark, not a requirement |
+| #11 | Assumptions | All ratified: fractional movement carries over; a unit moves or attacks, never both; a mutual wipe is a Draw; the turn cap ends in a Draw, which counts as a loss for rewards except in hold-out and escort battles; Healing Received is a bond-only ninth stat; bonds are same-team only; the Spanish get no trench or tent bonus | Each is already built and tested; none contradicts the proposal |
+
+#9 and #10 (how Kapatiran ranks are earned, and whether the boost is permanent or per battle) are
+settled by the Kapatiran progression work (#19, #20) and recorded in the DD 8, DD 9 (bonds), DD 10 and
+Table 3 lore rows of [As built](#as-built-sept-2026): support +1 per battle side by side (4-way, per
+#8 above), ranks C / B / A at 1 / 3 / 5, rank permanent and saved per pair, bonus only while adjacent.
+
+### Katipunan base stats (#1)
+
+| Unit | HP | ATK | DEF | EVA | ACC | RNG | CRIT |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Magdalo Infantry (baseline) | 110 | 12 | 6 | 5% | 80% | 1 | 8% |
+| Magdiwang Infantry | 105 | 13 | 5 | 6% | 80% | 1 | 10% |
+| Gen. Edilberto Evangelista | 140 | 16 | 8 | 5% | 90% | 1 | 10% |
+| Emilio Aguinaldo | 130 | 15 | 7 | 5% | 90% | 1 | 15% |
+| Katipunero Vanguard | 150 | 15 | 10 | 5% | 85% | 1 | 10% |
+| Field Medic | 100 | 8 | 6 | 8% | 85% | 2 | 5% |
+| Caviteño Marksman | 90 | 14 | 4 | 5% | 75% | 2 | 15% |
+| Trench Engineer | 110 | 10 | 12 | 5% | 85% | 1 | 5% |
+
+Katipunan movement is 0: they hold the line from where they deploy (the Sabotage mission is the
+exception; see #38). Source: `Core/Content/UnitCatalog.cs`.

@@ -62,11 +62,27 @@ namespace BinakayanRising.UI.Shell
             Language before = Loc.Current;
             UserPrefs.ChooseLanguage(Language.English);
 
+            // Every route but the shell's starts on the menu, as before the splash existed, and
+            // photographs the camp without its story scene playing over it.
+            if (route != "shell")
+            {
+                if (SplashScreen.Current != null)
+                {
+                    SplashScreen.Current.Dismiss(true);
+                }
+
+                EncampmentScreen.StoryAutoplay = false;
+            }
+
             // Let the machine launch and the first screen finish fading in.
             yield return Wait(1.2f);
 
             switch (route)
             {
+                case "shell":
+                    yield return ShellRoute();
+                    break;
+
                 case "phase2":
                     yield return Phase2();
                     break;
@@ -89,6 +105,18 @@ namespace BinakayanRising.UI.Shell
 
                 case "bonds":
                     yield return Bonds();
+                    break;
+
+                case "deploy":
+                    yield return Deploy();
+                    break;
+
+                case "roster":
+                    yield return Roster();
+                    break;
+
+                case "bench":
+                    yield return Bench();
                     break;
 
                 default:
@@ -547,6 +575,147 @@ namespace BinakayanRising.UI.Shell
             }
         }
 
+        /// <summary>
+        /// The shell and its content (#46, #50, #34, #40, #49): the splash in both languages, the
+        /// menu over the trench scene, a new campaign opening on Act 1 by itself (once only), the
+        /// overwrite guard, the Library's glossary, the other acts, the aftermath and the Music
+        /// slider in Settings.
+        /// </summary>
+        private IEnumerator ShellRoute()
+        {
+            Shell.Session.DeleteSave();
+            if (SplashScreen.Current == null)
+            {
+                Note("shell", "no splash at start-up");
+            }
+
+            if (SplashScreen.LoadArt() == null)
+            {
+                Note("shell", "splash picture missing from Resources/" + SplashScreen.ArtPath);
+            }
+
+            AuditMusic("splash", MusicPlayer.Track.Menu);
+            yield return Shot("s_01_splash");
+            UserPrefs.ChooseLanguage(Language.Filipino);
+            yield return Shot("s_02_splash_fil");
+            UserPrefs.ChooseLanguage(Language.English);
+
+            if (SplashScreen.Current != null)
+            {
+                SplashScreen.Current.Dismiss(false);
+            }
+
+            yield return Wait(0.8f);
+            Shell.Router.Current?.Show();
+            yield return Shot("s_03_menu");
+
+            // A new campaign: the camp plays Act 1 on its own.
+            Shell.StartNewCampaign();
+            yield return WaitWhile(() => CutscenePlayer.Current == null, 4f);
+            if (CutscenePlayer.Current == null)
+            {
+                Note("shell", "Act 1 did not play on a new campaign");
+            }
+
+            yield return Shot("s_04_act1", 3.5f);
+            CutscenePlayer.Current?.Advance();
+            CutscenePlayer.Current?.Advance();
+            yield return Shot("s_05_act1_slide2", 3f);
+            CutscenePlayer.Current?.Skip();
+            yield return Wait(1.8f);
+            AuditMusic("camp", MusicPlayer.Track.Camp);
+
+            // Back to the title: Continue must not replay Act 1; New Campaign must ask first.
+            Shell.ReturnToTitle();
+            yield return Wait(0.8f);
+            Click("Button New Campaign");
+            yield return Shot("s_06_confirm_overwrite");
+            Click("Button Cancel");
+            Shell.ContinueCampaign();
+            yield return Wait(1f);
+            if (CutscenePlayer.Current != null)
+            {
+                Note("shell", "Act 1 played again after Continue");
+                CutscenePlayer.Current.Skip();
+            }
+
+            if (Shell.Session.Game == null)
+            {
+                Note("shell", "Continue did not load the save");
+            }
+
+            // The glossary.
+            LibraryPanel.Open(Shell);
+            yield return Wait(0.3f);
+            if (LibraryPanel.Current == null)
+            {
+                Note("shell", "the Library did not open");
+            }
+            else
+            {
+                LibraryPanel.Current.ShowGlossary();
+                yield return Shot("s_07_glossary");
+                MeasureCard("glossary", LibraryPanel.Current.Card);
+                LibraryPanel.Current.TurnPage(1);
+                yield return Shot("s_08_glossary_page2");
+                LibraryPanel.Current.TurnPage(1);
+                yield return Shot("s_09_glossary_page3");
+                UserPrefs.ChooseLanguage(Language.Filipino);
+                yield return Shot("s_10_glossary_fil");
+                UserPrefs.ChooseLanguage(Language.English);
+                LibraryPanel.Current.Close();
+            }
+
+            yield return Wait(0.4f);
+
+            // The other acts, and the aftermath of the final battle.
+            string[] scenes = { Cutscenes.Act2, Cutscenes.Act3, Cutscenes.Act4 };
+            for (int i = 0; i < scenes.Length; i++)
+            {
+                CutscenePlayer.Play(scenes[i], null);
+                yield return Shot("s_11_act" + (i + 2), 3.5f);
+                CutscenePlayer.Current?.Skip();
+                yield return Wait(0.6f);
+            }
+
+            CutscenePlayer.Play(Cutscenes.Aftermath, null);
+            yield return Shot("s_12_aftermath", 3.5f);
+            for (int i = 0; i < 4; i++)
+            {
+                CutscenePlayer.Current?.Advance();
+                CutscenePlayer.Current?.Advance();
+                yield return Wait(0.5f);
+            }
+
+            yield return Shot("s_13_aftermath_later", 3.5f);
+            UserPrefs.ChooseLanguage(Language.Filipino);
+            yield return Shot("s_14_aftermath_fil", 0.8f);
+            UserPrefs.ChooseLanguage(Language.English);
+            CutscenePlayer.Current?.Skip();
+            yield return Wait(0.6f);
+
+            Shell.OpenSettings();
+            yield return Shot("s_15_settings_music");
+            Shell.CloseSettings();
+        }
+
+        /// <summary>Writes which music is playing, and at what level, and checks it is the one expected.</summary>
+        private void AuditMusic(string where, MusicPlayer.Track expected)
+        {
+            AudioClip clip = MusicPlayer.CurrentClip;
+            audit.AppendFormat("\n-- music at {0}: {1} ({2}), level {3:0.00}\n", where, MusicPlayer.Current,
+                clip != null ? clip.name : "no clip", UserPrefs.EffectiveMusicVolume);
+            if (MusicPlayer.Current != expected)
+            {
+                Note("music", where + " plays " + MusicPlayer.Current + ", not " + expected);
+            }
+
+            if (clip == null)
+            {
+                Note("music", "no clip loaded for " + MusicPlayer.Current + " at " + where);
+            }
+        }
+
         /// <summary>Answers the open question with choice A, to show the reveal.</summary>
 
         /// <summary>
@@ -673,6 +842,483 @@ namespace BinakayanRising.UI.Shell
             yield return TakeAnyCommand();
             yield return Wait(2.5f);
             yield return Shot("i_09_hp_bars_later", 0.1f);
+        }
+
+        /// <summary>
+        /// Drag-and-drop deployment (#12) and the panels stepping aside for the replay (#22): a
+        /// portrait carried over blue tiles, the same portrait over a tile that refuses it, the
+        /// strip with placed units dimmed, the replay with the panels away, Tab bringing them back,
+        /// and the result with them in place.
+        /// </summary>
+        /// <remarks>
+        /// The drag is driven through <see cref="Gameplay.BattlePlaytest.BeginDrag"/> and its
+        /// siblings, the same calls the strip's pointer handlers make. Every placement it expects
+        /// is checked against the board afterwards and written to the audit, so a shot that looks
+        /// right but placed nothing still fails the run.
+        /// </remarks>
+        private IEnumerator Deploy()
+        {
+            Shell.Session.DeleteSave();
+            Shell.StartNewCampaign();
+            yield return Wait(0.6f);
+
+            MetaGame game = Shell.Session.Game;
+            game.Earn(Currency.Rations, 60);
+            foreach (string id in new[] { "q01", "q02", "q03", "q04", "q05" })
+            {
+                game.Data.clearedQuests.Add(id);
+            }
+
+            Hub().Dialogue.Finish();
+            yield return WaitWhile(() => RankUpCard.Current == null, 3f);
+            int guard = 0;
+            while (RankUpCard.Current != null && guard++ < 8)
+            {
+                RankUpCard.Current.Continue();
+                RankUpCard.Current?.Continue();
+                yield return Wait(0.4f);
+            }
+
+            Shell.Camp.ClickSite(Places.MissionTent);
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
+            Hub().Dialogue.Finish();
+            yield return WaitWhile(() => !(Shell.Router.Current is MissionMapScreen), 4f);
+            Shell.LaunchQuest(Campaign.Find("q06"));
+            yield return Wait(0.5f);
+            CutscenePlayer.Current?.Skip();
+            yield return WaitWhile(() => Shell.Battle == null, 4f);
+            yield return Wait(1.5f);
+
+            Gameplay.BattlePlaytest battle = Shell.Battle;
+            var hud = Object.FindAnyObjectByType<BinakayanRising.UI.Screens.BattleHud>();
+            if (battle == null || hud == null)
+            {
+                Note("deploy", "the q06 battle did not open");
+                yield break;
+            }
+
+            var roster = battle.Roster;
+            if (roster.Count < 3)
+            {
+                Note("deploy", "roster has " + roster.Count + " units, need 3");
+                yield break;
+            }
+
+            battle.RequestClearDeployment();
+            yield return Wait(0.3f);
+
+            // Two units carried to free tiles, so the strip has portraits to dim.
+            for (int i = 0; i < 2; i++)
+            {
+                Core.Grid.GridCoord free;
+                if (!FreeDeployCell(battle, out free))
+                {
+                    Note("deploy", "no free deployable cell");
+                    yield break;
+                }
+
+                battle.BeginDrag(roster[i].Id);
+                battle.UpdateDrag(CellScreen(battle, free));
+                bool dropped = battle.EndDrag(CellScreen(battle, free));
+                Core.Grid.GridCoord landed;
+                bool placed = battle.TryGetPlacement(roster[i].Id, out landed);
+                audit.AppendFormat("  deploy: drop {0} on {1} -> {2}, stands on {3}\n",
+                    roster[i].ShortName, free, dropped, placed ? landed.ToString() : "nothing");
+                if (!dropped || !placed || landed != free)
+                {
+                    Note("deploy", "drag-drop of " + roster[i].ShortName + " did not place it on " + free);
+                }
+            }
+
+            yield return Wait(0.3f);
+
+            // Mid-drag over a free tile: ghost under the pointer, every free tile blue.
+            Core.Grid.GridCoord target;
+            FreeDeployCell(battle, out target);
+            int carried = roster[2].Id;
+            if (!battle.BeginDrag(carried))
+            {
+                Note("deploy", "BeginDrag refused " + roster[2].ShortName);
+            }
+
+            battle.UpdateDrag(CellScreen(battle, target));
+            yield return Shot("deploy_01_drag_valid");
+            if (!battle.DragOverValidCell)
+            {
+                Note("deploy", "free cell " + target + " not reported valid mid-drag");
+            }
+
+            // The same drag over a tile already taken: refused, and the ghost says so.
+            Core.Grid.GridCoord taken;
+            battle.TryGetPlacement(roster[0].Id, out taken);
+            battle.UpdateDrag(CellScreen(battle, taken));
+            yield return Shot("deploy_02_drag_refused");
+            if (battle.DragOverValidCell)
+            {
+                Note("deploy", "occupied cell " + taken + " reported valid mid-drag");
+            }
+
+            int before = battle.PlacementCount;
+            bool refusedDrop = battle.EndDrag(CellScreen(battle, taken));
+            audit.AppendFormat("  deploy: drop {0} on occupied {1} -> {2}, placements {3} -> {4}\n",
+                roster[2].ShortName, taken, refusedDrop, before, battle.PlacementCount);
+            if (refusedDrop || battle.PlacementCount != before || battle.IsPlaced(carried))
+            {
+                Note("deploy", "a drop on an occupied tile was accepted");
+            }
+
+            // Carrying a placed unit to another tile moves it.
+            Core.Grid.GridCoord moveTo;
+            FreeDeployCell(battle, out moveTo);
+            battle.BeginDrag(roster[0].Id);
+            battle.UpdateDrag(CellScreen(battle, moveTo));
+            battle.EndDrag(CellScreen(battle, moveTo));
+            Core.Grid.GridCoord moved;
+            battle.TryGetPlacement(roster[0].Id, out moved);
+            audit.AppendFormat("  deploy: move {0} {1} -> {2}, stands on {3}\n", roster[0].ShortName, taken, moveTo, moved);
+            if (moved != moveTo)
+            {
+                Note("deploy", "moving a placed unit by drag failed");
+            }
+
+            battle.SelectSlot(2);
+            yield return Shot("deploy_03_strip_dimmed");
+            UserPrefs.ChooseLanguage(Language.Filipino);
+            yield return Shot("deploy_04_strip_fil");
+            UserPrefs.ChooseLanguage(Language.English);
+
+            // The replay: the side panel and field report step aside.
+            battle.RequestAutoDeploy();
+            yield return Wait(0.4f);
+            battle.RequestAssault();
+            battle.SetSpeed(1f);
+            yield return Wait(1.2f);
+            yield return Shot("deploy_05_replay_panels_hidden", 0.1f);
+            audit.AppendFormat("  deploy: replay panels hidden {0}, wanted {1}\n", hud.PanelsHidden, hud.PanelsWanted);
+            if (!hud.PanelsHidden)
+            {
+                Note("deploy", "the panels are still on screen during the replay");
+            }
+
+            hud.HandleHotkey(BinakayanRising.UI.Screens.HudHotkey.Panels);
+            yield return Wait(0.6f);
+            yield return Shot("deploy_06_replay_panels_tab", 0.1f);
+            audit.AppendFormat("  deploy: after Tab hidden {0}, wanted {1}\n", hud.PanelsHidden, hud.PanelsWanted);
+            if (hud.PanelsHidden || !hud.PanelsWanted)
+            {
+                Note("deploy", "Tab did not bring the panels back");
+            }
+
+            hud.HandleHotkey(BinakayanRising.UI.Screens.HudHotkey.Panels);
+            yield return Wait(0.5f);
+
+            // To the result, answering the question card on the way.
+            battle.SetSpeed(8f);
+            battle.RequestSkip();
+            yield return WaitWhile(() => QuizCard.Current == null && Shell.Battle != null
+                && Shell.Battle.CurrentPhase != Gameplay.BattlePlaytest.Phase.Finished, 60f);
+            yield return AnswerQuiz();
+
+            yield return WaitWhile(() => Shell.Battle != null
+                && Shell.Battle.CurrentPhase != Gameplay.BattlePlaytest.Phase.Finished, 60f);
+            yield return Wait(0.6f);
+            yield return Shot("deploy_07_result");
+            audit.AppendFormat("  deploy: result panels hidden {0}\n", hud.PanelsHidden);
+            if (hud.PanelsHidden)
+            {
+                Note("deploy", "the panels stayed away on the result");
+            }
+        }
+
+        /// <summary>The first deployable cell no unit stands on, in grid order.</summary>
+        private static bool FreeDeployCell(Gameplay.BattlePlaytest battle, out Core.Grid.GridCoord cell)
+        {
+            Core.Grid.IBattleGrid grid = battle.Grid;
+            for (int y = 0; grid != null && y < grid.Height; y++)
+            {
+                for (int x = 0; x < grid.Width; x++)
+                {
+                    cell = new Core.Grid.GridCoord(x, y);
+                    if (!grid.IsDeployable(cell))
+                    {
+                        continue;
+                    }
+
+                    bool taken = false;
+                    var roster = battle.Roster;
+                    for (int i = 0; i < roster.Count && !taken; i++)
+                    {
+                        Core.Grid.GridCoord at;
+                        taken = battle.TryGetPlacement(roster[i].Id, out at) && at == cell;
+                    }
+
+                    if (!taken)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            cell = default(Core.Grid.GridCoord);
+            return false;
+        }
+
+        /// <summary>A cell's centre in screen pixels.</summary>
+        private static Vector2 CellScreen(Gameplay.BattlePlaytest battle, Core.Grid.GridCoord cell)
+        {
+            Vector3 world;
+            if (battle.BoardCamera == null || !battle.TryGetCellWorld(cell, out world))
+            {
+                return Vector2.zero;
+            }
+
+            Vector3 screen = battle.BoardCamera.WorldToScreenPoint(world);
+            return new Vector2(screen.x, screen.y);
+        }
+
+        /// <summary>
+        /// The Spanish roster and the Level 2 win rules (#16, #37, #38): the Mission Tent's enemy
+        /// breakdown, the enemy page of the How-to-Play deck, then three battles mid-replay: q10's
+        /// mixed column, q06's escort with the supply cart, and q07's sabotage with the magazine
+        /// star. Each battle's objective markers are measured into the audit, not just shot.
+        /// </summary>
+        private IEnumerator Roster()
+        {
+            Shell.Session.DeleteSave();
+            Shell.StartNewCampaign();
+            yield return Wait(0.6f);
+
+            MetaGame game = Shell.Session.Game;
+            game.Earn(Currency.Rations, 200);
+            foreach (string id in new[] { "q01", "q02", "q03", "q04", "q05", "q06", "q07", "q08", "q09" })
+            {
+                game.Data.clearedQuests.Add(id);
+            }
+
+            Hub().Dialogue.Finish();
+            yield return DrainRankCards();
+
+            yield return OpenMissionTent();
+            yield return Shot("roster_01_tent");
+            UserPrefs.ChooseLanguage(Language.Filipino);
+            yield return Shot("roster_01_tent_fil");
+            UserPrefs.ChooseLanguage(Language.English);
+
+            // q10: every Spanish type on one board.
+            yield return RosterBattle("q10", "roster_02_enemies", true);
+            yield return OpenMissionTent();
+
+            // q06: the escort. The cart and its ring are on the board before anyone deploys.
+            yield return RosterBattle("q06", "roster_03_escort", false);
+            yield return OpenMissionTent();
+
+            // q07: the sabotage. The magazine cell and its star.
+            yield return RosterBattle("q07", "roster_04_sabotage", false);
+        }
+
+        /// <summary>Walks to the Mission Tent and waits for its map.</summary>
+        private IEnumerator OpenMissionTent()
+        {
+            Shell.Camp.ClickSite(Places.MissionTent);
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
+            Hub().Dialogue.Finish();
+            yield return WaitWhile(() => !(Shell.Router.Current is MissionMapScreen), 4f);
+            yield return Wait(0.4f);
+        }
+
+        /// <summary>Continues every rank card that comes up.</summary>
+        private IEnumerator DrainRankCards()
+        {
+            yield return WaitWhile(() => RankUpCard.Current == null, 3f);
+            for (int i = 0; RankUpCard.Current != null && i < 10; i++)
+            {
+                RankUpCard.Current.Continue();
+                RankUpCard.Current?.Continue();
+                yield return Wait(0.4f);
+            }
+        }
+
+        /// <summary>
+        /// Opens <paramref name="questId"/>, shoots the deployment and the replay part-way, the
+        /// finished report, and returns to camp. Writes the objective markers' cells to the audit.
+        /// </summary>
+        private IEnumerator RosterBattle(string questId, string prefix, bool showDeck)
+        {
+            Shell.LaunchQuest(Campaign.Find(questId));
+            yield return Wait(0.5f);
+            CutscenePlayer.Current?.Skip();
+            yield return WaitWhile(() => Shell.Battle == null, 4f);
+            yield return Wait(1.5f);
+            Gameplay.BattlePlaytest battle = Shell.Battle;
+            if (battle == null)
+            {
+                Note("roster", "the " + questId + " battle did not open");
+                yield break;
+            }
+
+            var hud = Object.FindAnyObjectByType<BinakayanRising.UI.Screens.BattleHud>();
+            if (showDeck && hud != null && hud.Deck != null)
+            {
+                hud.Deck.Open();
+                hud.Deck.ShowPage(4);
+                yield return Shot(prefix + "_deck", 0.5f);
+                UserPrefs.ChooseLanguage(Language.Filipino);
+                yield return Shot(prefix + "_deck_fil", 0.5f);
+                UserPrefs.ChooseLanguage(Language.English);
+                hud.Deck.Close();
+                yield return Wait(0.4f);
+            }
+
+            battle.RequestAutoDeploy();
+            yield return Wait(0.5f);
+            AuditObjective(prefix, battle);
+            yield return Shot(prefix + "_deploy");
+
+            battle.RequestAssault();
+            battle.SetSpeed(1f);
+            yield return Wait(4f);
+            yield return AnswerQuiz();
+            yield return Shot(prefix, 0.1f);
+            UserPrefs.ChooseLanguage(Language.Filipino);
+            yield return Shot(prefix + "_fil", 0.2f);
+            UserPrefs.ChooseLanguage(Language.English);
+
+            battle.SetSpeed(8f);
+            float waited = 0f;
+            while (Shell.Battle != null && Shell.Battle.CurrentPhase != Gameplay.BattlePlaytest.Phase.Finished && waited < 150f)
+            {
+                yield return AnswerQuiz();
+                yield return Wait(0.5f);
+                waited += 0.5f;
+            }
+
+            if (Shell.Battle == null || Shell.Battle.Result == null)
+            {
+                Note("roster", questId + " did not finish");
+                yield break;
+            }
+
+            Core.Combat.BattleResult result = Shell.Battle.Result;
+            audit.AppendFormat("\n-- {0} outcome {1} after {2} turns, won {3}, katipunan {4}, spanish {5}\n",
+                questId, result.Outcome, result.TurnsElapsed, Shell.Battle.MissionWon, result.KatipunanAlive, result.SpanishAlive);
+            yield return Shot(prefix + "_report", 1.5f);
+
+            Shell.Battle.EndMission();
+            yield return Wait(1f);
+            yield return DrainPromotions(prefix);
+            yield return DrainRankCards();
+            yield return Wait(0.5f);
+        }
+
+        /// <summary>
+        /// The frame-rate benchmark (#52): q10, the largest battle, played start to finish at normal
+        /// speed. Run with <c>-brFps</c> (<c>Tools/qa/fps.sh</c>) so <see cref="QaProbes"/> records it.
+        /// </summary>
+        private IEnumerator Bench()
+        {
+            Shell.Session.DeleteSave();
+            Shell.StartNewCampaign();
+            yield return Wait(0.6f);
+            MetaGame game = Shell.Session.Game;
+            game.Earn(Currency.Rations, 200);
+            foreach (string id in new[] { "q01", "q02", "q03", "q04", "q05", "q06", "q07", "q08", "q09" })
+            {
+                game.Data.clearedQuests.Add(id);
+            }
+
+            Hub().Dialogue.Finish();
+            yield return DrainRankCards();
+            yield return OpenMissionTent();
+            Shell.LaunchQuest(Campaign.Find("q10"));
+            yield return Wait(0.5f);
+            CutscenePlayer.Current?.Skip();
+            yield return WaitWhile(() => Shell.Battle == null, 4f);
+            yield return Wait(1f);
+            Gameplay.BattlePlaytest battle = Shell.Battle;
+            if (battle == null)
+            {
+                Note("bench", "the q10 battle did not open");
+                yield break;
+            }
+
+            battle.RequestAutoDeploy();
+            yield return Wait(0.5f);
+            battle.RequestAssault();
+            battle.SetSpeed(1f);
+            float waited = 0f;
+            while (Shell.Battle != null && Shell.Battle.CurrentPhase != Gameplay.BattlePlaytest.Phase.Finished && waited < 400f)
+            {
+                yield return AnswerQuiz();
+                yield return Wait(0.5f);
+                waited += 0.5f;
+            }
+
+            audit.AppendFormat("\n-- bench: battle ran {0:0} s\n", waited);
+            yield return Shot("bench_end", 1f);
+        }
+
+        /// <summary>
+        /// Answers and closes an open battle question, if one is up, then takes the first allowed
+        /// Tactician's Command (#43) if the right answer opened the command card.
+        /// </summary>
+        private IEnumerator AnswerQuiz()
+        {
+            bool answered = QuizCard.Current != null;
+            if (answered)
+            {
+                PickFirst();
+                QuizCard.Current?.Continue();
+            }
+
+            if (answered || TacticianCommandCard.Current != null)
+            {
+                yield return TakeAnyCommand();
+            }
+        }
+
+        /// <summary>
+        /// Measures what the objective put on the board: every unit's archetype and cell, the cart's
+        /// cell under Escort, and the magazine markers' positions under Sabotage.
+        /// </summary>
+        private void AuditObjective(string prefix, Gameplay.BattlePlaytest battle)
+        {
+            var units = new List<Gameplay.BattlePlaytest.UnitSnapshot>();
+            battle.GetUnits(units);
+            var counts = new SortedDictionary<string, int>();
+            bool cart = false;
+            foreach (Gameplay.BattlePlaytest.UnitSnapshot unit in units)
+            {
+                int count;
+                counts.TryGetValue(unit.ArchetypeId ?? "?", out count);
+                counts[unit.ArchetypeId ?? "?"] = count + 1;
+                cart |= unit.Id == Gameplay.PlaytestScenario.SupplyCartId;
+            }
+
+            audit.AppendFormat("\n-- {0} rule {1}, cap {2}, units:", prefix, battle.Rule, battle.TurnCap);
+            foreach (KeyValuePair<string, int> pair in counts)
+            {
+                audit.Append(' ').Append(pair.Key).Append('×').Append(pair.Value);
+            }
+
+            audit.Append('\n');
+            if (battle.Rule == WinRule.Escort && !cart)
+            {
+                Note(prefix, "no supply cart on the board");
+            }
+
+            foreach (string marker in new[] { "Objective Cart", "Objective Magazine", "Objective Star" })
+            {
+                GameObject found = GameObject.Find(marker);
+                if (found != null)
+                {
+                    audit.AppendFormat("   {0} at world ({1:0.00},{2:0.00})\n", marker, found.transform.position.x, found.transform.position.y);
+                }
+            }
+
+            if (battle.Rule == WinRule.Sabotage && GameObject.Find("Objective Star") == null)
+            {
+                Note(prefix, "no magazine star on the board");
+            }
         }
 
         private void PickFirst()

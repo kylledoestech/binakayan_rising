@@ -93,6 +93,7 @@ namespace BinakayanRising.UI.Shell
             battle = opened;
             battle.QuizDue += AskBattleQuiz;
             battle.PhaseChanged += phase => OnBattlePhaseChanged(opened, phase);
+            battle.HitLanded += critical => UiSfx.Play(UiSfx.Cue.Hit);
         }
 
         /// <summary>
@@ -102,7 +103,19 @@ namespace BinakayanRising.UI.Shell
         /// </summary>
         private void OnBattlePhaseChanged(BattlePlaytest from, BattlePlaytest.Phase phase)
         {
-            if (from != battle || phase != BattlePlaytest.Phase.Combat)
+            if (from != battle)
+            {
+                return;
+            }
+
+            // The replay has resolved: the win or loss sting, over the battle music (#49).
+            if (phase == BattlePlaytest.Phase.Finished)
+            {
+                MusicPlayer.Sting(from.MissionWon);
+                return;
+            }
+
+            if (phase != BattlePlaytest.Phase.Combat)
             {
                 return;
             }
@@ -198,6 +211,8 @@ namespace BinakayanRising.UI.Shell
                 Title = quest.Title.Get(),
                 RankTitle = game.Rank.Title,
                 EnemyCount = rules.EnemyCount,
+                Enemies = rules.Enemies,
+                WinRule = rules.WinRule,
                 SquadCap = rules.SquadCap,
                 Seed = rules.Seed,
                 TurnCap = rules.TurnCap,

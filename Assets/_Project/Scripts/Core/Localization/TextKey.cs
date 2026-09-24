@@ -308,6 +308,33 @@ namespace BinakayanRising.Core.Localization
         DeckMoreUnitsTitle,
         DeckMoreUnitsBody,
 
+        // #12 drag-and-drop deployment, #22 panels hidden during the replay
+        DeployStripHint,
+
+        // Agent D: splash (#46), glossary (#50).
+        SplashPressAnyKey,
+        LibTabLessons,
+        LibTabGlossary,
+        LibGlossaryPage,
+        LibGlossaryNote,
+
+        // #16 Spanish roster, #37 Escort, #38 Sabotage (agent A).
+        UnitSpanishArtillery,
+        UnitSpanishCazador,
+        UnitSpanishOfficer,
+        UnitSpanishMarine,
+        UnitSupplyCart,
+        HudObjectiveEscort,
+        HudObjectiveSabotage,
+        MapWinEscort,
+        MapWinSabotage,
+        OutcomeCartSaved,
+        OutcomeCartLost,
+        OutcomeMagazineBlown,
+        OutcomeMagazineMissed,
+        DeckEnemiesTitle,
+        DeckEnemiesBody,
+
         // #43 Tactician's Command, #19 Kapatiran ranks, #20 Kapatiran lore
         CmdTitle,
         CmdPrompt,

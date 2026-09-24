@@ -52,7 +52,28 @@ namespace BinakayanRising.UI.Kit
 
             /// <summary>Reales coming into the purse.</summary>
             Coin,
+
+            /// <summary>A blow landing in the battle replay (#49).</summary>
+            Hit,
         }
+
+        /// <summary>
+        /// Sounds added after <see cref="ThemeAssets"/> was set up, loaded from
+        /// <c>Resources/Sfx/</c> so no Inspector assignment is needed (#49). CC0; see Docs/CREDITS.md.
+        /// </summary>
+        private const string CoinClip = "Sfx/sfx_coin";
+        private const string HitClip = "Sfx/sfx_hit";
+
+        /// <summary>Hits closer together than this are dropped: a fast replay would otherwise buzz.</summary>
+        private const float HitSpacing = 0.07f;
+
+        /// <summary>Hits are played quieter than interface sounds; there are many of them.</summary>
+        private const float HitVolume = 0.55f;
+
+        private static readonly System.Collections.Generic.Dictionary<string, AudioClip> loaded =
+            new System.Collections.Generic.Dictionary<string, AudioClip>();
+
+        private static float lastHit = -1f;
 
         private static AudioSource source;
 
@@ -76,18 +97,41 @@ namespace BinakayanRising.UI.Kit
                 return;
             }
 
+            float scale = 1f;
+            if (cue == Cue.Hit)
+            {
+                if (Time.unscaledTime - lastHit < HitSpacing)
+                {
+                    return;
+                }
+
+                lastHit = Time.unscaledTime;
+                scale = HitVolume;
+            }
+
             EnsureSource();
             if (source != null)
             {
                 // PlayOneShot rather than Play, so overlapping cues layer instead of cutting
                 // each other off — a rapid click sequence should sound like a rapid click
                 // sequence, not like one clipped blip.
-                source.PlayOneShot(clip, Volume);
+                source.PlayOneShot(clip, Volume * scale);
             }
         }
 
         private static AudioClip ClipFor(Cue cue)
         {
+            // The coin and the hit come from Resources, whether or not the theme asset is set up.
+            if (cue == Cue.Hit)
+            {
+                return Load(HitClip);
+            }
+
+            if (cue == Cue.Coin && Load(CoinClip) != null)
+            {
+                return Load(CoinClip);
+            }
+
             ThemeAssets assets = Theme.Assets;
             if (assets == null)
             {
@@ -109,6 +153,19 @@ namespace BinakayanRising.UI.Kit
                 case Cue.Coin: return assets.sfxCoin != null ? assets.sfxCoin : assets.sfxConfirm;
                 default: return null;
             }
+        }
+
+        /// <summary>A clip under Resources, loaded once; null when it is missing.</summary>
+        private static AudioClip Load(string path)
+        {
+            AudioClip clip;
+            if (!loaded.TryGetValue(path, out clip))
+            {
+                clip = Resources.Load<AudioClip>(path);
+                loaded[path] = clip;
+            }
+
+            return clip;
         }
 
         private static void EnsureSource()
@@ -145,6 +202,8 @@ namespace BinakayanRising.UI.Kit
         public static void ResetStatics()
         {
             source = null;
+            loaded.Clear();
+            lastHit = -1f;
             Muted = false;
             Volume = 0.7f;
         }

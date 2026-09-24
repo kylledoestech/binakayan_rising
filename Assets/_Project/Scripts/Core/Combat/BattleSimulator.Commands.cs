@@ -62,8 +62,9 @@ namespace BinakayanRising.Core.Combat
             switch (command)
             {
                 case TacticianCommand.MapWideHeal:
-                case TacticianCommand.AttackBuff:
                     return CountAlive(Team.Katipunan) > 0;
+                case TacticianCommand.AttackBuff:
+                    return HasLivingFighter(Team.Katipunan);
                 case TacticianCommand.ResetEnemyPositions:
                     return CountAlive(Team.Spanish) > 0;
                 case TacticianCommand.ReviveFallenUnit:
@@ -148,7 +149,7 @@ namespace BinakayanRising.Core.Combat
                 for (int i = 0; i < livingScratch.Count; i++)
                 {
                     CombatUnit unit = livingScratch[i];
-                    if (!unit.IsAlive || unit.Team != timed.Team)
+                    if (!unit.IsAlive || unit.Team != timed.Team || unit.Abilities.NonCombatant)
                     {
                         continue;
                     }
@@ -248,6 +249,12 @@ namespace BinakayanRising.Core.Combat
                 }
             }
 
+            // A revive is never a free win: under Sabotage the target cell is off limits.
+            if (objective.Kind == ObjectiveKind.Sabotage)
+            {
+                taken.Add(objective.TargetCell);
+            }
+
             GridCoord home;
             if (!startCells.TryGetValue(fallen.Id, out home))
             {
@@ -267,7 +274,26 @@ namespace BinakayanRising.Core.Combat
             }
         }
 
-        /// <summary>The unit of <paramref name="team"/> whose death is latest in the log and who is still dead.</summary>
+        /// <summary>True when <paramref name="team"/> has a living unit that fights (not a supply cart).</summary>
+        private bool HasLivingFighter(Team team)
+        {
+            for (int i = 0; i < unitsInIdOrder.Length; i++)
+            {
+                CombatUnit unit = unitsInIdOrder[i];
+                if (unit.IsAlive && unit.Team == team && !unit.Abilities.NonCombatant)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// The fighting unit of <paramref name="team"/> whose death is latest in the log and who is
+        /// still dead. A non-combatant — the escorted cart — is never brought back: its loss has
+        /// already ended the battle.
+        /// </summary>
         private CombatUnit LastFallen(Team team)
         {
             for (int e = allEvents.Count - 1; e >= 0; e--)
@@ -279,22 +305,9 @@ namespace BinakayanRising.Core.Combat
                 }
 
                 CombatUnit unit = FindUnit(battleEvent.ActorId);
-                if (unit != null && unit.Team == team && !unit.IsAlive)
+                if (unit != null && unit.Team == team && !unit.IsAlive && !unit.Abilities.NonCombatant)
                 {
                     return unit;
-                }
-            }
-
-            return null;
-        }
-
-        private CombatUnit FindUnit(int id)
-        {
-            for (int i = 0; i < unitsInIdOrder.Length; i++)
-            {
-                if (unitsInIdOrder[i].Id == id)
-                {
-                    return unitsInIdOrder[i];
                 }
             }
 
