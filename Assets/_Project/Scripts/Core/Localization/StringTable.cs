@@ -41,8 +41,8 @@ namespace BinakayanRising.Core.Localization
             // ---------------------------------------------------------------- HUD — deployment
             Add(TextKey.DeployTitle, "Deploy Troops", "Ipuwesto ang Hukbo");
             Add(TextKey.DeployHint,
-                "Choose a unit, then click a lit tile on the trench or a tent. Right-click a placed unit to lift it.",
-                "Pumili ng yunit, at i-click ang nakailaw na tile sa trinsera o tolda. I-right-click ang nakapuwestong yunit upang alisin.");
+                "Choose a unit, then click a lit tile on the trench or a tent, or drag a portrait from the strip below onto a blue tile. Drag a placed unit to move it; right-click it to lift it.",
+                "Pumili ng yunit, at i-click ang nakailaw na tile sa trinsera o tolda, o i-drag ang larawan mula sa hanay sa ibaba papunta sa asul na tile. I-drag ang nakapuwestong yunit upang ilipat; i-right-click upang alisin.");
             Add(TextKey.RosterStats, "HP {0}   ATK {1}   DEF {2}   RNG {3}", "HP {0}   ATK {1}   DEF {2}   RNG {3}");
             Add(TextKey.RosterDeployed, "✓ deployed", "✓ nakapuwesto");
             Add(TextKey.SpanishColumn, "Spanish Column", "Hanay ng Kastila");
@@ -114,15 +114,15 @@ namespace BinakayanRising.Core.Localization
 
             Add(TextKey.TutPickTitle, "Pick a Unit", "Pumili ng Yunit");
             Add(TextKey.TutPickBody,
-                "This is your roster. Click the <b>Caviteño Marksman</b> to select it.",
-                "Ito ang iyong hanay. I-click ang <b>Asintadong Caviteño</b> upang piliin.");
+                "This is your roster. Click the <b>Caviteño Marksman</b> to select it, or press and drag its portrait from the strip at the bottom.",
+                "Ito ang iyong hanay. I-click ang <b>Asintadong Caviteño</b> upang piliin, o pindutin at i-drag ang larawan nito mula sa hanay sa ibaba.");
 
             Add(TextKey.TutPlaceTitle, "Place It on the Line", "Ipuwesto sa Linya");
             Add(TextKey.TutPlaceBody,
-                "Click any lit tile on the <b>trench</b> or a <b>tent</b>. Only lit tiles take units.\n"
-                + "Right-click a placed unit to lift it off again.",
-                "I-click ang alinmang nakailaw na tile sa <b>trinsera</b> o <b>tolda</b>. Tanging nakailaw na tile ang tumatanggap ng yunit.\n"
-                + "I-right-click ang nakapuwestong yunit upang alisin.");
+                "Click any lit tile on the <b>trench</b> or a <b>tent</b>, or drop the dragged portrait on one. Tiles turn blue where it can land.\n"
+                + "Drag a placed unit to move it. Right-click it to lift it off again.",
+                "I-click ang alinmang nakailaw na tile sa <b>trinsera</b> o <b>tolda</b>, o dito ibagsak ang hinihilang larawan. Nagiging asul ang mga tile na maaaring lapagan.\n"
+                + "I-drag ang nakapuwestong yunit upang ilipat. I-right-click upang alisin.");
 
             Add(TextKey.TutTerrainTitle, "Read the Ground", "Basahin ang Lupain");
             Add(TextKey.TutTerrainBody,
@@ -161,9 +161,9 @@ namespace BinakayanRising.Core.Localization
             Add(TextKey.TutWatchTitle, "Watch the Battle", "Saksihan ang Labanan");
             Add(TextKey.TutWatchBody,
                 "Change the pace with the speed buttons or keys 1, 2, 3. <b>Skip</b> jumps to the result.\n"
-                + "The <b>Field Report</b> narrates routs and critical hits.",
+                + "The <b>Field Report</b> narrates routs and critical hits. The panels step aside for the battle; <b>Tab</b> brings them back.",
                 "Baguhin ang bilis gamit ang mga pindutan o ang 1, 2, 3. Ang <b>Laktaw</b> ay tumatalon sa resulta.\n"
-                + "Isinasalaysay ng <b>Ulat ng Larangan</b> ang mga nagapi at malubhang tama.");
+                + "Isinasalaysay ng <b>Ulat ng Larangan</b> ang mga nagapi at malubhang tama. Tumatabi ang mga panel habang naglalaban; ibinabalik ito ng <b>Tab</b>.");
 
             Add(TextKey.TutOutcomeTitle, "Victory or Defeat", "Tagumpay o Pagkatalo");
             Add(TextKey.TutOutcomeBody,
@@ -194,14 +194,14 @@ namespace BinakayanRising.Core.Localization
 
             Add(TextKey.DeckDeployTitle, "Deployment", "Pagpupuwesto");
             Add(TextKey.DeckDeployBody,
-                "1.  Click a unit in the roster.\n"
-                + "2.  Click a lit tile on the trench or a tent.\n"
-                + "3.  Click or right-click a placed unit to lift it.\n\n"
+                "1.  Click a unit in the roster, then a lit tile on the trench or a tent.\n"
+                + "2.  Or drag a portrait from the strip below onto a blue tile.\n"
+                + "3.  Drag a placed unit to move it; click or right-click it to lift it.\n\n"
                 + "<b>Auto-deploy</b> fills the empty tiles and keeps your placements.\n"
                 + "<b>Spanish Column - / +</b> sets how many regulars attack, from 1 to 14.",
-                "1.  I-click ang yunit sa hanay.\n"
-                + "2.  I-click ang nakailaw na tile sa trinsera o tolda.\n"
-                + "3.  I-click o i-right-click ang nakapuwestong yunit upang alisin.\n\n"
+                "1.  I-click ang yunit sa hanay, at ang nakailaw na tile sa trinsera o tolda.\n"
+                + "2.  O i-drag ang larawan mula sa hanay sa ibaba papunta sa asul na tile.\n"
+                + "3.  I-drag ang nakapuwestong yunit upang ilipat; i-click o i-right-click upang alisin.\n\n"
                 + "Pinupunan ng <b>Kusang Ipuwesto</b> ang mga bakanteng tile nang hindi ginagalaw ang iyong ipinuwesto.\n"
                 + "Itinatakda ng <b>Hanay ng Kastila - / +</b> ang bilang ng umaatake, mula 1 hanggang 14.");
 
@@ -283,7 +283,7 @@ namespace BinakayanRising.Core.Localization
 
             Add(TextKey.DeckControlsTitle, "Controls", "Kontrol");
             Add(TextKey.DeckControlsBody,
-                "<b>Left click</b>  select, place, lift\n"
+                "<b>Left click / drag</b>  select, place, lift; drag onto a blue tile\n"
                 + "<b>Right click</b>  lift a unit, deselect, close panels\n"
                 + "<b>Mouse wheel</b>  zoom\n"
                 + "<b>WASD / arrows / middle-drag</b>  pan\n"
@@ -292,8 +292,9 @@ namespace BinakayanRising.Core.Localization
                 + "<b>Esc</b>  close this, skip the tutorial or replay, or pause\n"
                 + "<b>P</b>  pause menu\n"
                 + "<b>M</b>  show or hide the map\n"
+                + "<b>Tab</b>  show or hide the panels during battle\n"
                 + "<b>EN / FIL</b>  switch language",
-                "<b>Left click</b>  pumili, ipuwesto, alisin\n"
+                "<b>Left click / drag</b>  pumili, ipuwesto, alisin; i-drag sa asul na tile\n"
                 + "<b>Right click</b>  alisin ang yunit o pinili, isara ang panel\n"
                 + "<b>Mouse wheel</b>  zoom\n"
                 + "<b>WASD / arrow / middle-drag</b>  igalaw ang tanaw\n"
@@ -302,6 +303,7 @@ namespace BinakayanRising.Core.Localization
                 + "<b>Esc</b>  isara, laktawan ang tutorial o replay, o ihinto\n"
                 + "<b>P</b>  menu ng paghinto\n"
                 + "<b>M</b>  ipakita o itago ang mapa\n"
+                + "<b>Tab</b>  ipakita o itago ang mga panel habang naglalaban\n"
                 + "<b>EN / FIL</b>  palitan ang wika");
 
             // ---------------------------------------------------------------- shared buttons
@@ -502,6 +504,11 @@ namespace BinakayanRising.Core.Localization
             Add(TextKey.TrnStatHeal, "HEALING", "LUNAS");
             Add(TextKey.TrnBond, "Bond: {0}", "Kabuklod: {0}");
             Add(TextKey.TrnNoBond, "No Kapatiran bond", "Walang kabuklod sa Kapatiran");
+
+            // ---------------------------------------------------------------- #12 drag deploy, #22 panels
+            Add(TextKey.DeployStripHint,
+                "Drag a portrait onto a blue tile",
+                "I-drag ang larawan sa asul na tile");
         }
 
         /// <summary>The text for a key, falling back to English and then to the key's name.</summary>

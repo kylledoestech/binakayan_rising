@@ -87,6 +87,10 @@ namespace BinakayanRising.UI.Shell
                     yield return Issues();
                     break;
 
+                case "deploy":
+                    yield return Deploy();
+                    break;
+
                 default:
                     yield return Phase1();
                     break;
@@ -667,6 +671,242 @@ namespace BinakayanRising.UI.Shell
             QuizCard.Current?.Continue();
             yield return Wait(2.5f);
             yield return Shot("i_09_hp_bars_later", 0.1f);
+        }
+
+        /// <summary>
+        /// Drag-and-drop deployment (#12) and the panels stepping aside for the replay (#22): a
+        /// portrait carried over blue tiles, the same portrait over a tile that refuses it, the
+        /// strip with placed units dimmed, the replay with the panels away, Tab bringing them back,
+        /// and the result with them in place.
+        /// </summary>
+        /// <remarks>
+        /// The drag is driven through <see cref="Gameplay.BattlePlaytest.BeginDrag"/> and its
+        /// siblings, the same calls the strip's pointer handlers make. Every placement it expects
+        /// is checked against the board afterwards and written to the audit, so a shot that looks
+        /// right but placed nothing still fails the run.
+        /// </remarks>
+        private IEnumerator Deploy()
+        {
+            Shell.Session.DeleteSave();
+            Shell.StartNewCampaign();
+            yield return Wait(0.6f);
+
+            MetaGame game = Shell.Session.Game;
+            game.Earn(Currency.Rations, 60);
+            foreach (string id in new[] { "q01", "q02", "q03", "q04", "q05" })
+            {
+                game.Data.clearedQuests.Add(id);
+            }
+
+            Hub().Dialogue.Finish();
+            yield return WaitWhile(() => RankUpCard.Current == null, 3f);
+            int guard = 0;
+            while (RankUpCard.Current != null && guard++ < 8)
+            {
+                RankUpCard.Current.Continue();
+                RankUpCard.Current?.Continue();
+                yield return Wait(0.4f);
+            }
+
+            Shell.Camp.ClickSite(Places.MissionTent);
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
+            Hub().Dialogue.Finish();
+            yield return WaitWhile(() => !(Shell.Router.Current is MissionMapScreen), 4f);
+            Shell.LaunchQuest(Campaign.Find("q06"));
+            yield return Wait(0.5f);
+            CutscenePlayer.Current?.Skip();
+            yield return WaitWhile(() => Shell.Battle == null, 4f);
+            yield return Wait(1.5f);
+
+            Gameplay.BattlePlaytest battle = Shell.Battle;
+            var hud = Object.FindAnyObjectByType<BinakayanRising.UI.Screens.BattleHud>();
+            if (battle == null || hud == null)
+            {
+                Note("deploy", "the q06 battle did not open");
+                yield break;
+            }
+
+            var roster = battle.Roster;
+            if (roster.Count < 3)
+            {
+                Note("deploy", "roster has " + roster.Count + " units, need 3");
+                yield break;
+            }
+
+            battle.RequestClearDeployment();
+            yield return Wait(0.3f);
+
+            // Two units carried to free tiles, so the strip has portraits to dim.
+            for (int i = 0; i < 2; i++)
+            {
+                Core.Grid.GridCoord free;
+                if (!FreeDeployCell(battle, out free))
+                {
+                    Note("deploy", "no free deployable cell");
+                    yield break;
+                }
+
+                battle.BeginDrag(roster[i].Id);
+                battle.UpdateDrag(CellScreen(battle, free));
+                bool dropped = battle.EndDrag(CellScreen(battle, free));
+                Core.Grid.GridCoord landed;
+                bool placed = battle.TryGetPlacement(roster[i].Id, out landed);
+                audit.AppendFormat("  deploy: drop {0} on {1} -> {2}, stands on {3}\n",
+                    roster[i].ShortName, free, dropped, placed ? landed.ToString() : "nothing");
+                if (!dropped || !placed || landed != free)
+                {
+                    Note("deploy", "drag-drop of " + roster[i].ShortName + " did not place it on " + free);
+                }
+            }
+
+            yield return Wait(0.3f);
+
+            // Mid-drag over a free tile: ghost under the pointer, every free tile blue.
+            Core.Grid.GridCoord target;
+            FreeDeployCell(battle, out target);
+            int carried = roster[2].Id;
+            if (!battle.BeginDrag(carried))
+            {
+                Note("deploy", "BeginDrag refused " + roster[2].ShortName);
+            }
+
+            battle.UpdateDrag(CellScreen(battle, target));
+            yield return Shot("deploy_01_drag_valid");
+            if (!battle.DragOverValidCell)
+            {
+                Note("deploy", "free cell " + target + " not reported valid mid-drag");
+            }
+
+            // The same drag over a tile already taken: refused, and the ghost says so.
+            Core.Grid.GridCoord taken;
+            battle.TryGetPlacement(roster[0].Id, out taken);
+            battle.UpdateDrag(CellScreen(battle, taken));
+            yield return Shot("deploy_02_drag_refused");
+            if (battle.DragOverValidCell)
+            {
+                Note("deploy", "occupied cell " + taken + " reported valid mid-drag");
+            }
+
+            int before = battle.PlacementCount;
+            bool refusedDrop = battle.EndDrag(CellScreen(battle, taken));
+            audit.AppendFormat("  deploy: drop {0} on occupied {1} -> {2}, placements {3} -> {4}\n",
+                roster[2].ShortName, taken, refusedDrop, before, battle.PlacementCount);
+            if (refusedDrop || battle.PlacementCount != before || battle.IsPlaced(carried))
+            {
+                Note("deploy", "a drop on an occupied tile was accepted");
+            }
+
+            // Carrying a placed unit to another tile moves it.
+            Core.Grid.GridCoord moveTo;
+            FreeDeployCell(battle, out moveTo);
+            battle.BeginDrag(roster[0].Id);
+            battle.UpdateDrag(CellScreen(battle, moveTo));
+            battle.EndDrag(CellScreen(battle, moveTo));
+            Core.Grid.GridCoord moved;
+            battle.TryGetPlacement(roster[0].Id, out moved);
+            audit.AppendFormat("  deploy: move {0} {1} -> {2}, stands on {3}\n", roster[0].ShortName, taken, moveTo, moved);
+            if (moved != moveTo)
+            {
+                Note("deploy", "moving a placed unit by drag failed");
+            }
+
+            battle.SelectSlot(2);
+            yield return Shot("deploy_03_strip_dimmed");
+            UserPrefs.ChooseLanguage(Language.Filipino);
+            yield return Shot("deploy_04_strip_fil");
+            UserPrefs.ChooseLanguage(Language.English);
+
+            // The replay: the side panel and field report step aside.
+            battle.RequestAutoDeploy();
+            yield return Wait(0.4f);
+            battle.RequestAssault();
+            battle.SetSpeed(1f);
+            yield return Wait(1.2f);
+            yield return Shot("deploy_05_replay_panels_hidden", 0.1f);
+            audit.AppendFormat("  deploy: replay panels hidden {0}, wanted {1}\n", hud.PanelsHidden, hud.PanelsWanted);
+            if (!hud.PanelsHidden)
+            {
+                Note("deploy", "the panels are still on screen during the replay");
+            }
+
+            hud.HandleHotkey(BinakayanRising.UI.Screens.HudHotkey.Panels);
+            yield return Wait(0.6f);
+            yield return Shot("deploy_06_replay_panels_tab", 0.1f);
+            audit.AppendFormat("  deploy: after Tab hidden {0}, wanted {1}\n", hud.PanelsHidden, hud.PanelsWanted);
+            if (hud.PanelsHidden || !hud.PanelsWanted)
+            {
+                Note("deploy", "Tab did not bring the panels back");
+            }
+
+            hud.HandleHotkey(BinakayanRising.UI.Screens.HudHotkey.Panels);
+            yield return Wait(0.5f);
+
+            // To the result, answering the question card on the way.
+            battle.SetSpeed(8f);
+            battle.RequestSkip();
+            yield return WaitWhile(() => QuizCard.Current == null && Shell.Battle != null
+                && Shell.Battle.CurrentPhase != Gameplay.BattlePlaytest.Phase.Finished, 60f);
+            if (QuizCard.Current != null)
+            {
+                PickFirst();
+                QuizCard.Current?.Continue();
+            }
+
+            yield return WaitWhile(() => Shell.Battle != null
+                && Shell.Battle.CurrentPhase != Gameplay.BattlePlaytest.Phase.Finished, 60f);
+            yield return Wait(0.6f);
+            yield return Shot("deploy_07_result");
+            audit.AppendFormat("  deploy: result panels hidden {0}\n", hud.PanelsHidden);
+            if (hud.PanelsHidden)
+            {
+                Note("deploy", "the panels stayed away on the result");
+            }
+        }
+
+        /// <summary>The first deployable cell no unit stands on, in grid order.</summary>
+        private static bool FreeDeployCell(Gameplay.BattlePlaytest battle, out Core.Grid.GridCoord cell)
+        {
+            Core.Grid.IBattleGrid grid = battle.Grid;
+            for (int y = 0; grid != null && y < grid.Height; y++)
+            {
+                for (int x = 0; x < grid.Width; x++)
+                {
+                    cell = new Core.Grid.GridCoord(x, y);
+                    if (!grid.IsDeployable(cell))
+                    {
+                        continue;
+                    }
+
+                    bool taken = false;
+                    var roster = battle.Roster;
+                    for (int i = 0; i < roster.Count && !taken; i++)
+                    {
+                        Core.Grid.GridCoord at;
+                        taken = battle.TryGetPlacement(roster[i].Id, out at) && at == cell;
+                    }
+
+                    if (!taken)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            cell = default(Core.Grid.GridCoord);
+            return false;
+        }
+
+        /// <summary>A cell's centre in screen pixels.</summary>
+        private static Vector2 CellScreen(Gameplay.BattlePlaytest battle, Core.Grid.GridCoord cell)
+        {
+            Vector3 world;
+            if (battle.BoardCamera == null || !battle.TryGetCellWorld(cell, out world))
+            {
+                return Vector2.zero;
+            }
+
+            Vector3 screen = battle.BoardCamera.WorldToScreenPoint(world);
+            return new Vector2(screen.x, screen.y);
         }
 
         private void PickFirst()

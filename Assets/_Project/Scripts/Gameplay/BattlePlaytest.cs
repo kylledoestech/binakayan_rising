@@ -38,7 +38,7 @@ namespace BinakayanRising.Gameplay
     /// </para>
     /// </remarks>
     [AddComponentMenu("Binakayan Rising/Battle Playtest")]
-    public sealed class BattlePlaytest : MonoBehaviour
+    public sealed partial class BattlePlaytest : MonoBehaviour
     {
         /// <summary>Which stage of the mission the prototype is in.</summary>
         public enum Phase
@@ -213,6 +213,7 @@ namespace BinakayanRising.Gameplay
         private Transform boardRoot;
         private Transform unitRoot;
         private readonly List<SpriteRenderer> deployHighlights = new List<SpriteRenderer>();
+        private readonly List<GridCoord> deployHighlightCells = new List<GridCoord>();
 
         private Phase phase = Phase.Deployment;
         private BattleResult result;
@@ -744,14 +745,14 @@ namespace BinakayanRising.Gameplay
         /// <returns>True when a unit was placed.</returns>
         public bool RequestPlace(GridCoord cell)
         {
-            if (phase != Phase.Deployment || grid == null || !grid.IsDeployable(cell)
-                || selectedSlot < 0 || selectedSlot >= roster.Count || IsOccupied(cell))
+            if (phase != Phase.Deployment || grid == null || selectedSlot < 0 || selectedSlot >= roster.Count)
             {
                 return false;
             }
 
-            // A full squad takes no more; a unit already down may still be moved.
-            if (placements.Count >= SquadCap && !placements.ContainsKey(roster[selectedSlot].Id))
+            // The rule drag-and-drop uses too: a free lit tile, and a full squad takes no more
+            // though a unit already down may still be moved.
+            if (!DeploymentDrop.Accepts(DeploymentDrop.Judge(grid, placements, roster[selectedSlot].Id, cell, SquadCap)))
             {
                 return false;
             }
@@ -1061,6 +1062,7 @@ namespace BinakayanRising.Gameplay
                     highlightRenderer.sortingLayerName = TerrainDecorLayer;
                     highlightRenderer.sortingOrder = SortingFor(cell) + 1;
                     deployHighlights.Add(highlightRenderer);
+                    deployHighlightCells.Add(cell);
                 }
             }
 
@@ -1696,7 +1698,8 @@ namespace BinakayanRising.Gameplay
         /// the interface.
         /// </summary>
         /// <remarks>
-        /// Left click lifts a placed unit or places the selected one; right click lifts, or clears
+        /// Left click lifts a placed unit or places the selected one, and a left drag carries a
+        /// placed unit to another tile; right click lifts, or clears
         /// the roster selection when it lands on an empty cell or off the board. The
         /// interface is asked whether it covers the pointer through <see cref="UiPointer"/> rather
         /// than the board testing hardcoded panel rectangles, which silently broke every time a
@@ -1706,11 +1709,18 @@ namespace BinakayanRising.Gameplay
         {
             if (phase != Phase.Deployment || boardInputLocked || view == null)
             {
+                CancelDrag();
                 return;
             }
 
             Mouse mouse = Mouse.current;
             if (mouse == null)
+            {
+                return;
+            }
+
+            // A press on a placed unit is still being decided: click to lift, or drag to move.
+            if (HandleBoardPress(mouse, mouse.position.ReadValue()))
             {
                 return;
             }
@@ -1749,7 +1759,14 @@ namespace BinakayanRising.Gameplay
                 return;
             }
 
-            if (RequestLift(cell) || right)
+            if (right)
+            {
+                return;
+            }
+
+            // A placed unit is lifted when the button comes up without a drag, or carried to a
+            // new tile when it does not; see HandleBoardPress.
+            if (TryPressPlacedUnit(cell, screen))
             {
                 return;
             }

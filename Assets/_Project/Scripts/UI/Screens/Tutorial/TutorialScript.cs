@@ -43,7 +43,9 @@ namespace BinakayanRising.UI.Screens.Tutorial
                 {
                     Title = TextKey.TutPickTitle,
                     Body = TextKey.TutPickBody,
-                    Targets = new[] { new TutorialTarget("roster.0", true) },
+                    // The side panel's row or the strip's portrait: both pick the Marksman, and
+                    // pressing the portrait to drag it counts as picking it.
+                    Targets = new[] { new TutorialTarget("roster.0", true), new TutorialTarget("strip.0", true) },
                     Advance = TutorialAdvance.Control,
                     ControlPrefix = "roster.",
                 },
@@ -51,7 +53,12 @@ namespace BinakayanRising.UI.Screens.Tutorial
                 {
                     Title = TextKey.TutPlaceTitle,
                     Body = TextKey.TutPlaceBody,
-                    Targets = new[] { new TutorialTarget(TutorialTarget.DeployZone, true) },
+                    // The strip stays reachable so the Marksman can still be dragged over.
+                    Targets = new[]
+                    {
+                        new TutorialTarget(TutorialTarget.DeployZone, true),
+                        new TutorialTarget("strip.0", true),
+                    },
                     Advance = TutorialAdvance.UnitPlaced,
                     BoardInput = true,
                 },
