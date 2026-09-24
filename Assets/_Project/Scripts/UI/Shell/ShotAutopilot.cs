@@ -49,6 +49,10 @@ namespace BinakayanRising.UI.Shell
                 yield break;
             }
 
+            // Keep running when the window is not focused, e.g. parked on another workspace or a
+            // headless output: a paused player never reaches the end of its frame to shoot it.
+            Application.runInBackground = true;
+
             directory = CommandLine.Value("-brShotDir") ?? Path.Combine(Application.persistentDataPath, "shots");
             Directory.CreateDirectory(directory);
 
@@ -815,15 +819,20 @@ namespace BinakayanRising.UI.Shell
             if (hud != null && hud.Deck != null)
             {
                 hud.Deck.Open();
-                for (int page = 0; page < 8; page++)
+                for (int page = 0; page < hud.Deck.PageCount; page++)
                 {
                     hud.Deck.ShowPage(page);
                     yield return Shot("i_deck_" + page, 0.5f);
                 }
 
+                // Named by title, not number: pages get inserted (the Spanish page moved the rest).
                 UserPrefs.ChooseLanguage(Language.Filipino);
-                hud.Deck.ShowPage(3);
-                yield return Shot("i_deck_3_fil", 0.5f);
+                int moreUnits = BinakayanRising.UI.Screens.HowToPlayDeck.PageOf(TextKey.DeckMoreUnitsTitle);
+                hud.Deck.ShowPage(moreUnits);
+                yield return Shot("i_deck_" + moreUnits + "_fil", 0.5f);
+                int bonds = BinakayanRising.UI.Screens.HowToPlayDeck.PageOf(TextKey.DeckBondsTitle);
+                hud.Deck.ShowPage(bonds);
+                yield return Shot("i_deck_" + bonds + "_bonds_fil", 0.5f);
                 UserPrefs.ChooseLanguage(Language.English);
                 hud.Deck.Close();
                 yield return Wait(0.4f);
@@ -990,11 +999,12 @@ namespace BinakayanRising.UI.Shell
             // The replay: the side panel and field report step aside.
             battle.RequestAutoDeploy();
             yield return Wait(0.4f);
+            AuditCartCell("deploy", battle);
             battle.RequestAssault();
             battle.SetSpeed(1f);
             yield return Wait(1.2f);
             yield return Shot("deploy_05_replay_panels_hidden", 0.1f);
-            audit.AppendFormat("  deploy: replay panels hidden {0}, wanted {1}\n", hud.PanelsHidden, hud.PanelsWanted);
+            audit.AppendFormat("  deploy: replay panels hidden {0} (expect True), panels wanted on screen {1} (expect False)\n", hud.PanelsHidden, hud.PanelsWanted);
             if (!hud.PanelsHidden)
             {
                 Note("deploy", "the panels are still on screen during the replay");
@@ -1003,7 +1013,7 @@ namespace BinakayanRising.UI.Shell
             hud.HandleHotkey(BinakayanRising.UI.Screens.HudHotkey.Panels);
             yield return Wait(0.6f);
             yield return Shot("deploy_06_replay_panels_tab", 0.1f);
-            audit.AppendFormat("  deploy: after Tab hidden {0}, wanted {1}\n", hud.PanelsHidden, hud.PanelsWanted);
+            audit.AppendFormat("  deploy: after Tab panels hidden {0} (expect False), wanted on screen {1} (expect True)\n", hud.PanelsHidden, hud.PanelsWanted);
             if (hud.PanelsHidden || !hud.PanelsWanted)
             {
                 Note("deploy", "Tab did not bring the panels back");
@@ -1023,11 +1033,42 @@ namespace BinakayanRising.UI.Shell
                 && Shell.Battle.CurrentPhase != Gameplay.BattlePlaytest.Phase.Finished, 60f);
             yield return Wait(0.6f);
             yield return Shot("deploy_07_result");
-            audit.AppendFormat("  deploy: result panels hidden {0}\n", hud.PanelsHidden);
+            audit.AppendFormat("  deploy: result panels hidden {0} (expect False)\n", hud.PanelsHidden);
             if (hud.PanelsHidden)
             {
                 Note("deploy", "the panels stayed away on the result");
             }
+        }
+
+        /// <summary>
+        /// Under Escort, lists where the squad stands and flags anyone put down on the supply
+        /// cart's own cell (#37): click, drag and auto-deploy must all treat it as taken.
+        /// </summary>
+        private void AuditCartCell(string where, Gameplay.BattlePlaytest battle)
+        {
+            if (battle.Rule != WinRule.Escort)
+            {
+                return;
+            }
+
+            var cells = new List<string>();
+            var roster = battle.Roster;
+            for (int i = 0; i < roster.Count; i++)
+            {
+                Core.Grid.GridCoord at;
+                if (!battle.TryGetPlacement(roster[i].Id, out at))
+                {
+                    continue;
+                }
+
+                cells.Add(roster[i].ShortName + " " + at);
+                if (at == Gameplay.PlaytestScenario.CartCell)
+                {
+                    Note(where, roster[i].ShortName + " was deployed on the supply cart's cell " + at);
+                }
+            }
+
+            Line(where + ": cart at " + Gameplay.PlaytestScenario.CartCell + ", squad " + string.Join(", ", cells.ToArray()));
         }
 
         /// <summary>The first deployable cell no unit stands on, in grid order.</summary>
@@ -1104,6 +1145,10 @@ namespace BinakayanRising.UI.Shell
             yield return Shot("roster_01_tent_fil");
             UserPrefs.ChooseLanguage(Language.English);
 
+            // q02: the tutorial must stay winnable with a fresh squad (balance check only).
+            yield return RosterBattle("q02", "roster_00_tutorial", false);
+            yield return OpenMissionTent();
+
             // q10: every Spanish type on one board.
             yield return RosterBattle("q10", "roster_02_enemies", true);
             yield return OpenMissionTent();
@@ -1126,14 +1171,19 @@ namespace BinakayanRising.UI.Shell
             yield return Wait(0.4f);
         }
 
-        /// <summary>Continues every rank card that comes up.</summary>
+        /// <summary>
+        /// Continues every rank card that comes up, the player's and the Kapatiran pairs' (#19):
+        /// a bond card left open would otherwise sit over the next battle's shots.
+        /// </summary>
         private IEnumerator DrainRankCards()
         {
-            yield return WaitWhile(() => RankUpCard.Current == null, 3f);
-            for (int i = 0; RankUpCard.Current != null && i < 10; i++)
+            yield return WaitWhile(() => RankUpCard.Current == null && BondRankCard.Current == null, 3f);
+            for (int i = 0; (RankUpCard.Current != null || BondRankCard.Current != null) && i < 12; i++)
             {
-                RankUpCard.Current.Continue();
                 RankUpCard.Current?.Continue();
+                RankUpCard.Current?.Continue();
+                BondRankCard.Current?.Continue();
+                BondRankCard.Current?.Continue();
                 yield return Wait(0.4f);
             }
         }
@@ -1160,7 +1210,7 @@ namespace BinakayanRising.UI.Shell
             if (showDeck && hud != null && hud.Deck != null)
             {
                 hud.Deck.Open();
-                hud.Deck.ShowPage(4);
+                hud.Deck.ShowPage(BinakayanRising.UI.Screens.HowToPlayDeck.PageOf(TextKey.DeckEnemiesTitle));
                 yield return Shot(prefix + "_deck", 0.5f);
                 UserPrefs.ChooseLanguage(Language.Filipino);
                 yield return Shot(prefix + "_deck_fil", 0.5f);
@@ -1172,6 +1222,7 @@ namespace BinakayanRising.UI.Shell
             battle.RequestAutoDeploy();
             yield return Wait(0.5f);
             AuditObjective(prefix, battle);
+            AuditCartCell(prefix, battle);
             yield return Shot(prefix + "_deploy");
 
             battle.RequestAssault();
@@ -1661,8 +1712,27 @@ namespace BinakayanRising.UI.Shell
                         continue;
                     }
 
+                    // Faded fully out (a panel slid away mid-tween) is not on screen at all.
+                    if (IsFadedOut(rect))
+                    {
+                        continue;
+                    }
+
                     rect.GetWorldCorners(corners);
                     Rect bounds = ScreenRect(corners, canvas);
+
+                    // Scroll content below its viewport is clipped by the viewport's mask; only the
+                    // part the mask lets through is on screen, and that is what gets measured.
+                    Rect clip;
+                    if (TryMaskClip(rect, canvas, out clip))
+                    {
+                        if (!Overlaps(bounds, clip))
+                        {
+                            continue;
+                        }
+
+                        bounds = Intersect(bounds, clip);
+                    }
 
                     if (bounds.xMin < screen.xMin - 1f || bounds.yMin < screen.yMin - 1f
                         || bounds.xMax > screen.xMax + 1f || bounds.yMax > screen.yMax + 1f)
@@ -1679,6 +1749,11 @@ namespace BinakayanRising.UI.Shell
 
                     parent.GetWorldCorners(parentCorners);
                     Rect outer = ScreenRect(parentCorners, canvas);
+                    if (TryMaskClip(rect, canvas, out clip))
+                    {
+                        outer = Overlaps(outer, clip) ? Intersect(outer, clip) : outer;
+                    }
+
                     if (bounds.xMin < outer.xMin - 1f || bounds.yMin < outer.yMin - 1f
                         || bounds.xMax > outer.xMax + 1f || bounds.yMax > outer.yMax + 1f)
                     {
@@ -1686,6 +1761,68 @@ namespace BinakayanRising.UI.Shell
                     }
                 }
             }
+        }
+
+        /// <summary>True when a canvas group above the element has faded it to nothing.</summary>
+        private static bool IsFadedOut(Transform element)
+        {
+            for (Transform t = element; t != null; t = t.parent)
+            {
+                CanvasGroup group = t.GetComponent<CanvasGroup>();
+                if (group != null && group.enabled && group.alpha <= 0.01f)
+                {
+                    return true;
+                }
+
+                if (group != null && group.ignoreParentGroups)
+                {
+                    break;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>The screen rect every mask above the element clips it to, if any.</summary>
+        private static bool TryMaskClip(RectTransform element, Canvas canvas, out Rect clip)
+        {
+            clip = default(Rect);
+            bool clipped = false;
+            var maskCorners = new Vector3[4];
+            for (Transform t = element.parent; t != null; t = t.parent)
+            {
+                var rect = t as RectTransform;
+                if (rect == null)
+                {
+                    continue;
+                }
+
+                RectMask2D rectMask = t.GetComponent<RectMask2D>();
+                Mask mask = t.GetComponent<Mask>();
+                if ((rectMask == null || !rectMask.enabled) && (mask == null || !mask.enabled))
+                {
+                    continue;
+                }
+
+                rect.GetWorldCorners(maskCorners);
+                Rect area = ScreenRect(maskCorners, canvas);
+                clip = clipped ? Intersect(clip, area) : area;
+                clipped = true;
+            }
+
+            return clipped;
+        }
+
+        private static bool Overlaps(Rect a, Rect b)
+        {
+            return a.xMin < b.xMax && a.xMax > b.xMin && a.yMin < b.yMax && a.yMax > b.yMin;
+        }
+
+        private static Rect Intersect(Rect a, Rect b)
+        {
+            return Rect.MinMaxRect(
+                Mathf.Max(a.xMin, b.xMin), Mathf.Max(a.yMin, b.yMin),
+                Mathf.Min(a.xMax, b.xMax), Mathf.Min(a.yMax, b.yMax));
         }
 
         private static bool IsOverflowing(TextMeshProUGUI label)

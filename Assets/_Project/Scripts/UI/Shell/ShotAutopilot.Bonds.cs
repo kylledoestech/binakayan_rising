@@ -44,7 +44,13 @@ namespace BinakayanRising.UI.Shell
                 yield return Wait(0.4f);
             }
 
-            Shell.LaunchQuest(Campaign.Find("q06"));
+            // A quest launches only from the Mission Tent (the MissionPortal state).
+            Shell.Camp.ClickSite(Places.MissionTent);
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
+            Hub().Dialogue.Finish();
+            yield return WaitWhile(() => !(Shell.Router.Current is MissionMapScreen), 4f);
+
+            bool launched = Shell.LaunchQuest(Campaign.Find("q06"));
             yield return Wait(0.5f);
             CutscenePlayer.Current?.Skip();
             yield return WaitWhile(() => Shell.Battle == null, 4f);
@@ -52,7 +58,9 @@ namespace BinakayanRising.UI.Shell
             BattlePlaytest battle = Shell.Battle;
             if (battle == null)
             {
-                Note("bonds", "the q06 battle did not open");
+                Note("bonds", "the q06 battle did not open (launch " + launched + ", screen "
+                    + (Shell.Router.Current != null ? Shell.Router.Current.GetType().Name : "none")
+                    + ", rations " + game.Data.rations + ")");
                 yield break;
             }
 
