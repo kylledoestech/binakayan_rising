@@ -508,13 +508,13 @@ namespace BinakayanRising.Core.Localization
             Add(TextKey.UnitSpanishCazador, "Spanish Cazador {0}", "Kasador na Kastila {0}");
             Add(TextKey.UnitSpanishOfficer, "Spanish Officer {0}", "Opisyal na Kastila {0}");
             Add(TextKey.UnitSpanishMarine, "Spanish Marine {0}", "Marinong Kastila {0}");
-            Add(TextKey.UnitSupplyCart, "Supply Cart", "Kariton ng Suplay");
-            Add(TextKey.HudObjectiveEscort, "Guard the supply cart until turn {0}", "Bantayan ang kariton ng suplay hanggang yugto {0}");
+            Add(TextKey.UnitSupplyCart, "Supply Cart", "Kariton ng Panustos");
+            Add(TextKey.HudObjectiveEscort, "Guard the supply cart until turn {0}", "Bantayan ang kariton ng panustos hanggang yugto {0}");
             Add(TextKey.HudObjectiveSabotage, "Reach the powder magazine by turn {0}", "Marating ang imbakan ng pulbura bago ang yugto {0}");
-            Add(TextKey.MapWinEscort, "Win: keep the supply cart standing for {0} turns", "Panalo: ingatan ang kariton ng suplay nang {0} yugto");
+            Add(TextKey.MapWinEscort, "Win: keep the supply cart standing for {0} turns", "Panalo: ingatan ang kariton ng panustos nang {0} yugto");
             Add(TextKey.MapWinSabotage, "Win: reach the powder magazine within {0} turns", "Panalo: marating ang imbakan ng pulbura sa loob ng {0} yugto");
-            Add(TextKey.OutcomeCartSaved, "The supply cart got through.", "Nakaligtas ang kariton ng suplay.");
-            Add(TextKey.OutcomeCartLost, "The supply cart was destroyed.", "Nawasak ang kariton ng suplay.");
+            Add(TextKey.OutcomeCartSaved, "The supply cart got through.", "Nakaligtas ang kariton ng panustos.");
+            Add(TextKey.OutcomeCartLost, "The supply cart was destroyed.", "Nawasak ang kariton ng panustos.");
             Add(TextKey.OutcomeMagazineBlown, "The powder magazine went up.", "Sumabog ang imbakan ng pulbura.");
             Add(TextKey.OutcomeMagazineMissed, "The squad never reached the magazine.", "Hindi narating ng pangkat ang imbakan.");
             Add(TextKey.DeckEnemiesTitle, "The Spanish", "Ang mga Kastila");
