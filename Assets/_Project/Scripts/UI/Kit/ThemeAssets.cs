@@ -185,6 +185,14 @@ namespace BinakayanRising.UI.Kit
                 }
             }
 
+            // An archetype without art of its own borrows another's (#16: the Spanish roster wears
+            // the regular's figure, tinted by the caller until its own is rendered).
+            Core.Content.UnitArchetype archetype = Core.Content.UnitCatalog.Find(archetypeId);
+            if (archetype != null && !string.IsNullOrEmpty(archetype.ArtId) && archetype.ArtId != archetypeId)
+            {
+                return IndexOfUnit(archetype.ArtId);
+            }
+
             return -1;
         }
 

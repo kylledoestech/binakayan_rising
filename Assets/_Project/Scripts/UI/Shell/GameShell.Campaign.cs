@@ -172,6 +172,8 @@ namespace BinakayanRising.UI.Shell
                 Title = quest.Title.Get(),
                 RankTitle = game.Rank.Title,
                 EnemyCount = rules.EnemyCount,
+                Enemies = rules.Enemies,
+                WinRule = rules.WinRule,
                 SquadCap = rules.SquadCap,
                 Seed = rules.Seed,
                 TurnCap = rules.TurnCap,

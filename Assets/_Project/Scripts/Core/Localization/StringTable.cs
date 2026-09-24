@@ -207,14 +207,14 @@ namespace BinakayanRising.Core.Localization
 
             Add(TextKey.DeckUnitsTitle, "Your Katipuneros", "Ang Iyong mga Katipunero");
             Add(TextKey.DeckUnitsBody,
-                "Your troops are dug in and never move — where you place them is where they fight.\n\n"
+                "Your troops are dug in — where you place them is where they fight. Only a unit shot from beyond its reach climbs out to charge the shooter.\n\n"
                 + "<b>MRK</b>  Marksman: range 2, fragile\n"
                 + "<b>ENG</b>  Engineer: toughest defense\n"
                 + "<b>EVA</b>  Evangelista: hardest hitter\n"
                 + "<b>AGU</b>  Aguinaldo: strong all-rounder\n"
                 + "<b>VAN</b>  Vanguard: most HP\n\n"
                 + "HP health   ·   ATK attack   ·   DEF defense   ·   RNG range",
-                "Nakabaon ang iyong hukbo at hindi gumagalaw — kung saan ipinuwesto, roon lumalaban.\n\n"
+                "Nakabaon ang iyong hukbo — kung saan ipinuwesto, roon lumalaban. Ang yunit lamang na binaril mula sa labas ng abot nito ang lalabas upang sugurin ang bumaril.\n\n"
                 + "<b>MRK</b>  Asintado: layon 2, marupok\n"
                 + "<b>ENG</b>  Inhinyero: pinakamatibay na depensa\n"
                 + "<b>EVA</b>  Evangelista: pinakamalakas na atake\n"
@@ -502,6 +502,45 @@ namespace BinakayanRising.Core.Localization
             Add(TextKey.TrnStatHeal, "HEALING", "LUNAS");
             Add(TextKey.TrnBond, "Bond: {0}", "Kabuklod: {0}");
             Add(TextKey.TrnNoBond, "No Kapatiran bond", "Walang kabuklod sa Kapatiran");
+
+            // #16 Spanish roster, #37 Escort, #38 Sabotage (agent A).
+            Add(TextKey.UnitSpanishArtillery, "Spanish Artillery {0}", "Artilyeryang Kastila {0}");
+            Add(TextKey.UnitSpanishCazador, "Spanish Cazador {0}", "Kasador na Kastila {0}");
+            Add(TextKey.UnitSpanishOfficer, "Spanish Officer {0}", "Opisyal na Kastila {0}");
+            Add(TextKey.UnitSpanishMarine, "Spanish Marine {0}", "Marinong Kastila {0}");
+            Add(TextKey.UnitSupplyCart, "Supply Cart", "Kariton ng Suplay");
+            Add(TextKey.HudObjectiveEscort, "Guard the supply cart until turn {0}", "Bantayan ang kariton ng suplay hanggang yugto {0}");
+            Add(TextKey.HudObjectiveSabotage, "Reach the powder magazine by turn {0}", "Marating ang imbakan ng pulbura bago ang yugto {0}");
+            Add(TextKey.MapWinEscort, "Win: keep the supply cart standing for {0} turns", "Panalo: ingatan ang kariton ng suplay nang {0} yugto");
+            Add(TextKey.MapWinSabotage, "Win: reach the powder magazine within {0} turns", "Panalo: marating ang imbakan ng pulbura sa loob ng {0} yugto");
+            Add(TextKey.OutcomeCartSaved, "The supply cart got through.", "Nakaligtas ang kariton ng suplay.");
+            Add(TextKey.OutcomeCartLost, "The supply cart was destroyed.", "Nawasak ang kariton ng suplay.");
+            Add(TextKey.OutcomeMagazineBlown, "The powder magazine went up.", "Sumabog ang imbakan ng pulbura.");
+            Add(TextKey.OutcomeMagazineMissed, "The squad never reached the magazine.", "Hindi narating ng pangkat ang imbakan.");
+            Add(TextKey.DeckEnemiesTitle, "The Spanish", "Ang mga Kastila");
+            Add(TextKey.DeckEnemiesBody,
+                "<b>REG</b>  Regular: the line infantry\n"
+                + "        HP 100   ·   ATK 14   ·   DEF 5   ·   RNG 1   ·   MOVE 1\n"
+                + "<b>ART</b>  Artillery: fires every other turn; the blast hits the tiles beside its target\n"
+                + "        HP 70   ·   ATK 24   ·   DEF 2   ·   RNG 4   ·   MOVE 0.5\n"
+                + "<b>CAZ</b>  Cazador: fast skirmisher, hard to hit\n"
+                + "        HP 80   ·   ATK 12   ·   DEF 3   ·   RNG 2   ·   MOVE 2\n"
+                + "<b>OFF</b>  Officer: Spanish within 2 tiles of him hit 10% harder\n"
+                + "        HP 130   ·   ATK 13   ·   DEF 8   ·   RNG 1   ·   MOVE 1\n"
+                + "<b>MAR</b>  Marine: +15% attack and defense in the shallows, never slowed there\n"
+                + "        HP 105   ·   ATK 14   ·   DEF 6   ·   RNG 1   ·   MOVE 1\n\n"
+                + "Kill the officer first, and do not bunch up under the guns.",
+                "<b>REG</b>  Regular: ang impanteriya ng hanay\n"
+                + "        HP 100   ·   ATK 14   ·   DEF 5   ·   RNG 1   ·   MOVE 1\n"
+                + "<b>ART</b>  Artilerya: nagpapaputok tuwing ikalawang yugto; tinatamaan din ng pagsabog ang katabing tile\n"
+                + "        HP 70   ·   ATK 24   ·   DEF 2   ·   RNG 4   ·   MOVE 0.5\n"
+                + "<b>CAZ</b>  Kasador: mabilis na eskirmisador, mahirap tamaan\n"
+                + "        HP 80   ·   ATK 12   ·   DEF 3   ·   RNG 2   ·   MOVE 2\n"
+                + "<b>OFF</b>  Opisyal: 10% mas malakas tumama ang mga Kastilang nasa loob ng 2 tile mula sa kaniya\n"
+                + "        HP 130   ·   ATK 13   ·   DEF 8   ·   RNG 1   ·   MOVE 1\n"
+                + "<b>MAR</b>  Marino: +15% atake at depensa sa mababaw na dagat, hindi bumabagal doon\n"
+                + "        HP 105   ·   ATK 14   ·   DEF 6   ·   RNG 1   ·   MOVE 1\n\n"
+                + "Unahin ang opisyal, at huwag magsiksikan sa ilalim ng mga kanyon.");
         }
 
         /// <summary>The text for a key, falling back to English and then to the key's name.</summary>

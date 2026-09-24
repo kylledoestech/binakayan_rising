@@ -1,5 +1,6 @@
 using System.Text;
 using BinakayanRising.Core.Combat;
+using BinakayanRising.Core.Content;
 using BinakayanRising.Core.Localization;
 using BinakayanRising.Gameplay;
 using BinakayanRising.UI.Kit;
@@ -170,9 +171,25 @@ namespace BinakayanRising.UI.Screens
             string last = battle.IsMission
                 ? Loc.Get(battle.MissionWon ? TextKey.MissionWonNote : TextKey.MissionLostNote)
                 : Loc.Format(TextKey.OutcomeSeed, result.Events.Count, battle.ResultSeed);
+            // The cart counts among the Katipunan still standing in the simulation, but it is not
+            // a soldier: the survivors line counts soldiers, and the objective line reports the cart.
+            string objective = null;
+            int katipunanStanding = result.KatipunanAlive;
+            if (battle.Rule == WinRule.Escort)
+            {
+                bool cartLost = UnitDied(result, PlaytestScenario.SupplyCartId);
+                objective = Loc.Get(cartLost ? TextKey.OutcomeCartLost : TextKey.OutcomeCartSaved);
+                katipunanStanding -= cartLost ? 0 : 1;
+            }
+            else if (battle.Rule == WinRule.Sabotage)
+            {
+                objective = Loc.Get(result.Outcome == BattleOutcome.Victory ? TextKey.OutcomeMagazineBlown : TextKey.OutcomeMagazineMissed);
+            }
+
             outcomeSummary.text =
-                first + "\n"
-                + Loc.Format(TextKey.OutcomeSurvivors, result.KatipunanAlive, result.SpanishAlive) + "\n"
+                (objective != null ? objective + "\n" : string.Empty)
+                + first + "\n"
+                + Loc.Format(TextKey.OutcomeSurvivors, Mathf.Max(0, katipunanStanding), result.SpanishAlive) + "\n"
                 + last;
 
             if (announce)
@@ -180,6 +197,20 @@ namespace BinakayanRising.UI.Screens
                 UiSfx.Play(cue);
                 CoroutineHost.Run(UiTween.Punch(outcomeCard));
             }
+        }
+
+        /// <summary>True when the log records <paramref name="unitId"/> falling.</summary>
+        private static bool UnitDied(BattleResult result, int unitId)
+        {
+            for (int i = 0; i < result.Events.Count; i++)
+            {
+                if (result.Events[i].Type == BattleEventType.UnitDied && result.Events[i].ActorId == unitId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

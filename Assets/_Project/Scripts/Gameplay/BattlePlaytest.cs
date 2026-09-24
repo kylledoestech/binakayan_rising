@@ -156,6 +156,12 @@ namespace BinakayanRising.Gameplay
 
             /// <summary>Idle bob cycle position, offset per unit so a line does not bob in step.</summary>
             public float BobPhase;
+
+            /// <summary>
+            /// Colour multiplied over the body: white, or the catalog tint of an archetype that
+            /// borrows another's figure (#16), or the supply cart's wood (#37).
+            /// </summary>
+            public Color BaseTint = Color.white;
         }
 
         private static readonly Color KatipunanColor = new Color32(0x8C, 0x2E, 0x22, 0xFF);
@@ -190,6 +196,16 @@ namespace BinakayanRising.Gameplay
         private const float DeathSink = 0.1f;
         private const float HeadClearance = 0.08f;
         private static readonly Color HitTint = new Color(1f, 0.45f, 0.4f, 1f);
+
+        /// <summary>Weathered wood, multiplied over the supply cart's token (#37).</summary>
+        private static readonly Color CartTint = new Color32(0xE0, 0xB8, 0x78, 0xFF);
+
+        /// <summary>The ring painted under the supply cart's cell (#37).</summary>
+        private static readonly Color CartMarkerColor = new Color(1f, 0.82f, 0.35f, 0.75f);
+
+        /// <summary>The powder magazine's cell and star (#38).</summary>
+        private static readonly Color MagazineCellColor = new Color(0.85f, 0.25f, 0.18f, 0.55f);
+        private static readonly Color MagazineStarColor = new Color32(0xF2, 0xC1, 0x4E, 0xFF);
         private const float PopupLifetime = 1.1f;
 
         // World units of breathing room kept between the board's edge and the free screen area.
@@ -496,7 +512,16 @@ namespace BinakayanRising.Gameplay
         public int ResultSeed => resultSeed;
 
         /// <summary>Size of the Spanish column the next assault will face.</summary>
-        public int SpanishCount => spanishCount;
+        public int SpanishCount => mission != null ? mission.EnemyList().Count : spanishCount;
+
+        /// <summary>The win rule being fought under: the quest's, or Rout in the standalone playtest.</summary>
+        public WinRule Rule => mission != null ? mission.WinRule : WinRule.Rout;
+
+        /// <summary>The turn the battle is called at.</summary>
+        public int TurnCap => mission != null ? mission.TurnCap : PlaytestScenario.Config(seed).MaxTurns;
+
+        /// <summary>The Spanish column the next assault will face, one archetype id per unit.</summary>
+        public IReadOnlyList<string> EnemyArchetypes => EnemyIds();
 
         /// <summary>Replay rate multiplier.</summary>
         public float Speed => speed;
@@ -1005,6 +1030,42 @@ namespace BinakayanRising.Gameplay
             FrameBoard(true);
         }
 
+        /// <summary>
+        /// Paints the win rule onto the board: a gold ring under the supply cart (#37), a red cell
+        /// and a star on the powder magazine (#38). Nothing under Rout.
+        /// </summary>
+        private void BuildObjectiveMarkers()
+        {
+            if (Rule == WinRule.Escort)
+            {
+                GridCoord cell = PlaytestScenario.CartCell;
+                SpriteRenderer ring = AddBoardMarker("Objective Cart", cell, PlaceholderArt.Ring, CartMarkerColor, 2);
+                ring.transform.localScale = new Vector3(1.05f, 0.55f, 1f);
+            }
+            else if (Rule == WinRule.Sabotage)
+            {
+                GridCoord cell = PlaytestScenario.MagazineCell;
+                AddBoardMarker("Objective Magazine", cell, PlaceholderArt.Tile, MagazineCellColor, 2);
+                SpriteRenderer star = AddBoardMarker("Objective Star", cell, BoardArt.ObjectiveStar(), MagazineStarColor, 3);
+                star.transform.position += new Vector3(0f, 0.12f, 0f);
+                star.transform.localScale = new Vector3(0.6f, 0.6f, 1f);
+            }
+        }
+
+        private SpriteRenderer AddBoardMarker(string name, GridCoord cell, Sprite sprite, Color color, int order)
+        {
+            GameObject marker = new GameObject(name);
+            marker.transform.SetParent(boardRoot, false);
+            marker.transform.position = CellToWorld(cell);
+
+            SpriteRenderer renderer = marker.AddComponent<SpriteRenderer>();
+            renderer.sprite = sprite;
+            renderer.color = color;
+            renderer.sortingLayerName = TerrainDecorLayer;
+            renderer.sortingOrder = SortingFor(cell) + order;
+            return renderer;
+        }
+
         /// <summary>Instantiates one tile per cell, plus a highlight overlay per deployable cell.</summary>
         private void BuildBoard()
         {
@@ -1063,6 +1124,8 @@ namespace BinakayanRising.Gameplay
                     deployHighlights.Add(highlightRenderer);
                 }
             }
+
+            BuildObjectiveMarkers();
 
             // Cell positions are tile centres; a tile reaches half its width and height beyond.
             Vector2 halfTile = new Vector2(layout.TileWidth * 0.5f, layout.TileHeight * 0.5f);
@@ -1137,14 +1200,22 @@ namespace BinakayanRising.Gameplay
         {
             desiredScratch.Clear();
 
-            List<CombatUnit> column = PlaytestScenario.SpanishColumn(spanishCount);
+            List<CombatUnit> column = EnemyColumn();
             for (int i = 0; i < column.Count; i++)
             {
                 CombatUnit spanish = column[i];
                 desiredScratch.Add(spanish.Id);
                 UpsertView(
-                    spanish.Id, spanish.Name, "REG", spanish.ArchetypeId, SpanishOrdinal(spanish.Id),
+                    spanish.Id, spanish.Name, ShortNameOf(spanish.ArchetypeId), spanish.ArchetypeId, OrdinalOf(spanish),
                     Team.Spanish, spanish.BaseStats.MaxHP, spanish.Position);
+            }
+
+            // The cart stands on the board from the start, so the player deploys around it.
+            if (Rule == WinRule.Escort)
+            {
+                CombatUnit cart = PlaytestScenario.SupplyCart();
+                desiredScratch.Add(cart.Id);
+                UpsertView(cart.Id, cart.Name, CartTag, cart.ArchetypeId, 0, Team.Katipunan, cart.BaseStats.MaxHP, cart.Position);
             }
 
             foreach (KeyValuePair<int, GridCoord> placement in placements)
@@ -1205,6 +1276,7 @@ namespace BinakayanRising.Gameplay
             if (mission != null)
             {
                 config.MaxTurns = mission.TurnCap;
+                config.Objective = PlaytestScenario.ObjectiveFor(mission.WinRule);
             }
 
             quizAsked = false;
@@ -1235,7 +1307,11 @@ namespace BinakayanRising.Gameplay
                 units.Add(unit);
             }
 
-            units.AddRange(PlaytestScenario.SpanishColumn(spanishCount));
+            units.AddRange(EnemyColumn());
+            if (Rule == WinRule.Escort)
+            {
+                units.Add(PlaytestScenario.SupplyCart(config.StackingPolicy));
+            }
 
             // Capture the deployment before the simulator mutates anything: replay must start from
             // where the units stood, not from where they ended up.
@@ -1258,8 +1334,8 @@ namespace BinakayanRising.Gameplay
             ClearViews();
             foreach (CombatUnit unit in units)
             {
-                string shortName = "REG";
-                int ordinal = SpanishOrdinal(unit.Id);
+                string shortName = unit.Id == PlaytestScenario.SupplyCartId ? CartTag : ShortNameOf(unit.ArchetypeId);
+                int ordinal = unit.Team == Team.Spanish ? OrdinalOf(unit) : 0;
                 RosterEntry entry;
                 if (TryGetEntry(unit.Id, out entry))
                 {
@@ -1566,6 +1642,12 @@ namespace BinakayanRising.Gameplay
             Color tint = BoardArt.TokensAreThemed
                 ? Color.white
                 : (unit.Team == Team.Katipunan ? KatipunanColor : SpanishColor);
+            tint *= unit.BaseTint;
+            if (unit.HitTimer > 0f && unit.Alive)
+            {
+                tint *= HitTint;
+            }
+
             if (!unit.Alive)
             {
                 tint = new Color(tint.r * 0.35f, tint.g * 0.35f, tint.b * 0.35f, 0.35f);
@@ -1605,7 +1687,7 @@ namespace BinakayanRising.Gameplay
             unit.Body.transform.localPosition = unit.Lunge + new Vector3(recoil, lift, 0f);
             unit.Body.flipX = unit.FacingLeft;
 
-            Color tint = unit.HitTimer > 0f && unit.Alive ? HitTint : Color.white;
+            Color tint = unit.HitTimer > 0f && unit.Alive ? HitTint * unit.BaseTint : unit.BaseTint;
             if (!unit.Alive)
             {
                 tint = new Color(0.35f, 0.35f, 0.35f, 0.35f);
@@ -1777,6 +1859,21 @@ namespace BinakayanRising.Gameplay
 
             // Walking the free cells in grid order deploys down the trench, so the two bonded pairs
             // land adjacent to one another — the arrangement the Kapatiran rules reward.
+            // Under Escort the cart comes first: the squad forms up nearest it (#37), keeping grid
+            // order on ties. Sabotage keeps grid order on purpose: it starts the squad at the shore
+            // end of the trench, whose flank route to the magazine avoids the column's centre (#38).
+            if (Rule == WinRule.Escort)
+            {
+                GridCoord focus = PlaytestScenario.CartCell;
+                List<GridCoord> ordered = new List<GridCoord>(cells);
+                ordered.Sort((a, b) =>
+                {
+                    int byDistance = GridDistance.Manhattan(a, focus).CompareTo(GridDistance.Manhattan(b, focus));
+                    return byDistance != 0 ? byDistance : cells.IndexOf(a).CompareTo(cells.IndexOf(b));
+                });
+                cells = ordered;
+            }
+
             int index = 0;
             foreach (RosterEntry entry in roster)
             {
@@ -1860,10 +1957,69 @@ namespace BinakayanRising.Gameplay
             return false;
         }
 
-        /// <summary>Spanish regulars are numbered from <see cref="PlaytestScenario.SpanishIdBase"/>, matching their authored names.</summary>
-        private static int SpanishOrdinal(int id)
+        /// <summary>
+        /// The supply cart's board tag. Not localized, like every other unit tag: the tags are
+        /// three- and four-letter abbreviations the side panel explains in full.
+        /// </summary>
+        private const string CartTag = "CART";
+
+        /// <summary>The Spanish column's archetype ids: the quest's, or the playtest's regulars.</summary>
+        private IReadOnlyList<string> EnemyIds()
         {
-            return id >= PlaytestScenario.SpanishIdBase ? id - PlaytestScenario.SpanishIdBase + 1 : 0;
+            if (mission != null)
+            {
+                return mission.EnemyList();
+            }
+
+            var regulars = new List<string>();
+            for (int i = 0; i < spanishCount; i++)
+            {
+                regulars.Add(UnitCatalog.SpanishRegular);
+            }
+
+            return regulars;
+        }
+
+        /// <summary>
+        /// The Spanish column, formed up (#16). Under Sabotage the powder magazine is kept clear:
+        /// the squad has to be able to stand on it.
+        /// </summary>
+        private List<CombatUnit> EnemyColumn()
+        {
+            GridCoord? reserved = Rule == WinRule.Sabotage ? PlaytestScenario.MagazineCell : (GridCoord?)null;
+            return PlaytestScenario.SpanishForce(EnemyIds(), reserved);
+        }
+
+        /// <summary>
+        /// A Spanish unit's number among its own archetype, as <see cref="PlaytestScenario.SpanishForce"/>
+        /// numbered it: the column is numbered in id order, archetype by archetype.
+        /// </summary>
+        private int OrdinalOf(CombatUnit unit)
+        {
+            if (unit.Id < PlaytestScenario.SpanishIdBase)
+            {
+                return 0;
+            }
+
+            IReadOnlyList<string> ids = EnemyIds();
+            int index = unit.Id - PlaytestScenario.SpanishIdBase;
+            int ordinal = 0;
+            for (int i = 0; i <= index && i < ids.Count; i++)
+            {
+                if (ids[i] == unit.ArchetypeId)
+                {
+                    ordinal++;
+                }
+            }
+
+            return ordinal;
+        }
+
+        /// <summary>An archetype's board tag, from the catalog.</summary>
+        private static string ShortNameOf(string archetypeId)
+        {
+            UnitArchetype archetype = UnitCatalog.Find(archetypeId);
+            return archetype != null ? archetype.ShortName : "REG";
         }
 
         // ------------------------------------------------------------------ views
@@ -1952,6 +2108,7 @@ namespace BinakayanRising.Gameplay
                 Lunge = Vector3.zero
             };
 
+            unit.BaseTint = id == PlaytestScenario.SupplyCartId ? CartTint : BoardArt.ArchetypeTint(archetypeId);
             SetSorting(unit, cell);
             ApplyViewTransform(unit);
             views[id] = unit;
@@ -2007,6 +2164,7 @@ namespace BinakayanRising.Gameplay
                 BobPhase = Mathf.Repeat(id * 0.37f, 1f),
             };
 
+            unit.BaseTint = id == PlaytestScenario.SupplyCartId ? CartTint : BoardArt.ArchetypeTint(archetypeId);
             SetSorting(unit, cell);
             ApplyViewTransform(unit);
             views[id] = unit;

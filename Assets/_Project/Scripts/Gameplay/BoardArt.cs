@@ -1,4 +1,5 @@
 using BinakayanRising.Core.Combat;
+using BinakayanRising.Core.Content;
 using BinakayanRising.Core.Grid;
 using UnityEngine;
 
@@ -111,6 +112,31 @@ namespace BinakayanRising.Gameplay
         {
             Sprite themed = ShadowProvider?.Invoke();
             return themed != null ? themed : PlaceholderArt.Ring;
+        }
+
+        /// <summary>
+        /// The Sabotage objective's star (#38). Procedural until a painted marker exists.
+        /// </summary>
+        public static Sprite ObjectiveStar()
+        {
+            return PlaceholderArt.Star;
+        }
+
+        /// <summary>
+        /// The colour multiplied over an archetype's figure and portrait: white for an archetype
+        /// with art of its own, its catalog tint for one that borrows another's (#16).
+        /// </summary>
+        public static Color ArchetypeTint(string archetypeId)
+        {
+            UnitArchetype archetype = string.IsNullOrEmpty(archetypeId) ? null : UnitCatalog.Find(archetypeId);
+            if (archetype == null)
+            {
+                return Color.white;
+            }
+
+            uint rgba = archetype.ArtTint;
+            return new Color32(
+                (byte)((rgba >> 24) & 0xFF), (byte)((rgba >> 16) & 0xFF), (byte)((rgba >> 8) & 0xFF), (byte)(rgba & 0xFF));
         }
 
         /// <summary>

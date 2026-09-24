@@ -81,8 +81,9 @@ namespace BinakayanRising.Gameplay
         public const string SupplyCartArchetype = "SupplyCart";
 
         /// <summary>
-        /// Where the supply cart stands (#37): just behind the northern end of the trench, beside
-        /// the shore path the Spanish flank along, so a line that gives way there loses it.
+        /// Where the supply cart stands (#37): at the back of the camp, behind the trench end away
+        /// from the shore. The Spanish must break the line or walk around its end to reach it, so
+        /// the squad guards it by deploying nearest it (see <c>BattlePlaytest.AutoDeploy</c>).
         /// </summary>
         public static readonly GridCoord CartCell = new GridCoord(12, 7);
 
