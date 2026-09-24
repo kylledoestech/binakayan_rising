@@ -308,6 +308,9 @@ namespace BinakayanRising.Core.Localization
         DeckMoreUnitsTitle,
         DeckMoreUnitsBody,
 
+        // #12 drag-and-drop deployment, #22 panels hidden during the replay
+        DeployStripHint,
+
         Count
     }
 }
