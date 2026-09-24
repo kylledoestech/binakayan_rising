@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using BinakayanRising.Core.Combat;
+using BinakayanRising.Core.Content;
 using BinakayanRising.Core.Grid;
 
 namespace BinakayanRising.Gameplay
@@ -153,7 +154,8 @@ namespace BinakayanRising.Gameplay
         }
 
         /// <summary>
-        /// Two rows of Capstone Table 3, already resolved to rank A.
+        /// Every Kapatiran bond, already resolved to rank A: two rows of Capstone Table 3, then the
+        /// Vanguard and Field Medic and the Magdalo and Magdiwang pairs from <see cref="BondCatalog"/>.
         /// </summary>
         /// <remarks>
         /// Rank progression is metagame state that lives in the save file, so by the time a battle
@@ -184,7 +186,9 @@ namespace BinakayanRising.Gameplay
                         StatModifier.Percent(StatKind.AttackDamage, 0.15f, ModifierSource.Kapatiran, "Evangelista + Aguinaldo"),
                         StatModifier.Percent(StatKind.Defense, 0.10f, ModifierSource.Kapatiran, "Evangelista + Aguinaldo")
                     },
-                    "A")
+                    "A"),
+                BondCatalog.VanguardAndMedic(),
+                BondCatalog.MagdaloAndMagdiwang(BondCatalog.RankA)
             };
         }
 

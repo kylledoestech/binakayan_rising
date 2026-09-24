@@ -114,6 +114,14 @@ namespace BinakayanRising.UI.Shell
                 && UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame)
             {
                 Close();
+                return;
+            }
+
+            // Right-click closes too, unless a modal drawn above settings (a confirm, a quiz or
+            // cutscene card) is under the pointer.
+            if (IsOpen && BinakayanRising.Gameplay.UiPointer.TryClaimRightClick(Theme.Layer.Settings))
+            {
+                Close();
             }
         }
 

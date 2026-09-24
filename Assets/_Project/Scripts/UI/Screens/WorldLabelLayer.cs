@@ -10,7 +10,8 @@ using UnityEngine.UI;
 namespace BinakayanRising.UI.Screens
 {
     /// <summary>
-    /// Unit name tags and floating damage numbers, drawn over the board on a canvas of their own.
+    /// Unit name tags, health bars and floating damage numbers, drawn over the board on a canvas
+    /// of their own.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -31,6 +32,7 @@ namespace BinakayanRising.UI.Screens
 
         private BattlePlaytest battle;
         private Canvas canvas;
+        private HealthBarPool healthBars;
         private WorldLabelPool nameLabels;
         private WorldLabelPool popupLabels;
 
@@ -43,6 +45,9 @@ namespace BinakayanRising.UI.Screens
             var layer = canvas.gameObject.AddComponent<WorldLabelLayer>();
             layer.battle = battle;
             layer.canvas = canvas;
+
+            // Built first so the bars draw under the name plates should the two ever touch.
+            layer.healthBars = new HealthBarPool(canvas);
             layer.nameLabels = new WorldLabelPool(canvas, "Unit Labels", Theme.Type.Small, Theme.Parchment, plated: true);
 
             // Damage numbers are set two steps larger than the names they fly off. At body size
@@ -63,6 +68,7 @@ namespace BinakayanRising.UI.Screens
             battle.GetUnits(units);
             battle.GetPopups(popups);
 
+            healthBars.Begin();
             nameLabels.Begin();
             for (int i = 0; i < units.Count; i++)
             {
@@ -81,8 +87,13 @@ namespace BinakayanRising.UI.Screens
                 }
 
                 nameLabels.PlaceText(screen, unit.ShortName, Theme.Parchment, 0f);
+
+                // Above the name tag rather than below it: under the head it would sit across the
+                // face, and the face is what tells one figure from the next.
+                healthBars.Place(screen, unit.HealthFraction, unit.Team, HealthBarPool.Rise);
             }
 
+            healthBars.End();
             nameLabels.End();
 
             popupLabels.Begin();
@@ -122,6 +133,165 @@ namespace BinakayanRising.UI.Screens
                 default:
                     return new Color32(0xFF, 0x73, 0x66, 0xFF);
             }
+        }
+    }
+
+    /// <summary>
+    /// A recycled set of small health bars, one over each living unit.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Each bar is a team-coloured frame around a dark track, with a fill that runs green, then
+    /// gold, then red as the unit is worn down. The frame answers "whose is this" at a glance, the
+    /// fill "how badly hurt", and the two never share a colour role.
+    /// </para>
+    /// <para>
+    /// Every piece is an untextured <see cref="Image"/>, so the whole set draws in one batch. Fill
+    /// width and colours are written only when they change, for the same rebatching reason the
+    /// side panel's order of battle is.
+    /// </para>
+    /// </remarks>
+    internal sealed class HealthBarPool
+    {
+        /// <summary>Canvas units above the head point: clear of the name plate beneath it.</summary>
+        public const float Rise = 17f;
+
+        private const float Width = 40f;
+        private const float Height = 7f;
+        private const float Rim = 1.5f;
+
+        private const float WoundedAt = 0.55f;
+        private const float CriticalAt = 0.25f;
+
+        private static readonly Color Healthy = new Color32(0x6C, 0xC0, 0x4E, 0xFF);
+        private static readonly Color Track = new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, 0.9f);
+
+        private sealed class Slot
+        {
+            public Image Frame;
+            public RectTransform Fill;
+            public Image FillImage;
+            public float Fraction = -1f;
+            public int Team = -1;
+        }
+
+        private readonly RectTransform root;
+        private readonly Canvas canvas;
+        private readonly List<Slot> slots = new List<Slot>();
+        private int used;
+
+        public HealthBarPool(Canvas canvas)
+        {
+            this.canvas = canvas;
+            root = UiKit.Stretch(UiKit.NewRect(canvas.transform, "Health Bars"));
+        }
+
+        /// <summary>The fill colour for a health fraction: green, through gold, to red.</summary>
+        public static Color FillColor(float fraction)
+        {
+            if (fraction <= CriticalAt)
+            {
+                return Color.Lerp(Theme.Danger, Theme.Gold, Mathf.Clamp01(fraction / CriticalAt));
+            }
+
+            if (fraction <= WoundedAt)
+            {
+                return Color.Lerp(Theme.Gold, Healthy, (fraction - CriticalAt) / (WoundedAt - CriticalAt));
+            }
+
+            return Healthy;
+        }
+
+        /// <summary>The frame colour for a side, matching the minimap's dots.</summary>
+        public static Color FrameColor(Team team)
+        {
+            return team == Team.Katipunan ? Theme.Revolution : Theme.ColonialLight;
+        }
+
+        /// <summary>Starts a frame's worth of placements.</summary>
+        public void Begin()
+        {
+            used = 0;
+        }
+
+        /// <summary>Positions a bar and updates its fill.</summary>
+        public void Place(Vector3 screenPoint, float fraction, Team team, float rise)
+        {
+            Slot slot = used < slots.Count ? slots[used] : NewSlot();
+            if (!slot.Frame.gameObject.activeSelf)
+            {
+                slot.Frame.gameObject.SetActive(true);
+            }
+
+            // Same device-pixel to canvas-unit conversion as the name tags; see WorldLabelPool.
+            float scale = canvas != null && canvas.scaleFactor > 0f ? canvas.scaleFactor : 1f;
+            slot.Frame.rectTransform.anchoredPosition = new Vector2(
+                Mathf.Round(screenPoint.x / scale), Mathf.Round((screenPoint.y / scale) + rise));
+
+            int side = (int)team;
+            if (slot.Team != side)
+            {
+                slot.Team = side;
+                slot.Frame.color = FrameColor(team);
+            }
+
+            fraction = Mathf.Clamp01(fraction);
+            if (Mathf.Abs(fraction - slot.Fraction) > 0.001f)
+            {
+                slot.Fraction = fraction;
+                slot.Fill.anchorMax = new Vector2(fraction, 1f);
+                slot.FillImage.color = FillColor(fraction);
+            }
+
+            used++;
+        }
+
+        /// <summary>Hides whatever was not used this frame: the dead, and units off camera.</summary>
+        public void End()
+        {
+            for (int i = used; i < slots.Count; i++)
+            {
+                if (slots[i].Frame.gameObject.activeSelf)
+                {
+                    slots[i].Frame.gameObject.SetActive(false);
+                }
+            }
+        }
+
+        private Slot NewSlot()
+        {
+            RectTransform frame = UiKit.NewRect(root, "Bar");
+            frame.anchorMin = Vector2.zero;
+            frame.anchorMax = Vector2.zero;
+            frame.pivot = new Vector2(0.5f, 0.5f);
+            frame.sizeDelta = new Vector2(Width, Height);
+
+            RectTransform track = UiKit.Stretch(UiKit.NewRect(frame, "Track"), Rim);
+            Plain(track, Track);
+
+            RectTransform fill = UiKit.NewRect(track, "Fill");
+            fill.anchorMin = Vector2.zero;
+            fill.anchorMax = Vector2.one;
+            fill.offsetMin = Vector2.zero;
+            fill.offsetMax = Vector2.zero;
+
+            var slot = new Slot
+            {
+                Frame = Plain(frame, Color.white),
+                Fill = fill,
+                FillImage = Plain(fill, Healthy),
+            };
+
+            slots.Add(slot);
+            return slot;
+        }
+
+        private static Image Plain(RectTransform rect, Color color)
+        {
+            var image = rect.gameObject.AddComponent<Image>();
+            image.color = color;
+            image.raycastTarget = false;
+            return image;
         }
     }
 
@@ -271,7 +441,7 @@ namespace BinakayanRising.UI.Screens
                 // an outline added afterwards is clipped away at the glyph edge until the padding
                 // is recomputed. Skip this and the material change looks like it did nothing.
                 label.UpdateMeshPadding();
-                UiKit.SetSize(label.rectTransform, 200f, 34f);
+                UiKit.SetSize(label.rectTransform, 200f, 40f);
                 label.rectTransform.anchorMin = Vector2.zero;
                 label.rectTransform.anchorMax = Vector2.zero;
                 label.rectTransform.pivot = new Vector2(0.5f, 0.5f);

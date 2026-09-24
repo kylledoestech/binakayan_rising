@@ -340,6 +340,16 @@ namespace BinakayanRising.UI.Shell
                 && Keyboard.current.escapeKey.wasPressedThisFrame && (shell == null || !shell.SettingsOpen))
             {
                 Close();
+                return;
+            }
+
+            // Right-click closes as Esc does. The cards that must not be dismissed this way share
+            // the Modal layer, so the layer test cannot tell them apart; they are ruled out by name.
+            if (QuizCard.Current == null && CutscenePlayer.Current == null && PromotionCard.Current == null
+                && RankUpCard.Current == null && Time.frameCount > openedFrame && (shell == null || !shell.SettingsOpen)
+                && BinakayanRising.Gameplay.UiPointer.TryClaimRightClick(Theme.Layer.Modal))
+            {
+                Close();
             }
         }
 

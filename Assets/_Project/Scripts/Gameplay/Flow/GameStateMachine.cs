@@ -458,6 +458,77 @@ namespace BinakayanRising.Gameplay.Flow
             return TryTransitionTo(GameState.Encampment);
         }
 
+        // ------------------------------------------------------------------ live battle
+
+        /// <summary>True in the three states a battle is fought in: Deployment, Combat and Quiz.</summary>
+        public bool IsInBattle
+        {
+            get
+            {
+                return currentState == GameState.Deployment || currentState == GameState.Combat
+                    || currentState == GameState.Quiz;
+            }
+        }
+
+        /// <summary>
+        /// The replay has started: "Lock Formation &amp; Start" from Deployment. Already in Combat
+        /// (a battle redeployed and fought again) it is a no-op, since the state already holds.
+        /// </summary>
+        /// <returns>True when the machine is in Combat afterwards.</returns>
+        public bool EnterCombat()
+        {
+            if (currentState == GameState.Combat)
+            {
+                return true;
+            }
+
+            return LockFormationAndStart();
+        }
+
+        /// <summary>
+        /// The battle has resolved: walks from whichever battle state the machine is in (Deployment
+        /// if the replay start was never reported, Quiz if the battle ended under a question) through
+        /// Combat to the Victory or Defeat overlay, using only Figure 2's edges.
+        /// </summary>
+        /// <param name="won">True for Victory, false for Defeat.</param>
+        /// <returns>True when the machine is on the outcome overlay afterwards.</returns>
+        public bool SettleBattle(bool won)
+        {
+            GameState outcome = won ? GameState.Victory : GameState.Defeat;
+            if (currentState == outcome)
+            {
+                return true;
+            }
+
+            if (currentState == GameState.Deployment && !LockFormationAndStart())
+            {
+                return false;
+            }
+
+            if (currentState == GameState.Quiz && !ReturnToCombat())
+            {
+                return false;
+            }
+
+            return won ? RaiseVictory() : RaiseDefeat();
+        }
+
+        /// <summary>
+        /// Leaves a battle for the camp from any battle state or outcome overlay: a retreat from
+        /// Deployment, Combat or Quiz, or Continue on Victory or Defeat. Every one of those states
+        /// has a direct edge to Encampment.
+        /// </summary>
+        /// <returns>True when the machine is back in the encampment afterwards.</returns>
+        public bool LeaveBattle()
+        {
+            if (IsInEncampment)
+            {
+                return true;
+            }
+
+            return ReturnToEncampment();
+        }
+
         /// <summary>True when the state is one of the Encampment composite's sub-states.</summary>
         /// <param name="state">State to test.</param>
         public static bool IsEncampmentSubState(GameState state)

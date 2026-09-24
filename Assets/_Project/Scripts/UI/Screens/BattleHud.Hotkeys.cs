@@ -9,16 +9,41 @@ namespace BinakayanRising.UI.Screens
         /// Reads every keyboard shortcut in one place, so a single key press is handled once.
         /// </summary>
         /// <remarks>
-        /// Esc means the nearest thing to "get me out": close the deck if it is open, else leave the
-        /// tutorial, else skip the replay. Spreading that across three components had each of them
-        /// act on the same press.
+        /// <para>
+        /// Esc means the nearest thing to "get me out". Spreading that across several components
+        /// had each of them act on the same press, so the order is fixed here, first match wins:
+        /// </para>
+        /// <list type="number">
+        /// <item>A question card or cutscene is up: the HUD reads nothing; they own the keyboard.</item>
+        /// <item>The pause menu is up (or closed this very frame): the HUD reads nothing. The menu
+        /// closes itself on Esc or P, and Settings opened from it closes itself on Esc first.</item>
+        /// <item>The How-to-Play deck is open: Esc closes it.</item>
+        /// <item>The tutorial is in the foreground: Esc skips it.</item>
+        /// <item>The replay is running: Esc skips it to the result.</item>
+        /// <item>Otherwise (deploying, or the battle resolved): Esc opens the pause menu.</item>
+        /// </list>
+        /// <para>
+        /// P opens the pause menu at any of the last three steps, so the replay itself can be paused
+        /// without giving up Esc's skip.
+        /// </para>
         /// </remarks>
         private void ReadHotkeys()
         {
             Keyboard keyboard = Keyboard.current;
             // A question card owns the keyboard: its 1 to 4 answer, not change the speed.
-            if (keyboard == null || BinakayanRising.UI.Shell.QuizCard.Current != null)
+            if (keyboard == null || BinakayanRising.UI.Shell.QuizCard.Current != null
+                || BinakayanRising.UI.Shell.CutscenePlayer.Current != null
+                || BinakayanRising.UI.Shell.PauseMenu.Current != null
+                || BinakayanRising.UI.Shell.PauseMenu.ClosedFrame == UnityEngine.Time.frameCount)
             {
+                return;
+            }
+
+            // Right-click closes the deck, as Esc does, unless something drawn above it is
+            // under the pointer (the settings panel or a modal card).
+            if (deck != null && deck.IsOpen && UiPointer.TryClaimRightClick(BinakayanRising.UI.Kit.Theme.Layer.Deck))
+            {
+                deck.Close();
                 return;
             }
 
@@ -49,6 +74,10 @@ namespace BinakayanRising.UI.Screens
             if (keyboard.escapeKey.wasPressedThisFrame)
             {
                 HandleHotkey(HudHotkey.Escape);
+            }
+            else if (keyboard.pKey.wasPressedThisFrame)
+            {
+                HandleHotkey(HudHotkey.Pause);
             }
             else if (keyboard.spaceKey.wasPressedThisFrame)
             {
@@ -121,16 +150,30 @@ namespace BinakayanRising.UI.Screens
                     return true;
 
                 case HudHotkey.Escape:
-                    if (battle.CurrentPhase != BattlePlaytest.Phase.Combat)
+                    if (battle.CurrentPhase == BattlePlaytest.Phase.Combat)
                     {
-                        return false;
+                        SkipReplay();
+                        return true;
                     }
 
-                    SkipReplay();
-                    return true;
+                    return OpenPauseMenu();
+
+                case HudHotkey.Pause:
+                    return OpenPauseMenu();
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Opens the pause menu over the battle. Leaving from it is refused while the tutorial
+        /// runs, as the top bar's Retreat is.
+        /// </summary>
+        /// <returns>True when the menu opened.</returns>
+        public bool OpenPauseMenu()
+        {
+            bool canLeave = tutorial == null || !tutorial.IsRunning;
+            return BinakayanRising.UI.Shell.PauseMenu.Show(battle, canLeave) != null;
         }
     }
 }

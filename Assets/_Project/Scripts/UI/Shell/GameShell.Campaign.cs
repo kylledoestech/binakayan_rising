@@ -37,13 +37,14 @@ namespace BinakayanRising.UI.Shell
             get { return battle; }
         }
 
-        /// <summary>True while a campaign card or panel covers the camp (rank-up, cutscene, quiz, Library).</summary>
+        /// <summary>True while a campaign card or panel is up (rank-up, cutscene, quiz, Library, battle pause menu).</summary>
         public bool ModalOpen
         {
             get
             {
                 return PromotionCard.Current != null || RankUpCard.Current != null || RecruitReveal.Current != null
-                    || CutscenePlayer.Current != null || QuizCard.Current != null || LibraryPanel.Current != null;
+                    || CutscenePlayer.Current != null || QuizCard.Current != null || LibraryPanel.Current != null
+                    || PauseMenu.Current != null;
             }
         }
 
@@ -86,8 +87,25 @@ namespace BinakayanRising.UI.Shell
             MissionSetup mission = BuildMission(game, quest);
             mission.Finished = FinishBattle;
             BattlePlaytest.PendingMission = mission;
-            battle = new GameObject("Battle " + quest.Id).AddComponent<BattlePlaytest>();
+            BattlePlaytest opened = new GameObject("Battle " + quest.Id).AddComponent<BattlePlaytest>();
+            battle = opened;
             battle.QuizDue += AskBattleQuiz;
+            battle.PhaseChanged += phase => OnBattlePhaseChanged(opened, phase);
+        }
+
+        /// <summary>
+        /// Keeps the state machine live with the board: the replay starting is Figure 2's
+        /// "Lock Formation &amp; Start". A redeploy back to Deployment has no edge in the diagram,
+        /// so the machine simply stays in Combat, and the next assault is a no-op for it.
+        /// </summary>
+        private void OnBattlePhaseChanged(BattlePlaytest from, BattlePlaytest.Phase phase)
+        {
+            if (from != battle || phase != BattlePlaytest.Phase.Combat)
+            {
+                return;
+            }
+
+            Machine.EnterCombat();
         }
 
         /// <summary>
@@ -113,6 +131,12 @@ namespace BinakayanRising.UI.Shell
             if (question != null)
             {
                 list.Add(question);
+
+                // Figure 2: Combat --Mid-Combat Trigger--> Quiz, and back on Continue.
+                if (Machine.EnterCombat())
+                {
+                    Machine.TriggerQuiz();
+                }
             }
 
             QuizCard.Show(list, Loc.Get(TextKey.QuizTitle),
@@ -126,6 +150,11 @@ namespace BinakayanRising.UI.Shell
                 },
                 score =>
                 {
+                    if (Machine.CurrentState == GameState.Quiz)
+                    {
+                        Machine.ReturnToCombat();
+                    }
+
                     if (asking != null)
                     {
                         asking.SetPaused(false);
@@ -235,34 +264,28 @@ namespace BinakayanRising.UI.Shell
             battle = null;
             canvas.enabled = true;
 
+            // The machine may be in Deployment (a retreat before the assault), Combat, or Quiz (the
+            // board vanished under a question); SettleBattle and LeaveBattle take legal edges from each.
             MetaGame game = Session.Game;
             if (quest == null || game == null)
             {
-                Machine.ReturnToEncampment();
+                Machine.LeaveBattle();
                 return;
             }
 
             if (report == null || report.Retreated)
             {
-                Machine.ReturnToEncampment();
+                Machine.LeaveBattle();
                 UiControls.Toast(Loc.Get(TextKey.MissionRetreated));
                 return;
             }
 
             // Figure 2's path out of a battle: Combat, the outcome overlay, then the camp.
-            Machine.LockFormationAndStart();
-            if (report.Won)
-            {
-                Machine.RaiseVictory();
-            }
-            else
-            {
-                Machine.RaiseDefeat();
-            }
+            Machine.SettleBattle(report.Won);
 
             game.TryLaunch(quest);
             QuestReward reward = game.CompleteBattle(quest, report.Won, report.Deployed);
-            Machine.ReturnToEncampment();
+            Machine.LeaveBattle();
 
             if (report.Won)
             {

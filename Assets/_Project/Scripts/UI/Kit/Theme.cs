@@ -167,6 +167,9 @@ namespace BinakayanRising.UI.Kit
             public const int Hud = 100;
             public const int Tutorial = 200;
             public const int Deck = 210;
+
+            /// <summary>The battle's pause menu: over the HUD and tutorial, under the Settings it opens.</summary>
+            public const int Pause = 215;
             public const int Settings = 220;
             public const int Modal = 230;
             public const int Toast = 240;

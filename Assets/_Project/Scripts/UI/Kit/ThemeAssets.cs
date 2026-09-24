@@ -110,6 +110,9 @@ namespace BinakayanRising.UI.Kit
         public AudioClip sfxQuiz;
         public AudioClip sfxToggle;
 
+        [Tooltip("Reales coming in. Reuses ui_confirm.ogg until a dedicated coin clip exists.")]
+        public AudioClip sfxCoin;
+
         [Header("Units — pixel art rendered by Tools/sprites, one entry per archetype")]
         [Tooltip("Filled from Assets/_Project/Art/Units/<ArchetypeId>/ by Tools → Binakayan Rising → Refresh Unit Art.")]
         public UnitArt[] units = new UnitArt[0];

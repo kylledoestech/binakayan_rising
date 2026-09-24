@@ -451,7 +451,10 @@ namespace BinakayanRising.UI.Screens
         /// <summary>3: triple speed.</summary>
         SpeedFast,
 
-        /// <summary>Esc: close, skip.</summary>
-        Escape
+        /// <summary>Esc: close, skip, or open the pause menu.</summary>
+        Escape,
+
+        /// <summary>P: open the pause menu.</summary>
+        Pause
     }
 }

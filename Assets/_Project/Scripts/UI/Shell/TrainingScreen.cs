@@ -3,6 +3,7 @@ using BinakayanRising.Core.Combat;
 using BinakayanRising.Core.Content;
 using BinakayanRising.Core.Localization;
 using BinakayanRising.Core.Meta;
+using BinakayanRising.Gameplay;
 using BinakayanRising.Gameplay.Flow;
 using BinakayanRising.UI.Kit;
 using TMPro;
@@ -32,7 +33,19 @@ namespace BinakayanRising.UI.Shell
         /// <summary>Portraits are 24 art pixels; three screen pixels each.</summary>
         private const float PortraitSize = 72f;
 
+        /// <summary>
+        /// Height of an HP/ATK/DEF row. The detail column is budgeted against the card body
+        /// (532 px): 15 rows totalling 408 px plus 14 gaps of 8 px leaves 12 px spare.
+        /// </summary>
+        private const float StatRowHeight = 28f;
+
         private static readonly TextKey[] StatLabels = { TextKey.TrnHealth, TextKey.TrnAttack, TextKey.TrnDefense };
+
+        /// <summary>The combat stats that do not grow with level, shown in one compact row.</summary>
+        private static readonly TextKey[] CombatLabels = { TextKey.TrnStatEva, TextKey.TrnStatAcc, TextKey.TrnStatRng, TextKey.TrnStatCrit };
+
+        /// <summary>Kapatiran pairs, read once: the same table the battle resolves bonds from.</summary>
+        private static List<KapatiranBond> bonds;
 
         private KeeperCard keeper;
         private readonly List<Button> tiles = new List<Button>();
@@ -53,6 +66,8 @@ namespace BinakayanRising.UI.Shell
         private readonly TextMeshProUGUI[] statNext = new TextMeshProUGUI[3];
         private TextMeshProUGUI nextHeading;
         private TextMeshProUGUI weaponLine;
+        private readonly TextMeshProUGUI[] combatValues = new TextMeshProUGUI[4];
+        private TextMeshProUGUI bondLine;
         private TextMeshProUGUI drillLine;
         private Button drill;
         private TextMeshProUGUI drillCost;
@@ -183,7 +198,7 @@ namespace BinakayanRising.UI.Shell
             UiLayout.Fix((RectTransform)xpBar.transform, 0f, 20f);
 
             Image rule = UiKit.Divider(detail);
-            UiLayout.Fix(rule.rectTransform, 0f, 16f);
+            UiLayout.Fix(rule.rectTransform, 0f, 12f);
 
             RectTransform header = StatRow(detail, "Stat Header", 24f);
             UiLayout.Fix(StatCell(header, string.Empty, 150f, TextAlignmentOptions.Left).rectTransform, 150f, 24f);
@@ -196,38 +211,63 @@ namespace BinakayanRising.UI.Shell
 
             for (int i = 0; i < StatLabels.Length; i++)
             {
-                RectTransform row = StatRow(detail, "Stat " + i, 32f);
+                RectTransform row = StatRow(detail, "Stat " + i, StatRowHeight);
                 TextMeshProUGUI label = UiKit.Body(row, Loc.Get(StatLabels[i]), Theme.Type.Body + 2f, TextAlignmentOptions.Left);
                 UiKit.Localize(label, StatLabels[i]);
                 UiLayout.OneLine(label, Theme.Type.Body + 2f);
-                UiLayout.Fix(label.rectTransform, 150f, 32f);
+                UiLayout.Fix(label.rectTransform, 150f, StatRowHeight);
 
                 statNow[i] = UiKit.Body(row, string.Empty, Theme.Type.Heading, TextAlignmentOptions.Right);
                 statNow[i].fontStyle = FontStyles.Bold;
                 UiLayout.OneLine(statNow[i], Theme.Type.Heading);
-                UiLayout.Fix(statNow[i].rectTransform, 100f, 32f);
+                UiLayout.Fix(statNow[i].rectTransform, 100f, StatRowHeight);
 
                 statNext[i] = UiKit.Body(row, string.Empty, Theme.Type.Body + 2f, TextAlignmentOptions.Right);
                 statNext[i].color = Theme.Success;
                 UiLayout.OneLine(statNext[i], Theme.Type.Body + 2f);
                 UiLayout.Flexible(statNext[i].rectTransform);
-                UiLayout.Fix(statNext[i].rectTransform, 0f, 32f);
+                UiLayout.Fix(statNext[i].rectTransform, 0f, StatRowHeight);
+            }
+
+            // EVA / ACC / RNG / CRIT: fixed by archetype, so no "next" column, four to a row.
+            RectTransform combat = StatRow(detail, "Combat Stats", 26f);
+            for (int i = 0; i < CombatLabels.Length; i++)
+            {
+                RectTransform cell = UiKit.Row(combat, "Cell " + i, Theme.Space.Hair, 0f, TextAnchor.MiddleLeft);
+                UiLayout.Flexible(cell);
+                UiLayout.Fix(cell, 0f, 26f);
+
+                TextMeshProUGUI label = UiKit.Caption(cell, Loc.Get(CombatLabels[i]), TextAlignmentOptions.Left);
+                label.fontStyle = FontStyles.Bold;
+                UiKit.Localize(label, CombatLabels[i]);
+                UiLayout.OneLine(label, Theme.Type.Small);
+                UiLayout.Fix(label.rectTransform, 58f, 26f);
+
+                combatValues[i] = UiKit.Body(cell, string.Empty, Theme.Type.Body + 2f, TextAlignmentOptions.Left);
+                combatValues[i].fontStyle = FontStyles.Bold;
+                UiLayout.OneLine(combatValues[i], Theme.Type.Body + 2f);
+                UiLayout.Flexible(combatValues[i].rectTransform);
+                UiLayout.Fix(combatValues[i].rectTransform, 0f, 26f);
             }
 
             weaponLine = UiKit.Caption(detail, string.Empty, TextAlignmentOptions.Left);
             UiLayout.OneLine(weaponLine, Theme.Type.Body);
             UiLayout.Fix(weaponLine.rectTransform, 0f, 26f);
 
+            bondLine = UiKit.Caption(detail, string.Empty, TextAlignmentOptions.Left);
+            UiLayout.OneLine(bondLine, Theme.Type.Body);
+            UiLayout.Fix(bondLine.rectTransform, 0f, 26f);
+
             Image rule2 = UiKit.Divider(detail);
-            UiLayout.Fix(rule2.rectTransform, 0f, 16f);
+            UiLayout.Fix(rule2.rectTransform, 0f, 12f);
 
             drillLine = UiKit.Body(detail, string.Empty, Theme.Type.Body + 2f, TextAlignmentOptions.Left);
             drillLine.fontStyle = FontStyles.Bold;
             UiLayout.OneLine(drillLine, Theme.Type.Body + 2f);
-            UiLayout.Fix(drillLine.rectTransform, 0f, 28f);
+            UiLayout.Fix(drillLine.rectTransform, 0f, 26f);
 
             RectTransform actions = UiKit.Row(detail, "Actions", Theme.Space.Base, 0f, TextAnchor.MiddleLeft);
-            UiLayout.Fix(actions, 0f, 64f);
+            UiLayout.Fix(actions, 0f, 60f);
             drill = UiKit.SealButton(actions, TextKey.TrnDrill, Drill, 200f, 60f, 0f, "Button Drill");
             UiLayout.Fix((RectTransform)drill.transform, 200f, 60f);
             drillCost = UiKit.Body(actions, string.Empty, Theme.Type.Body + 2f, TextAlignmentOptions.Left);
@@ -409,6 +449,15 @@ namespace BinakayanRising.UI.Shell
                 ? Loc.Format(TextKey.TrnWeapon, weapon.Name.Get() + "  " + Loc.Format(TextKey.InvAttack, weapon.AttackBonus))
                 : Loc.Get(TextKey.TrnNoWeapon);
 
+            combatValues[0].text = Percent(now.Evasion);
+            combatValues[1].text = Percent(now.RangedAccuracy);
+            combatValues[2].text = PromotionCard.StatNumber(now.AttackRange);
+            combatValues[3].text = Percent(now.CriticalHitChance);
+
+            string bond = BondText(unit.archetype);
+            bondLine.text = bond != null ? Loc.Format(TextKey.TrnBond, bond) : Loc.Get(TextKey.TrnNoBond);
+            bondLine.color = bond != null ? Theme.Revolution : Theme.InkSoft;
+
             drill.gameObject.SetActive(!top);
             if (top)
             {
@@ -421,6 +470,80 @@ namespace BinakayanRising.UI.Shell
             drillCost.text = CostText(game.Rules.DrillCost);
             drillCost.color = game.CanAfford(game.Rules.DrillCost) ? Theme.Ink : Theme.Danger;
             drill.interactable = game.CanDrill(unit);
+        }
+
+        private static string Percent(float fraction)
+        {
+            return Mathf.RoundToInt(fraction * 100f) + "%";
+        }
+
+        /// <summary>
+        /// "Partner — effect" for every Kapatiran pair the archetype is in, or null when it has none.
+        /// </summary>
+        private static string BondText(string archetypeId)
+        {
+            if (bonds == null)
+            {
+                bonds = PlaytestScenario.Bonds();
+            }
+
+            var parts = new List<string>();
+            for (int i = 0; i < bonds.Count; i++)
+            {
+                KapatiranBond bond = bonds[i];
+                string partner = bond.ArchetypeA == archetypeId ? bond.ArchetypeB
+                    : (bond.ArchetypeB == archetypeId ? bond.ArchetypeA : null);
+                if (partner == null)
+                {
+                    continue;
+                }
+
+                UnitArchetype other = UnitCatalog.Find(partner);
+                var effects = new List<string>();
+                for (int m = 0; m < bond.Modifiers.Count; m++)
+                {
+                    effects.Add(ModifierText(bond.Modifiers[m]));
+                }
+
+                parts.Add((other != null ? other.Name.Get() : partner) + " — " + string.Join(", ", effects));
+            }
+
+            return parts.Count > 0 ? string.Join("  ·  ", parts) : null;
+        }
+
+        private static string ModifierText(StatModifier modifier)
+        {
+            string name = Loc.Get(StatShort(modifier.Stat));
+            var text = new System.Text.StringBuilder(name);
+            if (modifier.HasPercent)
+            {
+                text.Append(' ').Append(modifier.PercentDelta >= 0f ? "+" : string.Empty)
+                    .Append(Mathf.RoundToInt(modifier.PercentDelta * 100f)).Append('%');
+            }
+
+            if (modifier.HasFlat)
+            {
+                text.Append(' ').Append(modifier.FlatDelta >= 0f ? "+" : string.Empty)
+                    .Append(PromotionCard.StatNumber(modifier.FlatDelta));
+            }
+
+            return text.ToString();
+        }
+
+        private static TextKey StatShort(StatKind stat)
+        {
+            switch (stat)
+            {
+                case StatKind.MaxHP: return TextKey.TrnStatHp;
+                case StatKind.AttackDamage: return TextKey.TrnStatAtk;
+                case StatKind.Defense: return TextKey.TrnStatDef;
+                case StatKind.Evasion: return TextKey.TrnStatEva;
+                case StatKind.RangedAccuracy: return TextKey.TrnStatAcc;
+                case StatKind.AttackRange: return TextKey.TrnStatRng;
+                case StatKind.CriticalHitChance: return TextKey.TrnStatCrit;
+                case StatKind.MovementSpeed: return TextKey.TrnStatMove;
+                default: return TextKey.TrnStatHeal;
+            }
         }
 
         private static string CostText(Cost cost)

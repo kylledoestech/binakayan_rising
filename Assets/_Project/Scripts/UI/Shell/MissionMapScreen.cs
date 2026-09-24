@@ -6,6 +6,7 @@ using BinakayanRising.Gameplay.Flow;
 using BinakayanRising.UI.Kit;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace BinakayanRising.UI.Shell
@@ -51,6 +52,7 @@ namespace BinakayanRising.UI.Shell
         private TextMeshProUGUI deployLabel;
         private int renderedVersion = -1;
         private int renderedChange = -1;
+        private bool flashPending;
 
         public override GameState State
         {
@@ -195,6 +197,9 @@ namespace BinakayanRising.UI.Shell
             deploy = UiKit.SealButton(column, Loc.Get(TextKey.MapDeploy), Deploy, DetailWidth, 60f, 0f, "Button Deploy");
             UiLayout.Fix((RectTransform)deploy.transform, DetailWidth, 60f);
             deployLabel = deploy.GetComponentInChildren<TextMeshProUGUI>();
+
+            // A disabled Button swallows its click silently; say why when it is Rations.
+            deploy.gameObject.AddComponent<DisabledPress>().Pressed = DeployRefused;
         }
 
         // ------------------------------------------------------------------ showing
@@ -234,6 +239,36 @@ namespace BinakayanRising.UI.Shell
             selected = quest;
             renderedVersion = -1;
             Redraw();
+
+            if (RationsShort(Game, quest))
+            {
+                FlashRations();
+            }
+        }
+
+        /// <summary>A battle the player could deploy to, except that they cannot pay for it.</summary>
+        private static bool RationsShort(MetaGame game, Quest quest)
+        {
+            return game != null && quest != null && quest.Kind == QuestKind.Battle
+                && game.IsUnlocked(quest) && game.Data.rations < quest.RationsCost;
+        }
+
+        /// <summary>
+        /// Asks for the Rations chip to flash. Held until the screen is up: Refresh runs while
+        /// the tent is still hidden, and a hidden bar can't run the flash.
+        /// </summary>
+        private void FlashRations()
+        {
+            flashPending = true;
+        }
+
+        private void DeployRefused()
+        {
+            if (RationsShort(Game, selected))
+            {
+                UiSfx.Play(UiSfx.Cue.Error);
+                FlashRations();
+            }
         }
 
         protected override void Update()
@@ -247,6 +282,12 @@ namespace BinakayanRising.UI.Shell
             if (renderedVersion != Loc.Version || renderedChange != Game.Data.rations)
             {
                 Redraw();
+            }
+
+            if (flashPending && Bar != null && Bar.isActiveAndEnabled)
+            {
+                flashPending = false;
+                Bar.FlashShort(Currency.Rations);
             }
 
             // The current quest's sun breathes, and the chosen one turns slowly.
@@ -450,6 +491,30 @@ namespace BinakayanRising.UI.Shell
             public Image Sun;
             public Image Ring;
             public TextMeshProUGUI Number;
+        }
+    }
+
+    /// <summary>
+    /// Reports a press on a <see cref="Button"/> that is not interactable, which the button
+    /// itself ignores.
+    /// </summary>
+    internal sealed class DisabledPress : MonoBehaviour, IPointerClickHandler
+    {
+        public System.Action Pressed;
+
+        private Button button;
+
+        private void Awake()
+        {
+            button = GetComponent<Button>();
+        }
+
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            if (button != null && !button.interactable && eventData.button == PointerEventData.InputButton.Left && Pressed != null)
+            {
+                Pressed();
+            }
         }
     }
 }

@@ -79,6 +79,14 @@ namespace BinakayanRising.UI.Shell
                     yield return Phase4();
                     break;
 
+                case "pause":
+                    yield return Pause();
+                    break;
+
+                case "issues":
+                    yield return Issues();
+                    break;
+
                 default:
                     yield return Phase1();
                     break;
@@ -433,7 +441,234 @@ namespace BinakayanRising.UI.Shell
             }
         }
 
+        /// <summary>
+        /// The battle pause menu: q06 opened as Phase 4 opens it, the replay paused mid-way, in
+        /// English and Filipino, then a retreat from the menu back to the camp.
+        /// </summary>
+        private IEnumerator Pause()
+        {
+            Shell.Session.DeleteSave();
+            Shell.StartNewCampaign();
+            yield return Wait(0.6f);
+
+            MetaGame game = Shell.Session.Game;
+            game.Earn(Currency.Rations, 60);
+            foreach (string id in new[] { "q01", "q02", "q03", "q04", "q05" })
+            {
+                game.Data.clearedQuests.Add(id);
+            }
+
+            Hub().Dialogue.Finish();
+
+            // Clearing five quests at once earns ranks; their cards come up in the hub.
+            yield return WaitWhile(() => RankUpCard.Current == null, 3f);
+            int guard = 0;
+            while (RankUpCard.Current != null && guard++ < 8)
+            {
+                RankUpCard.Current.Continue();
+                RankUpCard.Current?.Continue();
+                yield return Wait(0.4f);
+            }
+
+            Shell.Camp.ClickSite(Places.MissionTent);
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
+            Hub().Dialogue.Finish();
+            yield return WaitWhile(() => !(Shell.Router.Current is MissionMapScreen), 4f);
+            Shell.LaunchQuest(Campaign.Find("q06"));
+            yield return Wait(0.5f);
+            CutscenePlayer.Current?.Skip();
+            yield return WaitWhile(() => Shell.Battle == null, 4f);
+            yield return Wait(1.5f);
+            if (Shell.Battle == null)
+            {
+                Note("pause", "the q06 battle did not open");
+                yield break;
+            }
+
+            Shell.Battle.RequestAutoDeploy();
+            yield return Wait(0.5f);
+            Shell.Battle.RequestAssault();
+            Shell.Battle.SetSpeed(1f);
+            yield return Wait(2f);
+            if (Shell.Machine.CurrentState != Gameplay.Flow.GameState.Combat)
+            {
+                Note("pause", "state machine is " + Shell.Machine.CurrentState + " mid-replay, not Combat");
+            }
+
+            var hud = Object.FindAnyObjectByType<BinakayanRising.UI.Screens.BattleHud>();
+            if (hud == null || !hud.OpenPauseMenu())
+            {
+                Note("pause", "the pause menu did not open");
+                yield break;
+            }
+
+            yield return Shot("pause_01_menu");
+            MeasureCard("pause", PauseMenu.Current != null ? PauseMenu.Current.Card : null);
+            if (Shell.Battle != null && !Shell.Battle.Paused)
+            {
+                Note("pause", "the battle is not paused under the menu");
+            }
+
+            UserPrefs.ChooseLanguage(Language.Filipino);
+            yield return Shot("pause_02_menu_fil");
+            MeasureCard("pause_fil", PauseMenu.Current != null ? PauseMenu.Current.Card : null);
+            UserPrefs.ChooseLanguage(Language.English);
+
+            PauseMenu.Current?.Resume();
+            yield return Wait(0.3f);
+            if (Shell.Battle != null && Shell.Battle.Paused && QuizCard.Current == null)
+            {
+                Note("pause", "the battle stayed paused after Resume");
+            }
+
+            // Leave through the menu's Retreat, the way a player abandons a battle.
+            if (hud != null && hud.OpenPauseMenu())
+            {
+                Button[] buttons = PauseMenu.Current.GetComponentsInChildren<Button>(false);
+                for (int i = 0; i < buttons.Length; i++)
+                {
+                    if (buttons[i].name == "Button Retreat")
+                    {
+                        buttons[i].onClick.Invoke();
+                        break;
+                    }
+                }
+            }
+
+            yield return Wait(1f);
+            if (Shell.Battle != null || !Gameplay.Flow.GameStateMachine.IsEncampmentSubState(Shell.Machine.CurrentState))
+            {
+                Note("pause", "Retreat did not return to the camp; state " + Shell.Machine.CurrentState);
+            }
+        }
+
         /// <summary>Answers the open question with choice A, to show the reveal.</summary>
+
+        /// <summary>
+        /// The features closed from the issue tracker: the Training detail's full stats and bond,
+        /// the purse counting up, the Rations chip flashing when a quest is unaffordable, HP bars
+        /// over the board mid-replay, and every How-to-Play page.
+        /// </summary>
+        private IEnumerator Issues()
+        {
+            Shell.Session.DeleteSave();
+            Shell.StartNewCampaign();
+            yield return Wait(0.6f);
+
+            MetaGame game = Shell.Session.Game;
+            Hub().Dialogue.Finish();
+            yield return Wait(0.4f);
+
+            // The purse mid-count, just after a payment lands.
+            game.Earn(Currency.Reales, 900);
+            yield return Shot("i_01_reales_counting", 0.15f);
+            yield return Shot("i_02_reales_counted", 0.8f);
+
+            Shell.Camp.ClickSite(Places.Training);
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
+            Hub().Dialogue.Finish();
+            yield return Wait(0.4f);
+            OwnedUnit bonded = game.Units[0];
+            for (int i = 0; i < game.Units.Count; i++)
+            {
+                if (game.Units[i].archetype != null && game.Units[i].archetype.ToUpperInvariant().Contains("VAN"))
+                {
+                    bonded = game.Units[i];
+                }
+            }
+
+            Training().SelectedUnit = bonded.id;
+            yield return Shot("i_03_training_detail");
+            Training().SelectedUnit = game.Units[0].id;
+            yield return Shot("i_04_training_detail_leader");
+            UserPrefs.ChooseLanguage(Language.Filipino);
+            yield return Shot("i_05_training_detail_fil");
+            UserPrefs.ChooseLanguage(Language.English);
+            ClickIn("Button Back To Camp");
+            yield return Wait(0.6f);
+
+            // Too few Rations for q05: the Mission Tent flashes the Rations chip.
+            game.TrySpend(Cost.Of(Currency.Rations, game.Balance(Currency.Rations)));
+            foreach (string id in new[] { "q01", "q02", "q03", "q04" })
+            {
+                game.Data.clearedQuests.Add(id);
+            }
+
+            // The cleared quests earn ranks; let their cards come up and go first.
+            Hub().Dialogue.Finish();
+            yield return WaitWhile(() => RankUpCard.Current == null, 3f);
+            for (int i = 0; RankUpCard.Current != null && i < 8; i++)
+            {
+                RankUpCard.Current.Continue();
+                RankUpCard.Current?.Continue();
+                yield return Wait(0.5f);
+            }
+
+            Shell.Camp.ClickSite(Places.MissionTent);
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
+            Hub().Dialogue.Finish();
+            yield return WaitWhile(() => !(Shell.Router.Current is MissionMapScreen), 4f);
+            yield return Shot("i_06_rations_flash", 0.15f);
+            yield return Shot("i_06b_rations_flash", 0.1f);
+            yield return Shot("i_07_rations_short", 1.2f);
+
+            // A replay with HP bars over every unit.
+            game.Earn(Currency.Rations, 60);
+            game.Data.clearedQuests.Add("q05");
+
+            // Clearing quests at once earns ranks; their cards come up first.
+            yield return WaitWhile(() => RankUpCard.Current == null, 2f);
+            int guard = 0;
+            while (RankUpCard.Current != null && guard++ < 8)
+            {
+                RankUpCard.Current.Continue();
+                RankUpCard.Current?.Continue();
+                yield return Wait(0.4f);
+            }
+
+            Shell.LaunchQuest(Campaign.Find("q06"));
+            yield return Wait(0.5f);
+            CutscenePlayer.Current?.Skip();
+            yield return WaitWhile(() => Shell.Battle == null, 4f);
+            yield return Wait(1.5f);
+            if (Shell.Battle == null)
+            {
+                Note("issues", "the q06 battle did not open");
+                yield break;
+            }
+
+            var hud = Object.FindAnyObjectByType<BinakayanRising.UI.Screens.BattleHud>();
+            if (hud != null && hud.Deck != null)
+            {
+                hud.Deck.Open();
+                for (int page = 0; page < 8; page++)
+                {
+                    hud.Deck.ShowPage(page);
+                    yield return Shot("i_deck_" + page, 0.5f);
+                }
+
+                UserPrefs.ChooseLanguage(Language.Filipino);
+                hud.Deck.ShowPage(3);
+                yield return Shot("i_deck_3_fil", 0.5f);
+                UserPrefs.ChooseLanguage(Language.English);
+                hud.Deck.Close();
+                yield return Wait(0.4f);
+            }
+
+            Shell.Battle.RequestAutoDeploy();
+            yield return Wait(0.5f);
+            Shell.Battle.RequestAssault();
+            Shell.Battle.SetSpeed(1f);
+            yield return Wait(3f);
+            yield return Shot("i_08_hp_bars", 0.1f);
+            Shell.Battle.SetSpeed(4f);
+            yield return WaitWhile(() => QuizCard.Current == null && Shell.Battle != null && Shell.Battle.CurrentPhase != BinakayanRising.Gameplay.BattlePlaytest.Phase.Finished, 90f);
+            PickFirst();
+            QuizCard.Current?.Continue();
+            yield return Wait(2.5f);
+            yield return Shot("i_09_hp_bars_later", 0.1f);
+        }
+
         private void PickFirst()
         {
             QuizCard card = QuizCard.Current;

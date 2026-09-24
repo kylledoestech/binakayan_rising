@@ -36,18 +36,20 @@ namespace BinakayanRising.UI.Screens
 
         private static readonly TextKey[] Titles =
         {
-            TextKey.DeckBattleTitle, TextKey.DeckDeployTitle, TextKey.DeckUnitsTitle, TextKey.DeckTerrainTitle,
-            TextKey.DeckBondsTitle, TextKey.DeckCombatTitle, TextKey.DeckControlsTitle,
+            TextKey.DeckBattleTitle, TextKey.DeckDeployTitle, TextKey.DeckUnitsTitle, TextKey.DeckMoreUnitsTitle,
+            TextKey.DeckTerrainTitle, TextKey.DeckBondsTitle, TextKey.DeckCombatTitle, TextKey.DeckControlsTitle,
         };
 
         private static readonly TextKey[] Bodies =
         {
-            TextKey.DeckBattleBody, TextKey.DeckDeployBody, TextKey.DeckUnitsBody, TextKey.DeckTerrainBody,
-            TextKey.DeckBondsBody, TextKey.DeckCombatBody, TextKey.DeckControlsBody,
+            TextKey.DeckBattleBody, TextKey.DeckDeployBody, TextKey.DeckUnitsBody, TextKey.DeckMoreUnitsBody,
+            TextKey.DeckTerrainBody, TextKey.DeckBondsBody, TextKey.DeckCombatBody, TextKey.DeckControlsBody,
         };
 
+        // The unit strip leaves the units page room for about nine body lines, so the Field Medic
+        // and the two infantry councils get a page of their own right after it.
         private const int UnitsPage = 2;
-        private const int TerrainPage = 3;
+        private const int TerrainPage = 4;
 
         private BattleHud hud;
         private BattlePlaytest battle;

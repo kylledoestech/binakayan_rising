@@ -1696,7 +1696,8 @@ namespace BinakayanRising.Gameplay
         /// the interface.
         /// </summary>
         /// <remarks>
-        /// Left click lifts a placed unit or places the selected one; right click only lifts. The
+        /// Left click lifts a placed unit or places the selected one; right click lifts, or clears
+        /// the roster selection when it lands on an empty cell or off the board. The
         /// interface is asked whether it covers the pointer through <see cref="UiPointer"/> rather
         /// than the board testing hardcoded panel rectangles, which silently broke every time a
         /// panel moved.
@@ -1729,6 +1730,19 @@ namespace BinakayanRising.Gameplay
 
             Vector3 world = view.ScreenToWorldPoint(new Vector3(screen.x, screen.y, 0f));
             GridCoord cell = layout.WorldToCell(new IsoVector(world.x, world.y));
+
+            // Right click is "cancel": lift the unit under it, or, over an empty cell or off the
+            // board, put down the roster unit in hand. Claimed so a panel closing on the same
+            // press does not also count as a board click.
+            if (right && !left)
+            {
+                if (UiPointer.TryClaimRightClick() && !(grid.InBounds(cell) && RequestLift(cell)))
+                {
+                    SelectSlot(-1);
+                }
+
+                return;
+            }
 
             if (!grid.InBounds(cell))
             {

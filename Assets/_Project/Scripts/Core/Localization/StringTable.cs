@@ -222,6 +222,23 @@ namespace BinakayanRising.Core.Localization
                 + "<b>VAN</b>  Unahan: pinakamataas na HP\n\n"
                 + "HP buhay   ·   ATK atake   ·   DEF depensa   ·   RNG layon");
 
+            Add(TextKey.DeckMoreUnitsTitle, "Medics and Infantry", "Mga Mediko at Impanteriya");
+            Add(TextKey.DeckMoreUnitsBody,
+                "<b>MED</b>  Field Medic: heals the most wounded ally within 2 tiles for 14 HP\n"
+                + "        HP 100   ·   ATK 8   ·   DEF 6   ·   RNG 2\n\n"
+                + "<b>MGD</b>  Magdalo Infantry: reliable all-rounder\n"
+                + "        HP 110   ·   ATK 12   ·   DEF 6   ·   RNG 1\n\n"
+                + "<b>MGW</b>  Magdiwang Infantry: a little more attack, a little less defense\n"
+                + "        HP 105   ·   ATK 13   ·   DEF 5   ·   RNG 1\n\n"
+                + "The medic heals only an ally below three quarters of its HP. Otherwise it fights.",
+                "<b>MED</b>  Mediko: pinagagaling ng 14 HP ang pinakasugatang kakampi sa loob ng 2 tile\n"
+                + "        HP 100   ·   ATK 8   ·   DEF 6   ·   RNG 2\n\n"
+                + "<b>MGD</b>  Magdalo: maaasahan sa lahat ng bagay\n"
+                + "        HP 110   ·   ATK 12   ·   DEF 6   ·   RNG 1\n\n"
+                + "<b>MGW</b>  Magdiwang: bahagyang mas malakas umatake, bahagyang mas mahina ang depensa\n"
+                + "        HP 105   ·   ATK 13   ·   DEF 5   ·   RNG 1\n\n"
+                + "Nagpapagaling lamang ang mediko kapag bumaba sa tatlong-kapat ng HP ang kakampi. Kung hindi, lumalaban ito.");
+
             Add(TextKey.DeckTerrainTitle, "Terrain", "Lupain");
             Add(TextKey.DeckTerrainBody,
                 "<b>Trench</b>  +20% defense, +15% evasion\n"
@@ -244,11 +261,15 @@ namespace BinakayanRising.Core.Localization
             Add(TextKey.DeckBondsBody,
                 "Bonded pairs standing side by side — up, down, left or right, never diagonal — both gain:\n\n"
                 + "<b>MRK + ENG</b>  +20% accuracy, +1 attack range\n"
-                + "<b>EVA + AGU</b>  +15% attack, +10% defense\n\n"
+                + "<b>EVA + AGU</b>  +15% attack, +10% defense\n"
+                + "<b>VAN + MED</b>  +25% healing received, +5% max HP\n"
+                + "<b>MGD + MGW</b>  +15% critical chance, +10% evasion\n\n"
                 + "A bond breaks when either partner falls.",
                 "Ang magkapares na magkatabi — itaas, ibaba, kaliwa o kanan, hindi pahilis — ay kapwa tumatanggap ng:\n\n"
                 + "<b>MRK + ENG</b>  +20% asinta, +1 layon\n"
-                + "<b>EVA + AGU</b>  +15% atake, +10% depensa\n\n"
+                + "<b>EVA + AGU</b>  +15% atake, +10% depensa\n"
+                + "<b>VAN + MED</b>  +25% natatanggap na lunas, +5% pinakamataas na HP\n"
+                + "<b>MGD + MGW</b>  +15% tsansa ng malubhang tama, +10% ilag\n\n"
                 + "Napuputol ang buklod kapag nagapi ang isa.");
 
             Add(TextKey.DeckCombatTitle, "Combat", "Labanan");
@@ -263,20 +284,24 @@ namespace BinakayanRising.Core.Localization
             Add(TextKey.DeckControlsTitle, "Controls", "Kontrol");
             Add(TextKey.DeckControlsBody,
                 "<b>Left click</b>  select, place, lift\n"
-                + "<b>Right click</b>  lift a unit\n"
+                + "<b>Right click</b>  lift a unit, deselect, close panels\n"
                 + "<b>Mouse wheel</b>  zoom\n"
                 + "<b>WASD / arrows / middle-drag</b>  pan\n"
                 + "<b>Space</b>  begin assault\n"
                 + "<b>1 / 2 / 3</b>  speed 0.5x / 1x / 3x\n"
-                + "<b>Esc</b>  close this, or skip the tutorial\n"
+                + "<b>Esc</b>  close this, skip the tutorial or replay, or pause\n"
+                + "<b>P</b>  pause menu\n"
+                + "<b>M</b>  show or hide the map\n"
                 + "<b>EN / FIL</b>  switch language",
                 "<b>Left click</b>  pumili, ipuwesto, alisin\n"
-                + "<b>Right click</b>  alisin ang yunit\n"
+                + "<b>Right click</b>  alisin ang yunit o pinili, isara ang panel\n"
                 + "<b>Mouse wheel</b>  zoom\n"
                 + "<b>WASD / arrow / middle-drag</b>  igalaw ang tanaw\n"
                 + "<b>Space</b>  simulan ang salakay\n"
                 + "<b>1 / 2 / 3</b>  bilis 0.5x / 1x / 3x\n"
-                + "<b>Esc</b>  isara, o laktawan ang tutorial\n"
+                + "<b>Esc</b>  isara, laktawan ang tutorial o replay, o ihinto\n"
+                + "<b>P</b>  menu ng paghinto\n"
+                + "<b>M</b>  ipakita o itago ang mapa\n"
                 + "<b>EN / FIL</b>  palitan ang wika");
 
             // ---------------------------------------------------------------- shared buttons
@@ -463,6 +488,20 @@ namespace BinakayanRising.Core.Localization
             Add(TextKey.LibFail, "You need {0}% to pass. Read the lessons and try again.", "Kailangan ng {0}% upang pumasa. Basahin ang mga aralin at subukang muli.");
             Add(TextKey.HudMinimap, "Map  (M)", "Mapa  (M)");
             Add(TextKey.LibLockedShort, "Locked · clear quest {0}", "Sarado · tapusin ang misyon {0}");
+            Add(TextKey.PauseTitle, "Paused", "Nakahinto");
+            Add(TextKey.PauseResume, "Resume", "Ituloy");
+            Add(TextKey.PauseHint, "Esc or P to resume", "Esc o P para ituloy");
+            Add(TextKey.TrnStatHp, "HP", "BUHAY");
+            Add(TextKey.TrnStatAtk, "ATK", "ATAKE");
+            Add(TextKey.TrnStatDef, "DEF", "DEPENSA");
+            Add(TextKey.TrnStatEva, "EVA", "IWAS");
+            Add(TextKey.TrnStatAcc, "ACC", "ASINTA");
+            Add(TextKey.TrnStatRng, "RNG", "ABOT");
+            Add(TextKey.TrnStatCrit, "CRIT", "KRITIKAL");
+            Add(TextKey.TrnStatMove, "MOVE", "GALAW");
+            Add(TextKey.TrnStatHeal, "HEALING", "LUNAS");
+            Add(TextKey.TrnBond, "Bond: {0}", "Kabuklod: {0}");
+            Add(TextKey.TrnNoBond, "No Kapatiran bond", "Walang kabuklod sa Kapatiran");
         }
 
         /// <summary>The text for a key, falling back to English and then to the key's name.</summary>

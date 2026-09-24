@@ -41,6 +41,12 @@ namespace BinakayanRising.UI.Shell
             get { return card; }
         }
 
+        /// <summary>The purse strip over this panel, so a panel can point at a currency.</summary>
+        protected CampaignBar Bar
+        {
+            get { return bar; }
+        }
+
         /// <summary>Where subclasses build their content: the card below its header.</summary>
         protected RectTransform Body
         {
@@ -171,6 +177,15 @@ namespace BinakayanRising.UI.Shell
         {
             if (IsVisible && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame
                 && Shell != null && !Shell.SettingsOpen && PromotionCard.Current == null && RecruitReveal.Current == null)
+            {
+                Back();
+                return;
+            }
+
+            // Right-click backs out the same way, but only with nothing over the panel: no
+            // settings, no card or Library, and no higher canvas (a confirm) under the pointer.
+            if (IsVisible && Shell != null && !Shell.SettingsOpen && !Shell.ModalOpen
+                && BinakayanRising.Gameplay.UiPointer.TryClaimRightClick(Theme.Layer.Shell))
             {
                 Back();
             }

@@ -323,6 +323,7 @@ namespace BinakayanRising.EditorTools
             theme.sfxVictory = Load<AudioClip>($"{ArtRoot}/Sfx/ui_victory.ogg");
             theme.sfxQuiz = Load<AudioClip>($"{ArtRoot}/Sfx/ui_quiz.ogg");
             theme.sfxToggle = Load<AudioClip>($"{ArtRoot}/Sfx/ui_toggle.ogg");
+            theme.sfxCoin = Load<AudioClip>($"{ArtRoot}/Sfx/ui_confirm.ogg");
 
             AssignUnitArt(theme);
             AssignCampArt(theme);

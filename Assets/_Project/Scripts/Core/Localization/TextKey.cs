@@ -291,6 +291,22 @@ namespace BinakayanRising.Core.Localization
         LibFail,
         HudMinimap,
         LibLockedShort,
+        PauseTitle,
+        PauseResume,
+        PauseHint,
+        TrnStatHp,
+        TrnStatAtk,
+        TrnStatDef,
+        TrnStatEva,
+        TrnStatAcc,
+        TrnStatRng,
+        TrnStatCrit,
+        TrnStatMove,
+        TrnStatHeal,
+        TrnBond,
+        TrnNoBond,
+        DeckMoreUnitsTitle,
+        DeckMoreUnitsBody,
 
         Count
     }

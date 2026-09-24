@@ -49,6 +49,9 @@ namespace BinakayanRising.UI.Kit
 
             /// <summary>A toggle or tab changing state.</summary>
             Toggle,
+
+            /// <summary>Reales coming into the purse.</summary>
+            Coin,
         }
 
         private static AudioSource source;
@@ -103,6 +106,7 @@ namespace BinakayanRising.UI.Kit
                 case Cue.Victory: return assets.sfxVictory;
                 case Cue.Quiz: return assets.sfxQuiz;
                 case Cue.Toggle: return assets.sfxToggle;
+                case Cue.Coin: return assets.sfxCoin != null ? assets.sfxCoin : assets.sfxConfirm;
                 default: return null;
             }
         }

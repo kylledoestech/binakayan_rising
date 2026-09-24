@@ -1,5 +1,6 @@
 using BinakayanRising.Core.Localization;
 using BinakayanRising.Core.Meta;
+using System.Collections;
 using BinakayanRising.UI.Kit;
 using TMPro;
 using UnityEngine;
@@ -28,9 +29,15 @@ namespace BinakayanRising.UI.Shell
         private MetaGame bound;
 
         private TextMeshProUGUI rankTitle;
-        private TextMeshProUGUI reales;
-        private TextMeshProUGUI rations;
-        private TextMeshProUGUI scrap;
+        /// <summary>How long a purse counter takes to roll to its new value.</summary>
+        private const float TickDuration = 0.4f;
+
+        /// <summary>How long the "not enough" red flash takes to fade back.</summary>
+        private const float FlashDuration = 1.2f;
+
+        private Purse reales;
+        private Purse rations;
+        private Purse scrap;
         private TextMeshProUGUI objective;
         private RectTransform objectiveRoot;
         private int renderedVersion = -1;
@@ -124,9 +131,10 @@ namespace BinakayanRising.UI.Shell
             UiLayout.Flexible(objective.rectTransform);
         }
 
-        private static TextMeshProUGUI Chip(RectTransform row, Sprite icon, TextKey name)
+        private static Purse Chip(RectTransform row, Sprite icon, TextKey name)
         {
             RectTransform chip = UiKit.Well(row, "Chip " + name);
+            Image fill = chip.GetChild(0).GetComponent<Image>();
             UiLayout.Fix(chip, 200f, 56f);
 
             RectTransform inner = UiKit.Row(chip, "Row", Theme.Space.Tight, 0f, TextAnchor.MiddleLeft);
@@ -149,7 +157,125 @@ namespace BinakayanRising.UI.Shell
             UiKit.Localize(label, name);
             UiLayout.OneLine(label, Theme.Type.Small);
             UiLayout.Flexible(label.rectTransform);
-            return value;
+            return new Purse(chip, fill, value);
+        }
+
+        /// <summary>
+        /// Flashes a purse chip red, for when an action costs more of that currency than the
+        /// player holds.
+        /// </summary>
+        public void FlashShort(Currency currency)
+        {
+            Purse purse = PurseFor(currency);
+            if (purse == null || !isActiveAndEnabled)
+            {
+                return;
+            }
+
+            if (purse.Flash != null)
+            {
+                StopCoroutine(purse.Flash);
+            }
+
+            purse.Flash = StartCoroutine(FlashRoutine(purse));
+            Punch(purse, 0.1f);
+        }
+
+        private Purse PurseFor(Currency currency)
+        {
+            switch (currency)
+            {
+                case Currency.Reales: return reales;
+                case Currency.Rations: return rations;
+                case Currency.Scrap: return scrap;
+                default: return null;
+            }
+        }
+
+        private IEnumerator FlashRoutine(Purse purse)
+        {
+            float elapsed = 0f;
+            while (elapsed < FlashDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / FlashDuration);
+
+                // Three quick pulses that fade out, so it reads as a warning rather than a state.
+                float pulse = Mathf.Abs(Mathf.Sin(t * Mathf.PI * 3f)) * (1f - (0.6f * t));
+                // Ink on a red fill goes muddy, so the number lifts to parchment as the fill reddens.
+                purse.Fill.color = Color.Lerp(purse.FillColor, Theme.Danger, pulse * 0.85f);
+                purse.Value.color = Color.Lerp(purse.ValueColor, Theme.Parchment, pulse);
+                yield return null;
+            }
+
+            purse.Fill.color = purse.FillColor;
+            purse.Value.color = purse.ValueColor;
+            purse.Flash = null;
+        }
+
+        /// <summary>Rolls a purse's counter to its balance, or snaps it there on first sight.</summary>
+        private void Show(Purse purse, int balance)
+        {
+            if (!purse.HasShown || !isActiveAndEnabled)
+            {
+                purse.HasShown = true;
+                purse.Target = balance;
+                purse.Shown = balance;
+                purse.Value.SetText("{0}", balance);
+                return;
+            }
+
+            if (balance == purse.Target)
+            {
+                return;
+            }
+
+            int from = Mathf.RoundToInt(purse.Shown);
+            purse.Target = balance;
+            if (purse.Tick != null)
+            {
+                StopCoroutine(purse.Tick);
+            }
+
+            purse.Tick = StartCoroutine(TickRoutine(purse, from, balance));
+            Punch(purse, 0.08f);
+
+            if (purse == reales && balance > from)
+            {
+                UiSfx.Play(UiSfx.Cue.Coin);
+            }
+        }
+
+        private IEnumerator TickRoutine(Purse purse, int from, int to)
+        {
+            float elapsed = 0f;
+            while (elapsed < TickDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / TickDuration);
+                float inverted = 1f - t;
+                float eased = 1f - (inverted * inverted * inverted);
+                purse.Shown = Mathf.Lerp(from, to, eased);
+                purse.Value.SetText("{0}", Mathf.RoundToInt(purse.Shown));
+                yield return null;
+            }
+
+            purse.Shown = to;
+            purse.Value.SetText("{0}", to);
+            purse.Tick = null;
+        }
+
+        private void Punch(Purse purse, float strength)
+        {
+            // Stop any running punch first and reset the scale, or the next one captures a
+            // mid-pulse scale as its base and the chip creeps larger.
+            if (purse.Punch != null)
+            {
+                StopCoroutine(purse.Punch);
+            }
+
+            purse.Chip.localScale = Vector3.one;
+            purse.Punch = StartCoroutine(UiTween.Punch(purse.Chip, strength, 0.22f));
         }
 
         /// <summary>Starts following a campaign. Null detaches.</summary>
@@ -161,12 +287,53 @@ namespace BinakayanRising.UI.Shell
             }
 
             bound = game;
+            ResetPurse(reales);
+            ResetPurse(rations);
+            ResetPurse(scrap);
             if (bound != null)
             {
                 bound.Changed += MarkStale;
             }
 
             stale = true;
+        }
+
+        private void ResetPurse(Purse purse)
+        {
+            if (purse == null)
+            {
+                return;
+            }
+
+            // A new campaign's balance is a fresh start, not a gain: snap to it silently.
+            purse.HasShown = false;
+            if (purse.Tick != null)
+            {
+                StopCoroutine(purse.Tick);
+                purse.Tick = null;
+            }
+        }
+
+        private void OnDisable()
+        {
+            // Coroutines die with the behaviour; land every animation on its end state so a
+            // hidden bar comes back clean.
+            foreach (Purse purse in new[] { reales, rations, scrap })
+            {
+                if (purse == null)
+                {
+                    continue;
+                }
+
+                purse.Tick = null;
+                purse.Punch = null;
+                purse.Flash = null;
+                purse.Shown = purse.Target;
+                purse.Value.SetText("{0}", purse.Target);
+                purse.Chip.localScale = Vector3.one;
+                purse.Fill.color = purse.FillColor;
+                purse.Value.color = purse.ValueColor;
+            }
         }
 
         private void MarkStale()
@@ -190,12 +357,38 @@ namespace BinakayanRising.UI.Shell
             renderedVersion = Loc.Version;
 
             rankTitle.text = bound.Rank.Title;
-            reales.SetText("{0}", bound.Balance(Currency.Reales));
-            rations.SetText("{0}", bound.Balance(Currency.Rations));
-            scrap.SetText("{0}", bound.Balance(Currency.Scrap));
+            Show(reales, bound.Balance(Currency.Reales));
+            Show(rations, bound.Balance(Currency.Rations));
+            Show(scrap, bound.Balance(Currency.Scrap));
 
             Objective next = bound.CurrentObjective;
             objective.text = next != null ? next.Text.Get() : string.Empty;
+        }
+
+        /// <summary>One purse chip and the state of its counter animation.</summary>
+        private sealed class Purse
+        {
+            public readonly RectTransform Chip;
+            public readonly Image Fill;
+            public readonly TextMeshProUGUI Value;
+            public readonly Color FillColor;
+            public readonly Color ValueColor;
+
+            public bool HasShown;
+            public int Target;
+            public float Shown;
+            public Coroutine Tick;
+            public Coroutine Punch;
+            public Coroutine Flash;
+
+            public Purse(RectTransform chip, Image fill, TextMeshProUGUI value)
+            {
+                Chip = chip;
+                Fill = fill;
+                Value = value;
+                FillColor = fill != null ? fill.color : Color.white;
+                ValueColor = value.color;
+            }
         }
     }
 }
