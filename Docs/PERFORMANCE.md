@@ -17,7 +17,7 @@ the largest battle (6 Katipuneros against 14 Spanish of all five types), from st
 | 2026-09-24 | Ryzen 7 6800H, 16 threads, 28 GB, Linux | Radeon 680M **integrated** (OpenGL) | 1920×1080, vsync on | 11,520 over 115 s | **100.0** | **81.3** | 56 ms |
 
 The target is met with a wide margin on integrated graphics. The average of 100 is the vsync cap
-of this panel, so the real headroom is higher. The one 56 ms frame is the replay start.
+of this panel, so the real headroom is higher. The single worst frame (56 ms) was not traced.
 
 ## Still to do on real minimum-spec hardware
 
