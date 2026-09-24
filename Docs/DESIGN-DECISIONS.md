@@ -202,6 +202,11 @@ glossary tab are named without detail.
 | Development tooling | Microsoft Visual Studio | Not installed on the development machine |
 | Rendering | 2D sprites in a 3D isometric environment | Project was created from the Universal Render Pipeline **2D** template |
 | Windows release | Windows 10/11 64-bit | `.github/workflows/release-windows.yml` builds StandaloneWindows64 with game-ci on every push to `main`, wraps it in an Inno Setup `Setup.exe` (`installer/BinakayanRising.iss`) and publishes a GitHub prerelease |
+| Storage | Offline JSON/SQLite | JSON only, atomic write + backup + checksum (`Gameplay/Meta/SaveStore.cs`); no SQLite |
+| Grid | 12×12, rear rows deploy | 14×9; deploy zone is the trench column plus the tents; squad cap 6 (3 on q07) |
+| Kapatiran adjacency | 8-way recommended (#9) | 4-way, no diagonals (`KapatiranProximityRule.Orthogonal`) |
+| Quiz rewards (Table 4) | Reales, heal, buff, reset, revive | Only +50 Reales is built; the battle is pre-simulated, so the quiz can't change the outcome yet (#43) |
+| Spanish terrain (Table 2) | Bonuses not limited by side | Spanish get no trench/tent bonus (`SpanishReceivesTerrainBonuses = false`) |
 
 None of these is fatal. The Unity version difference is a minor revision. The 2D template is
 arguably the better fit for a sprite-based isometric game and the tilemap packages needed for it
