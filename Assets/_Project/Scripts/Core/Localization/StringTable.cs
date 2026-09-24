@@ -51,13 +51,13 @@ namespace BinakayanRising.Core.Localization
             Add(TextKey.ShowTips, "Show Tips", "Ipakita ang Tip");
             Add(TextKey.HideTips, "Hide Tips", "Itago ang Tip");
             Add(TextKey.TipsBody,
-                "<b>KAPATIRAN BONDS</b> (rank A)\n"
+                "<b>KAPATIRAN BONDS</b> (full bonus at rank A)\n"
                 + "MRK + ENG side by side — +20% accuracy, +1 range\n"
                 + "EVA + AGU side by side — +15% attack, +10% defense\n\n"
                 + "<b>TERRAIN</b> (your troops only)\n"
                 + "Trench — +20% defense, +15% evasion\n"
                 + "Tent — heals 5% HP per turn",
-                "<b>BUKLOD NG KAPATIRAN</b> (ranggo A)\n"
+                "<b>BUKLOD NG KAPATIRAN</b> (buo sa ranggo A)\n"
                 + "MRK + ENG magkatabi — +20% asinta, +1 layon\n"
                 + "EVA + AGU magkatabi — +15% atake, +10% depensa\n\n"
                 + "<b>LUPAIN</b> (para sa iyong hukbo)\n"
