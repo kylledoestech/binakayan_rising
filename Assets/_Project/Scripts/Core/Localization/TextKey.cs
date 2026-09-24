@@ -318,6 +318,23 @@ namespace BinakayanRising.Core.Localization
         LibGlossaryPage,
         LibGlossaryNote,
 
+        // #16 Spanish roster, #37 Escort, #38 Sabotage (agent A).
+        UnitSpanishArtillery,
+        UnitSpanishCazador,
+        UnitSpanishOfficer,
+        UnitSpanishMarine,
+        UnitSupplyCart,
+        HudObjectiveEscort,
+        HudObjectiveSabotage,
+        MapWinEscort,
+        MapWinSabotage,
+        OutcomeCartSaved,
+        OutcomeCartLost,
+        OutcomeMagazineBlown,
+        OutcomeMagazineMissed,
+        DeckEnemiesTitle,
+        DeckEnemiesBody,
+
         Count
     }
 }

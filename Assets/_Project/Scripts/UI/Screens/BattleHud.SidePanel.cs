@@ -240,7 +240,8 @@ namespace BinakayanRising.UI.Screens
             bool drawn = sprite != null;
 
             image.sprite = sprite;
-            image.color = drawn ? Color.white : (team == Team.Katipunan ? Theme.Revolution : Theme.Colonial);
+            // A borrowed portrait (#16) wears its archetype's tint, as its board figure does.
+            image.color = drawn ? BoardArt.ArchetypeTint(archetypeId) : (team == Team.Katipunan ? Theme.Revolution : Theme.Colonial);
             image.rectTransform.localRotation = drawn ? Quaternion.identity : Quaternion.Euler(0f, 0f, 45f);
             image.rectTransform.localScale = drawn ? Vector3.one : Vector3.one * 0.5f;
         }

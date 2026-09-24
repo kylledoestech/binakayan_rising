@@ -354,11 +354,9 @@ namespace BinakayanRising.UI.Shell
             if (quest.Kind == QuestKind.Battle)
             {
                 QuestBattle rules = quest.Battle;
-                text.Append("▸ ").Append(Loc.Format(TextKey.MapEnemies, rules.EnemyCount)).Append('\n');
+                text.Append("▸ ").Append(Loc.Format(TextKey.MapEnemies, EnemySummary(rules))).Append('\n');
                 text.Append("▸ ").Append(Loc.Format(TextKey.MapSquad, rules.SquadCap)).Append('\n');
-                text.Append("▸ ").Append(rules.WinRule == WinRule.Hold
-                    ? Loc.Format(TextKey.MapWinHold, rules.TurnCap)
-                    : Loc.Get(TextKey.MapWinRout)).Append('\n');
+                text.Append("▸ ").Append(WinLine(rules)).Append('\n');
                 text.Append("▸ ").Append(Loc.Format(TextKey.MapCost, quest.RationsCost)).Append('\n');
             }
             else
@@ -381,6 +379,59 @@ namespace BinakayanRising.UI.Shell
             }
 
             return text.ToString();
+        }
+
+        /// <summary>
+        /// The column's size, broken down by type when it is mixed (#16): "10 (5 REG · 3 CAZ · 1 OFF · 1 ART)".
+        /// The tags are the board's, explained on the How to Play deck's enemy page.
+        /// </summary>
+        private static string EnemySummary(QuestBattle rules)
+        {
+            var order = new System.Collections.Generic.List<string>();
+            var counts = new System.Collections.Generic.Dictionary<string, int>();
+            for (int i = 0; i < rules.Enemies.Count; i++)
+            {
+                string id = rules.Enemies[i];
+                int count;
+                if (!counts.TryGetValue(id, out count))
+                {
+                    order.Add(id);
+                }
+
+                counts[id] = count + 1;
+            }
+
+            if (order.Count <= 1)
+            {
+                return rules.EnemyCount.ToString();
+            }
+
+            var text = new System.Text.StringBuilder();
+            text.Append(rules.EnemyCount).Append(" (");
+            for (int i = 0; i < order.Count; i++)
+            {
+                UnitArchetype archetype = UnitCatalog.Find(order[i]);
+                text.Append(i > 0 ? " · " : string.Empty).Append(counts[order[i]]).Append(' ')
+                    .Append(archetype != null ? archetype.ShortName : order[i]);
+            }
+
+            return text.Append(')').ToString();
+        }
+
+        /// <summary>What wins the battle, in the player's language (#37, #38).</summary>
+        private static string WinLine(QuestBattle rules)
+        {
+            switch (rules.WinRule)
+            {
+                case WinRule.Hold:
+                    return Loc.Format(TextKey.MapWinHold, rules.TurnCap);
+                case WinRule.Escort:
+                    return Loc.Format(TextKey.MapWinEscort, rules.TurnCap);
+                case WinRule.Sabotage:
+                    return Loc.Format(TextKey.MapWinSabotage, rules.TurnCap);
+                default:
+                    return Loc.Get(TextKey.MapWinRout);
+            }
         }
 
         private static string StatusOf(MetaGame game, Quest quest)

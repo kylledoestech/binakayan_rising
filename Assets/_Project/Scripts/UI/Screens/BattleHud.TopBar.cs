@@ -16,6 +16,7 @@ namespace BinakayanRising.UI.Screens
         private readonly List<TextMeshProUGUI> speedLabels = new List<TextMeshProUGUI>();
 
         private TextMeshProUGUI phaseLabel;
+        private TextMeshProUGUI objectiveLabel;
         private TextMeshProUGUI seedLabel;
         private Button seedMinus;
         private Button seedPlus;
@@ -79,17 +80,45 @@ namespace BinakayanRising.UI.Screens
                 FixWidth(title.rectTransform, 330f);
             }
 
-            phaseLabel = UiKit.Body(row, string.Empty, Theme.Type.Body, TextAlignmentOptions.Left);
+            // Under an objective (#37, #38) the phase readout shares its slot with the standing
+            // order, so the player never has to open the briefing again to know what wins.
+            bool hasObjective = BattleText.Objective(battle.Rule, battle.TurnCap) != null;
+            Transform phaseParent = row;
+            if (hasObjective)
+            {
+                RectTransform phaseColumn = UiKit.Column(row, "Phase", 0f, 0f, TextAnchor.MiddleLeft);
+                ExpandChildren(phaseColumn);
+                phaseParent = phaseColumn;
+                LayoutElement columnElement = Element(phaseColumn);
+                columnElement.minWidth = 160f;
+                columnElement.preferredWidth = 260f;
+                columnElement.flexibleWidth = 1f;
+            }
+
+            phaseLabel = UiKit.Body(phaseParent, string.Empty, Theme.Type.Body, TextAlignmentOptions.Left);
 
             // Not gold: the top bar is parchment, and gold on parchment is close enough in value
             // that the phase readout disappears into its own background.
             phaseLabel.color = Theme.Revolution;
             phaseLabel.fontStyle = FontStyles.UpperCase;
             FitLine(phaseLabel, Theme.Type.Body);
-            LayoutElement phaseElement = Element(phaseLabel.rectTransform);
-            phaseElement.minWidth = 160f;
-            phaseElement.preferredWidth = 260f;
-            phaseElement.flexibleWidth = 1f;
+            if (hasObjective)
+            {
+                FixHeight(phaseLabel.rectTransform, 28f);
+                objectiveLabel = UiKit.Caption(phaseParent, string.Empty, TextAlignmentOptions.Left);
+                objectiveLabel.color = Theme.InkSoft;
+                objectiveLabel.fontStyle = FontStyles.Bold;
+                FitLine(objectiveLabel, Theme.Type.Small);
+                FixHeight(objectiveLabel.rectTransform, 22f);
+                Register("top.objective", objectiveLabel.rectTransform);
+            }
+            else
+            {
+                LayoutElement phaseElement = Element(phaseLabel.rectTransform);
+                phaseElement.minWidth = 160f;
+                phaseElement.preferredWidth = 260f;
+                phaseElement.flexibleWidth = 1f;
+            }
 
             // Seed
             RectTransform seed = Register("top.seed", UiKit.Row(row, "Seed", Theme.Space.Hair, 0f, TextAnchor.MiddleCenter));
@@ -252,6 +281,10 @@ namespace BinakayanRising.UI.Screens
             shownTurn = turn;
             shownPhaseVersion = Loc.Version;
             phaseLabel.text = BattleText.Phase(phase, turn);
+            if (objectiveLabel != null)
+            {
+                objectiveLabel.text = BattleText.Objective(battle.Rule, battle.TurnCap);
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using BinakayanRising.Core.Combat;
+using BinakayanRising.Core.Content;
 
 namespace BinakayanRising.Gameplay
 {
@@ -27,7 +28,14 @@ namespace BinakayanRising.Gameplay
         /// <summary>The player's units, in roster order. Ids are the save's unit ids.</summary>
         public List<RosterEntry> Roster = new List<RosterEntry>();
 
+        /// <summary>How many Spanish regulars advance when <see cref="Enemies"/> is null.</summary>
         public int EnemyCount = 6;
+
+        /// <summary>The Spanish column, one archetype id per unit (#16), or null for <see cref="EnemyCount"/> regulars.</summary>
+        public IReadOnlyList<string> Enemies;
+
+        /// <summary>The quest's win rule (#37, #38). Decides the simulator's objective.</summary>
+        public WinRule WinRule = WinRule.Rout;
 
         /// <summary>Most units the player may deploy.</summary>
         public int SquadCap = 6;
@@ -56,6 +64,24 @@ namespace BinakayanRising.Gameplay
         public bool IsWin(BattleOutcome outcome)
         {
             return outcome == BattleOutcome.Victory || (HoldWins && outcome == BattleOutcome.Draw);
+        }
+
+        /// <summary>The Spanish column as archetype ids: <see cref="Enemies"/>, or that many regulars.</summary>
+        public IReadOnlyList<string> EnemyList()
+        {
+            if (Enemies != null && Enemies.Count > 0)
+            {
+                return Enemies;
+            }
+
+            var regulars = new List<string>();
+            int count = EnemyCount < 1 ? 1 : (EnemyCount > 14 ? 14 : EnemyCount);
+            for (int i = 0; i < count; i++)
+            {
+                regulars.Add(UnitCatalog.SpanishRegular);
+            }
+
+            return regulars;
         }
     }
 

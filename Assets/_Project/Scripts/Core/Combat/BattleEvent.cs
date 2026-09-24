@@ -296,6 +296,29 @@ namespace BinakayanRising.Core.Combat
             return new BattleEvent(turn, BattleEventType.DamageDealt, attackerId, targetId, GridCoord.Zero, GridCoord.Zero, applied, result.WasCrit, result.WasEvaded, result.WasMissed, null);
         }
 
+        /// <summary>The detail a splash hit carries, so a reader can tell it from a direct hit.</summary>
+        public const string SplashDetail = "Splash";
+
+        /// <summary>
+        /// Blast damage from an artillery hit landing on a unit next to its target. Logged as
+        /// <see cref="BattleEventType.DamageDealt"/> with <see cref="SplashDetail"/>, so every
+        /// replay that already subtracts damage handles it unchanged.
+        /// </summary>
+        /// <param name="turn">Turn number.</param>
+        /// <param name="attackerId">The gun.</param>
+        /// <param name="targetId">The unit caught in the blast.</param>
+        /// <param name="applied">Health actually removed.</param>
+        public static BattleEvent SplashDamage(int turn, int attackerId, int targetId, float applied)
+        {
+            return new BattleEvent(turn, BattleEventType.DamageDealt, attackerId, targetId, GridCoord.Zero, GridCoord.Zero, applied, false, false, false, SplashDetail);
+        }
+
+        /// <summary>True for a <see cref="SplashDamage"/> event.</summary>
+        public bool IsSplash
+        {
+            get { return Type == BattleEventType.DamageDealt && Detail == SplashDetail; }
+        }
+
         /// <summary>A unit died.</summary>
         /// <param name="turn">Turn number.</param>
         /// <param name="unitId">Unit that died.</param>

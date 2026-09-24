@@ -28,6 +28,7 @@ namespace BinakayanRising.Gameplay
         private static Sprite tokenSprite;
         private static Sprite ringSprite;
         private static Sprite pixelSprite;
+        private static Sprite starSprite;
 
         /// <summary>A 2:1 isometric diamond with a subtly darker rim, sized to exactly one grid cell.</summary>
         public static Sprite Tile
@@ -85,6 +86,23 @@ namespace BinakayanRising.Gameplay
                 }
 
                 return pixelSprite;
+            }
+        }
+
+        /// <summary>
+        /// A five-pointed star with a dark rim: the Sabotage objective's powder-magazine marker
+        /// (#38). Drawn rather than typed, because the baked fonts carry no star glyph.
+        /// </summary>
+        public static Sprite Star
+        {
+            get
+            {
+                if (starSprite == null)
+                {
+                    starSprite = BuildStar(96);
+                }
+
+                return starSprite;
             }
         }
 
@@ -175,6 +193,52 @@ namespace BinakayanRising.Gameplay
         }
 
         /// <summary>
+        /// Rasterises an upright five-pointed star: a point is inside when its radius is under the
+        /// star's outline at that angle, which alternates linearly between the outer and inner
+        /// radius every 36 degrees. The outermost band is darkened into a rim so it reads on sand.
+        /// </summary>
+        private static Sprite BuildStar(int size)
+        {
+            Texture2D texture = NewTexture(size, size);
+            Color32[] pixels = new Color32[size * size];
+
+            const float outer = 0.96f;
+            const float inner = 0.42f;
+            float half = size * 0.5f;
+            float feather = 2.5f / size;
+            float sector = Mathf.PI / 5f;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float nx = ((x + 0.5f) - half) / half;
+                    float ny = ((y + 0.5f) - half) / half;
+                    float radius = Mathf.Sqrt((nx * nx) + (ny * ny));
+
+                    // Angular distance from the nearest tip; tips sit every two sectors from straight up.
+                    float angle = Mathf.Atan2(nx, ny);
+                    float phi = Mathf.Abs(Mathf.Repeat(angle + sector, sector * 2f) - sector);
+
+                    // The outline is the straight edge from a tip (outer, 0) to a notch (inner, sector).
+                    float edge = (outer * inner * Mathf.Sin(sector))
+                        / ((outer * Mathf.Sin(phi)) + (inner * Mathf.Sin(sector - phi)));
+                    float alpha = Mathf.InverseLerp(edge, edge - feather, radius);
+                    float rim = Mathf.InverseLerp(edge - 0.16f, edge - 0.08f, radius);
+                    float shade = Mathf.Lerp(1f, 0.35f, rim);
+
+                    pixels[(y * size) + x] = new Color(shade, shade, shade, alpha);
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply();
+
+            return Sprite.Create(
+                texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), PixelsPerUnit);
+        }
+
+        /// <summary>
         /// Drops the cached sprites so the next play session rebuilds them.
         /// </summary>
         /// <remarks>
@@ -190,6 +254,7 @@ namespace BinakayanRising.Gameplay
             tokenSprite = null;
             ringSprite = null;
             pixelSprite = null;
+            starSprite = null;
         }
     }
 }

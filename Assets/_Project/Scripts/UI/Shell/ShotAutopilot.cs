@@ -107,6 +107,10 @@ namespace BinakayanRising.UI.Shell
                     yield return Deploy();
                     break;
 
+                case "roster":
+                    yield return Roster();
+                    break;
+
                 default:
                     yield return Phase1();
                     break;
@@ -1064,6 +1068,195 @@ namespace BinakayanRising.UI.Shell
 
             Vector3 screen = battle.BoardCamera.WorldToScreenPoint(world);
             return new Vector2(screen.x, screen.y);
+        }
+
+        /// <summary>
+        /// The Spanish roster and the Level 2 win rules (#16, #37, #38): the Mission Tent's enemy
+        /// breakdown, the enemy page of the How-to-Play deck, then three battles mid-replay: q10's
+        /// mixed column, q06's escort with the supply cart, and q07's sabotage with the magazine
+        /// star. Each battle's objective markers are measured into the audit, not just shot.
+        /// </summary>
+        private IEnumerator Roster()
+        {
+            Shell.Session.DeleteSave();
+            Shell.StartNewCampaign();
+            yield return Wait(0.6f);
+
+            MetaGame game = Shell.Session.Game;
+            game.Earn(Currency.Rations, 200);
+            foreach (string id in new[] { "q01", "q02", "q03", "q04", "q05", "q06", "q07", "q08", "q09" })
+            {
+                game.Data.clearedQuests.Add(id);
+            }
+
+            Hub().Dialogue.Finish();
+            yield return DrainRankCards();
+
+            yield return OpenMissionTent();
+            yield return Shot("roster_01_tent");
+            UserPrefs.ChooseLanguage(Language.Filipino);
+            yield return Shot("roster_01_tent_fil");
+            UserPrefs.ChooseLanguage(Language.English);
+
+            // q10: every Spanish type on one board.
+            yield return RosterBattle("q10", "roster_02_enemies", true);
+            yield return OpenMissionTent();
+
+            // q06: the escort. The cart and its ring are on the board before anyone deploys.
+            yield return RosterBattle("q06", "roster_03_escort", false);
+            yield return OpenMissionTent();
+
+            // q07: the sabotage. The magazine cell and its star.
+            yield return RosterBattle("q07", "roster_04_sabotage", false);
+        }
+
+        /// <summary>Walks to the Mission Tent and waits for its map.</summary>
+        private IEnumerator OpenMissionTent()
+        {
+            Shell.Camp.ClickSite(Places.MissionTent);
+            yield return WaitWhile(() => Shell.Camp.IsWalking, 8f);
+            Hub().Dialogue.Finish();
+            yield return WaitWhile(() => !(Shell.Router.Current is MissionMapScreen), 4f);
+            yield return Wait(0.4f);
+        }
+
+        /// <summary>Continues every rank card that comes up.</summary>
+        private IEnumerator DrainRankCards()
+        {
+            yield return WaitWhile(() => RankUpCard.Current == null, 3f);
+            for (int i = 0; RankUpCard.Current != null && i < 10; i++)
+            {
+                RankUpCard.Current.Continue();
+                RankUpCard.Current?.Continue();
+                yield return Wait(0.4f);
+            }
+        }
+
+        /// <summary>
+        /// Opens <paramref name="questId"/>, shoots the deployment and the replay part-way, the
+        /// finished report, and returns to camp. Writes the objective markers' cells to the audit.
+        /// </summary>
+        private IEnumerator RosterBattle(string questId, string prefix, bool showDeck)
+        {
+            Shell.LaunchQuest(Campaign.Find(questId));
+            yield return Wait(0.5f);
+            CutscenePlayer.Current?.Skip();
+            yield return WaitWhile(() => Shell.Battle == null, 4f);
+            yield return Wait(1.5f);
+            Gameplay.BattlePlaytest battle = Shell.Battle;
+            if (battle == null)
+            {
+                Note("roster", "the " + questId + " battle did not open");
+                yield break;
+            }
+
+            var hud = Object.FindAnyObjectByType<BinakayanRising.UI.Screens.BattleHud>();
+            if (showDeck && hud != null && hud.Deck != null)
+            {
+                hud.Deck.Open();
+                hud.Deck.ShowPage(4);
+                yield return Shot(prefix + "_deck", 0.5f);
+                UserPrefs.ChooseLanguage(Language.Filipino);
+                yield return Shot(prefix + "_deck_fil", 0.5f);
+                UserPrefs.ChooseLanguage(Language.English);
+                hud.Deck.Close();
+                yield return Wait(0.4f);
+            }
+
+            battle.RequestAutoDeploy();
+            yield return Wait(0.5f);
+            AuditObjective(prefix, battle);
+            yield return Shot(prefix + "_deploy");
+
+            battle.RequestAssault();
+            battle.SetSpeed(1f);
+            yield return Wait(4f);
+            AnswerQuiz();
+            yield return Shot(prefix, 0.1f);
+            UserPrefs.ChooseLanguage(Language.Filipino);
+            yield return Shot(prefix + "_fil", 0.2f);
+            UserPrefs.ChooseLanguage(Language.English);
+
+            battle.SetSpeed(8f);
+            float waited = 0f;
+            while (Shell.Battle != null && Shell.Battle.CurrentPhase != Gameplay.BattlePlaytest.Phase.Finished && waited < 150f)
+            {
+                AnswerQuiz();
+                yield return Wait(0.5f);
+                waited += 0.5f;
+            }
+
+            if (Shell.Battle == null || Shell.Battle.Result == null)
+            {
+                Note("roster", questId + " did not finish");
+                yield break;
+            }
+
+            Core.Combat.BattleResult result = Shell.Battle.Result;
+            audit.AppendFormat("\n-- {0} outcome {1} after {2} turns, won {3}, katipunan {4}, spanish {5}\n",
+                questId, result.Outcome, result.TurnsElapsed, Shell.Battle.MissionWon, result.KatipunanAlive, result.SpanishAlive);
+            yield return Shot(prefix + "_report", 1.5f);
+
+            Shell.Battle.EndMission();
+            yield return Wait(1f);
+            yield return DrainPromotions(prefix);
+            yield return DrainRankCards();
+            yield return Wait(0.5f);
+        }
+
+        /// <summary>Answers and closes an open battle question, if one is up.</summary>
+        private void AnswerQuiz()
+        {
+            if (QuizCard.Current != null)
+            {
+                PickFirst();
+                QuizCard.Current?.Continue();
+            }
+        }
+
+        /// <summary>
+        /// Measures what the objective put on the board: every unit's archetype and cell, the cart's
+        /// cell under Escort, and the magazine markers' positions under Sabotage.
+        /// </summary>
+        private void AuditObjective(string prefix, Gameplay.BattlePlaytest battle)
+        {
+            var units = new List<Gameplay.BattlePlaytest.UnitSnapshot>();
+            battle.GetUnits(units);
+            var counts = new SortedDictionary<string, int>();
+            bool cart = false;
+            foreach (Gameplay.BattlePlaytest.UnitSnapshot unit in units)
+            {
+                int count;
+                counts.TryGetValue(unit.ArchetypeId ?? "?", out count);
+                counts[unit.ArchetypeId ?? "?"] = count + 1;
+                cart |= unit.Id == Gameplay.PlaytestScenario.SupplyCartId;
+            }
+
+            audit.AppendFormat("\n-- {0} rule {1}, cap {2}, units:", prefix, battle.Rule, battle.TurnCap);
+            foreach (KeyValuePair<string, int> pair in counts)
+            {
+                audit.Append(' ').Append(pair.Key).Append('×').Append(pair.Value);
+            }
+
+            audit.Append('\n');
+            if (battle.Rule == WinRule.Escort && !cart)
+            {
+                Note(prefix, "no supply cart on the board");
+            }
+
+            foreach (string marker in new[] { "Objective Cart", "Objective Magazine", "Objective Star" })
+            {
+                GameObject found = GameObject.Find(marker);
+                if (found != null)
+                {
+                    audit.AppendFormat("   {0} at world ({1:0.00},{2:0.00})\n", marker, found.transform.position.x, found.transform.position.y);
+                }
+            }
+
+            if (battle.Rule == WinRule.Sabotage && GameObject.Find("Objective Star") == null)
+            {
+                Note(prefix, "no magazine star on the board");
+            }
         }
 
         private void PickFirst()

@@ -21,14 +21,45 @@ namespace BinakayanRising.Core.Content
 
         /// <summary>
         /// Still have a unit standing when the turn cap is reached. The battle's draw becomes a
-        /// win: the earthworks held.
+        /// win. No quest uses it since q06 became an escort; kept for saves and the playtest.
         /// </summary>
-        Hold = 1
+        Hold = 1,
+
+        /// <summary>
+        /// Keep the supply cart alive until the turn cap. It never fights; losing it loses the
+        /// battle. "Forging the Earthworks" (q06, #37).
+        /// </summary>
+        Escort = 2,
+
+        /// <summary>
+        /// End a turn with any squad member on the marked powder magazine behind the Spanish line,
+        /// before the turn cap. "The Silent Sabotage" (q07, #38).
+        /// </summary>
+        Sabotage = 3
+    }
+
+    /// <summary>So many of one Spanish archetype in a battle's column.</summary>
+    public struct EnemyGroup
+    {
+        /// <summary>A <see cref="UnitCatalog"/> id of the Spanish side.</summary>
+        public readonly string ArchetypeId;
+
+        /// <summary>How many of them.</summary>
+        public readonly int Count;
+
+        public EnemyGroup(int count, string archetypeId)
+        {
+            Count = count;
+            ArchetypeId = archetypeId;
+        }
     }
 
     /// <summary>The battle half of a <see cref="QuestKind.Battle"/> sub-quest.</summary>
     public sealed class QuestBattle
     {
+        /// <summary>Every Spanish unit, in the order they are numbered and formed up.</summary>
+        public readonly IReadOnlyList<string> Enemies;
+
         public readonly int EnemyCount;
         public readonly int SquadCap;
         public readonly WinRule WinRule;
@@ -41,9 +72,26 @@ namespace BinakayanRising.Core.Content
         /// <summary>Asks one historical question at this turn. 0 for none.</summary>
         public readonly int QuizTurn;
 
+        /// <summary>A battle against <paramref name="enemyCount"/> Spanish regulars.</summary>
         public QuestBattle(int enemyCount, int squadCap, WinRule winRule, int turnCap, int seed, bool tutorial, int quizTurn)
+            : this(new[] { new EnemyGroup(enemyCount, UnitCatalog.SpanishRegular) }, squadCap, winRule, turnCap, seed, tutorial, quizTurn)
         {
-            EnemyCount = enemyCount;
+        }
+
+        /// <summary>A battle against a mixed Spanish column, listed group by group.</summary>
+        public QuestBattle(EnemyGroup[] enemies, int squadCap, WinRule winRule, int turnCap, int seed, bool tutorial, int quizTurn)
+        {
+            var list = new List<string>();
+            for (int g = 0; g < enemies.Length; g++)
+            {
+                for (int i = 0; i < enemies[g].Count; i++)
+                {
+                    list.Add(enemies[g].ArchetypeId);
+                }
+            }
+
+            Enemies = list;
+            EnemyCount = list.Count;
             SquadCap = squadCap;
             WinRule = winRule;
             TurnCap = turnCap;
@@ -107,6 +155,24 @@ namespace BinakayanRising.Core.Content
 
         public QuestBattle Battle;
 
+        /// <summary>How many of one Spanish archetype the quest's battle fields.</summary>
+        public int EnemiesOf(string archetypeId)
+        {
+            int count = 0;
+            if (Battle != null)
+            {
+                for (int i = 0; i < Battle.Enemies.Count; i++)
+                {
+                    if (Battle.Enemies[i] == archetypeId)
+                    {
+                        count++;
+                    }
+                }
+            }
+
+            return count;
+        }
+
         /// <summary>Hub-task step ids, all required. See <see cref="Campaign.Task"/>.</summary>
         public string[] Tasks = new string[0];
 
@@ -141,10 +207,18 @@ namespace BinakayanRising.Core.Content
     /// The linear campaign of Appendix F: three levels, ten sub-quests, in order.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Sub-quests tagged as tutorials, base management or resource gathering are played in the
-    /// encampment; the rest are battles. The Level 2 stealth and escort tags
-    /// are battles with their own rule — a small squad, and holding out — rather than new game
-    /// modes (DESIGN-DECISIONS #21).
+    /// encampment; the rest are battles. The Level 2 escort and stealth tags are battles with their
+    /// own win rule on the same auto-battler loop (DESIGN-DECISIONS #21): q06 guards a supply cart
+    /// until turn 20 (<see cref="WinRule.Escort"/>), q07 sends a squad of three onto a powder
+    /// magazine behind the Spanish line (<see cref="WinRule.Sabotage"/>).
+    /// </para>
+    /// <para>
+    /// The Spanish column grows with the campaign (DESIGN-DECISIONS #19): regulars only in the
+    /// q02 tutorial, marines for the landings (q05, q09), artillery once the offensive opens (q06,
+    /// q08, q10), and an officer wherever a column needs holding together.
+    /// </para>
     /// </remarks>
     public static class Campaign
     {
@@ -247,7 +321,8 @@ namespace BinakayanRising.Core.Content
                     "A landing party comes ashore. Place bonded pairs side by side - Kapatiran makes them stronger together.",
                     "May pangkat na dumaong sa pampang. Ipuwesto nang magkatabi ang magkabuklod - mas malakas sila nang magkasama."),
                 PreCutscene = "c05_armada",
-                Battle = new QuestBattle(5, 6, WinRule.Rout, 120, 1901, false, 4),
+                // A landing party: marines wade in along the shallows beside the regulars.
+                Battle = new QuestBattle(new[] { new EnemyGroup(3, UnitCatalog.SpanishRegular), new EnemyGroup(2, UnitCatalog.SpanishMarine) }, 6, WinRule.Rout, 120, 1901, false, 4),
                 RationsCost = 5, RewardReales = 150, RewardWeapon = WeaponCatalog.Paltik, RewardLesson = "l05",
                 MapX = 0.72f, MapY = 0.56f
             },
@@ -258,10 +333,11 @@ namespace BinakayanRising.Core.Content
                 Tag = new LocString("Defense", "Pagtatanggol"),
                 Place = new LocString("Binakayan", "Binakayan"),
                 Briefing = new LocString(
-                    "The trenches are half dug. Hold the line for 30 turns so the diggers can finish.",
-                    "Kalahati pa lang ang trinsera. Manindigan nang 30 yugto upang matapos ng mga manghuhukay."),
+                    "The trenches are half dug. Keep the supply cart behind the line alive until turn 20 so the diggers can finish.",
+                    "Kalahati pa lang ang trinsera. Iligtas ang kariton ng panustos sa likod ng hanay hanggang yugto 20 upang matapos ng mga manghuhukay."),
                 PreCutscene = "c06_earthworks",
-                Battle = new QuestBattle(8, 6, WinRule.Hold, 30, 1902, false, 5),
+                // Escort: the cart must still stand at the end of turn 20. One gun shells the line.
+                Battle = new QuestBattle(new[] { new EnemyGroup(5, UnitCatalog.SpanishRegular), new EnemyGroup(3, UnitCatalog.SpanishCazador), new EnemyGroup(1, UnitCatalog.SpanishOfficer), new EnemyGroup(1, UnitCatalog.SpanishArtillery) }, 6, WinRule.Escort, 20, 1902, false, 5),
                 RationsCost = 6, RewardReales = 200, RewardLesson = "l06",
                 MapX = 0.58f, MapY = 0.40f
             },
@@ -272,10 +348,11 @@ namespace BinakayanRising.Core.Content
                 Tag = new LocString("Stealth / Intelligence", "Paniktik"),
                 Place = new LocString("Cavite Nuevo", "Cavite Nuevo"),
                 Briefing = new LocString(
-                    "Only three may slip behind enemy lines. Choose them well and strike the guard post.",
-                    "Tatlo lamang ang maaaring pumuslit sa likod ng kaaway. Piliin silang mabuti at salakayin ang bantayan."),
+                    "Only three may slip behind enemy lines. Reach the marked powder magazine within 30 turns - they fight only what blocks the way.",
+                    "Tatlo lamang ang maaaring pumuslit sa likod ng kaaway. Marating ang markadong imbakan ng pulbura sa loob ng 30 yugto - lalabanan lamang nila ang humaharang."),
                 PreCutscene = "c07_sabotage",
-                Battle = new QuestBattle(4, 3, WinRule.Rout, 120, 1903, false, 3),
+                // Sabotage: a squad of three makes for the magazine; the guard post stands in the way.
+                Battle = new QuestBattle(new[] { new EnemyGroup(2, UnitCatalog.SpanishRegular), new EnemyGroup(1, UnitCatalog.SpanishCazador), new EnemyGroup(1, UnitCatalog.SpanishOfficer) }, 3, WinRule.Sabotage, 30, 1903, false, 3),
                 RationsCost = 4, RewardReales = 200, RewardWeapon = WeaponCatalog.Remington, RewardLesson = "l07",
                 MapX = 0.80f, MapY = 0.30f
             },
@@ -291,7 +368,8 @@ namespace BinakayanRising.Core.Content
                     "Blanco's offensive begins. Spanish columns advance on Binakayan under covering fire.",
                     "Nagsimula ang opensiba ni Blanco. Sumusulong ang mga hanay ng Kastila sa Binakayan."),
                 PreCutscene = Cutscenes.Act4,
-                Battle = new QuestBattle(8, 6, WinRule.Rout, 120, 1909, false, 4),
+                // "Under covering fire": two guns behind a column led by an officer.
+                Battle = new QuestBattle(new[] { new EnemyGroup(4, UnitCatalog.SpanishRegular), new EnemyGroup(1, UnitCatalog.SpanishCazador), new EnemyGroup(1, UnitCatalog.SpanishOfficer), new EnemyGroup(2, UnitCatalog.SpanishArtillery) }, 6, WinRule.Rout, 120, 1909, false, 4),
                 RationsCost = 8, RewardReales = 250, RewardLesson = "l08",
                 MapX = 0.56f, MapY = 0.28f
             },
@@ -305,7 +383,8 @@ namespace BinakayanRising.Core.Content
                     "The fighting shifts to the Dalahican shore. The enemy wades through the shallows.",
                     "Lumipat ang labanan sa baybayin ng Dalahican. Lumulusong ang kaaway sa mababaw na tubig."),
                 PreCutscene = "c09_attrition",
-                Battle = new QuestBattle(10, 6, WinRule.Rout, 120, 1910, false, 5),
+                // The shore battle: marines in the shallows, Cazadores screening them.
+                Battle = new QuestBattle(new[] { new EnemyGroup(3, UnitCatalog.SpanishRegular), new EnemyGroup(4, UnitCatalog.SpanishMarine), new EnemyGroup(2, UnitCatalog.SpanishCazador), new EnemyGroup(1, UnitCatalog.SpanishOfficer) }, 6, WinRule.Rout, 120, 1910, false, 5),
                 RationsCost = 10, RewardReales = 300, RewardWeapon = WeaponCatalog.Mauser, RewardLesson = "l09",
                 MapX = 0.34f, MapY = 0.22f
             },
@@ -320,7 +399,8 @@ namespace BinakayanRising.Core.Content
                     "Ang huli at pinakamalaking salakay. Susubukin ang lahat ng itinayo ni Evangelista."),
                 PreCutscene = "c10_dawn",
                 PostCutscene = Cutscenes.Aftermath,
-                Battle = new QuestBattle(14, 6, WinRule.Rout, 120, 1911, false, 6),
+                // Everything at once.
+                Battle = new QuestBattle(new[] { new EnemyGroup(6, UnitCatalog.SpanishRegular), new EnemyGroup(2, UnitCatalog.SpanishMarine), new EnemyGroup(3, UnitCatalog.SpanishCazador), new EnemyGroup(2, UnitCatalog.SpanishOfficer), new EnemyGroup(1, UnitCatalog.SpanishArtillery) }, 6, WinRule.Rout, 120, 1911, false, 6),
                 RationsCost = 12, RewardReales = 500, RewardLesson = "l10",
                 MapX = 0.46f, MapY = 0.14f
             }
