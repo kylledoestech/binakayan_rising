@@ -91,7 +91,7 @@ namespace BinakayanRising.UI.Shell
                 return null;
             }
 
-            Canvas canvas = UiKit.Screen("Quiz", Theme.Layer.Modal);
+            Canvas canvas = UiKit.Screen("Quiz", Theme.Layer.Quiz);
             UiKit.EnsureEventSystem();
             var view = canvas.gameObject.AddComponent<QuizCard>();
             view.questions = list;

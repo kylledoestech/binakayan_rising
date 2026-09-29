@@ -40,6 +40,7 @@ namespace BinakayanRising.UI.Shell
         public const int GlossaryRows = 10;
 
         private GameShell shell;
+        private Image scrim;
         private RectTransform card;
         private CanvasGroup cardGroup;
         private TextMeshProUGUI title;
@@ -129,7 +130,7 @@ namespace BinakayanRising.UI.Shell
 
         private void Build(Transform root)
         {
-            UiKit.Scrim(root);
+            scrim = UiKit.Scrim(root);
 
             card = UiKit.Panel(root, "Card");
             UiKit.Anchor(card, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(CardWidth, CardHeight));
@@ -527,13 +528,20 @@ namespace BinakayanRising.UI.Shell
             AssessmentRecord record = game.Assessment(level);
             int seed = (level * 7919) + (record != null ? record.attempts : 0) * 104729 + System.Environment.TickCount;
             List<Question> test = Learning.Test(level, count, seed);
-            card.gameObject.SetActive(false);
+            // Out of the way entirely, scrim too: a live scrim under the test can take its clicks.
+            ShowDesk(false);
             QuizCard.Show(test, Loc.Format(TextKey.LibTest, level), null, score => FinishTest(level, score, test.Count));
+        }
+
+        private void ShowDesk(bool show)
+        {
+            scrim.gameObject.SetActive(show);
+            card.gameObject.SetActive(show);
         }
 
         private void FinishTest(int level, int score, int total)
         {
-            card.gameObject.SetActive(true);
+            ShowDesk(true);
             MetaGame game = Game;
             if (game == null)
             {

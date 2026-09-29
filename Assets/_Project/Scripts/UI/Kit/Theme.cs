@@ -172,6 +172,12 @@ namespace BinakayanRising.UI.Kit
             public const int Pause = 215;
             public const int Settings = 220;
             public const int Modal = 230;
+
+            /// <summary>
+            /// The quiz: over the other modals, since the Library opens it from inside its own. At
+            /// an equal order, which canvas takes the click is left to Unity.
+            /// </summary>
+            public const int Quiz = 235;
             public const int Toast = 240;
         }
 
