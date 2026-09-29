@@ -329,6 +329,14 @@ namespace BinakayanRising.UI.Shell
                 node.Sun.color = faded;
                 node.Number.color = node.Quest == current ? Theme.Parchment : Theme.Ink;
                 node.Ring.enabled = node.Quest == selected;
+
+                // Kawit's battle and its encampment sit 40 px apart, closer than a node's hit area
+                // is wide, so the later node took clicks at the earlier one's centre. The quest the
+                // player is on draws last and takes them instead.
+                if (node.Quest == current)
+                {
+                    node.Root.SetAsLastSibling();
+                }
             }
 
             IReadOnlyList<Quest> quests = Campaign.Quests;

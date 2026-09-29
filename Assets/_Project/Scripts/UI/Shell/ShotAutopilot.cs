@@ -123,6 +123,10 @@ namespace BinakayanRising.UI.Shell
                     yield return Bench();
                     break;
 
+                case "campaign":
+                    yield return CampaignRoute();
+                    break;
+
                 default:
                     yield return Phase1();
                     break;
@@ -1741,6 +1745,15 @@ namespace BinakayanRising.UI.Shell
 
                     rect.GetWorldCorners(corners);
                     Rect bounds = ScreenRect(corners, canvas);
+
+                    // A button under the desktop's real cursor grows by its hover scale (177x62 for
+                    // a 170x60 button). The layout gave it its unscaled size; measure that.
+                    Vector3 feel = rect.localScale;
+                    if (rect.GetComponent<UiButtonFeel>() != null && feel.x > 0f && feel.y > 0f)
+                    {
+                        Vector2 unscaled = new Vector2(bounds.width / feel.x, bounds.height / feel.y);
+                        bounds = new Rect(bounds.center - (unscaled * 0.5f), unscaled);
+                    }
 
                     // Scroll content below its viewport is clipped by the viewport's mask; only the
                     // part the mask lets through is on screen, and that is what gets measured.

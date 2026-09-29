@@ -15,7 +15,7 @@ the row when it's done.
 | 7 | Target platform | "Windows 10/11 64-bit" | Unchanged. Add: "Developed on Linux; the Windows 64-bit installer is built automatically by CI (`.github/workflows/release-windows.yml`)" |
 | 8 | Table 4 / Quiz | (cadence not specified) | "One question per battle, at a fixed turn of the replay (turns 3–6; none in the tutorial battle). A right answer gives +50 Reales and lets the player choose one of four Tactician's Commands (heal all allies 10%, +10% attack for 1 turn, reset enemy positions, revive the last fallen ally); the battle is re-simulated from the quiz turn with the command applied, so the outcome can change. A wrong answer gives nothing" |
 | 9 | Enemy AI | "the Spanish AI" | "Five Spanish unit types (Regular, Cazador, Officer, Marine, Artillery); stats in `Docs/DESIGN-DECISIONS.md`" |
-| 10 | Level 2 sub-quests | "stealth/intelligence", "defense/escort" | "*Forging the Earthworks*: keep the supply cart alive until turn 20. *The Silent Sabotage*: three units must reach the Spanish powder magazine" |
+| 10 | Level 2 sub-quests | "stealth/intelligence", "defense/escort" | "*Forging the Earthworks*: keep the supply cart alive until turn 20. *The Silent Sabotage*: a squad of three slips behind the line; the battle is won when any one of them reaches the Spanish powder magazine" |
 
 The decisions behind rows 5–10 are recorded, with reasons, under "Final decisions" and "As built"
 in `Docs/DESIGN-DECISIONS.md`.
