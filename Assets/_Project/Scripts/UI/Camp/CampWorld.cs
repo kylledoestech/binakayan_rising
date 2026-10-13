@@ -24,6 +24,11 @@ namespace BinakayanRising.UI.Camp
     /// The camera is framed so art pixels land on whole screen pixels (two per art pixel at
     /// 1080p), and handed back as it was when the camp hides, so a battle finds it untouched.
     /// </para>
+    /// <para>
+    /// The scroll wheel zooms (GDD p. 38) in whole pixel scales only, <see cref="MaxZoomSteps"/>
+    /// past the framing, so the art stays crisp; toward the cursor, and never out past the
+    /// framed view. Zoomed in, the camera glides after the player's figure while it walks.
+    /// </para>
     /// </remarks>
     public sealed class CampWorld : MonoBehaviour
     {
@@ -39,6 +44,19 @@ namespace BinakayanRising.UI.Camp
 
         /// <summary>Space kept clear between the art and the screen's edges, in art pixels.</summary>
         private const float FrameMarginPixels = 6f;
+
+        /// <summary>How many whole pixel scales the wheel can zoom in past the framing.</summary>
+        public const int MaxZoomSteps = 2;
+
+        /// <summary>Wheel notches closer together than this count once (a touchpad sends a stream).</summary>
+        private const float ZoomCooldown = 0.12f;
+
+        /// <summary>
+        /// Zoomed in, the camera follows a walking figure that comes nearer the edge of the view
+        /// than this share of it, and how quickly it catches up.
+        /// </summary>
+        private const float FollowMargin = 0.22f;
+        private const float FollowRate = 8f;
 
         private const int GroundOrder = -30000;
         private const int MarkOrder = -29000;
@@ -77,6 +95,14 @@ namespace BinakayanRising.UI.Camp
         private CameraClearFlags savedClear;
         private Vector2Int framedFor;
         private float topInset;
+
+        // The framing (zoom step 0): its pixels per world unit, and the world area it shows under
+        // the interface, which a zoomed view must stay inside. Focus is the centre of that area.
+        private float fitPixelsPerUnit;
+        private Rect fitArea;
+        private Vector2 focus;
+        private int zoomSteps;
+        private float zoomReadyAt;
 
         private Rect content;
 
@@ -151,6 +177,41 @@ namespace BinakayanRising.UI.Camp
         public bool IsWalking
         {
             get { return route != null; }
+        }
+
+        /// <summary>Wheel steps zoomed in past the framing: 0 to <see cref="MaxZoomSteps"/>.</summary>
+        public int ZoomSteps
+        {
+            get { return zoomSteps; }
+        }
+
+        /// <summary>Screen pixels per world unit now: 80 times a whole number, but for a tiny screen.</summary>
+        public float PixelsPerUnit
+        {
+            get { return PixelsPerUnitAt(zoomSteps); }
+        }
+
+        /// <summary>The world area the framing shows under the interface; a zoomed view stays inside it.</summary>
+        public Rect FramedArea
+        {
+            get { return fitArea; }
+        }
+
+        /// <summary>The world area on screen now under the interface.</summary>
+        public Rect VisibleArea
+        {
+            get
+            {
+                float ppu = PixelsPerUnit;
+                Vector2 size = new Vector2(Screen.width / ppu, (Screen.height - topInset) / ppu);
+                return new Rect(focus - (size * 0.5f), size);
+            }
+        }
+
+        /// <summary>The player's figure, in world space.</summary>
+        public Vector3 AvatarPosition
+        {
+            get { return avatar.position; }
         }
 
         /// <summary>The cell the player's figure stands on, or is about to reach.</summary>
@@ -379,6 +440,7 @@ namespace BinakayanRising.UI.Camp
             topInset = topInsetPixels;
             gameObject.SetActive(true);
             TakeCamera();
+            zoomSteps = 0;
             Frame();
         }
 
@@ -460,15 +522,119 @@ namespace BinakayanRising.UI.Camp
                 pixelsPerUnit = Mathf.Min(Screen.width / needWidth, (Screen.height - topInset) / needHeight);
             }
 
-            view.orthographicSize = Screen.height / (2f * pixelsPerUnit);
+            // The camp centred in the space under the interface. A zoomed view keeps its place,
+            // pulled back inside the new framing.
+            fitPixelsPerUnit = pixelsPerUnit;
+            Vector2 area = new Vector2(Screen.width / pixelsPerUnit, (Screen.height - topInset) / pixelsPerUnit);
+            fitArea = new Rect(content.center - (area * 0.5f), area);
+            if (zoomSteps == 0)
+            {
+                focus = content.center;
+            }
 
-            // Centre the camp in the space under the interface, then snap to a screen pixel.
-            float insetWorld = topInset / pixelsPerUnit;
-            float x = content.center.x;
-            float y = content.center.y + (insetWorld * 0.5f);
-            x = Mathf.Round(x * pixelsPerUnit) / pixelsPerUnit;
-            y = Mathf.Round(y * pixelsPerUnit) / pixelsPerUnit;
+            ApplyView();
+        }
+
+        /// <summary>Screen pixels per world unit at <paramref name="steps"/> wheel steps in.</summary>
+        private float PixelsPerUnitAt(int steps)
+        {
+            if (steps <= 0)
+            {
+                return fitPixelsPerUnit;
+            }
+
+            return CampIso.PixelsPerUnit * (Mathf.Floor(fitPixelsPerUnit / CampIso.PixelsPerUnit) + steps);
+        }
+
+        /// <summary>
+        /// Sizes the camera for the zoom step and centres the area under the interface on
+        /// <see cref="focus"/>, kept inside the framing and snapped to a screen pixel.
+        /// </summary>
+        private void ApplyView()
+        {
+            float ppu = PixelsPerUnitAt(zoomSteps);
+            Vector2 half = new Vector2(Screen.width / ppu, (Screen.height - topInset) / ppu) * 0.5f;
+            focus.x = fitArea.width <= half.x * 2f ? fitArea.center.x : Mathf.Clamp(focus.x, fitArea.xMin + half.x, fitArea.xMax - half.x);
+            focus.y = fitArea.height <= half.y * 2f ? fitArea.center.y : Mathf.Clamp(focus.y, fitArea.yMin + half.y, fitArea.yMax - half.y);
+
+            view.orthographicSize = Screen.height / (2f * ppu);
+            float x = Mathf.Round(focus.x * ppu) / ppu;
+            float y = Mathf.Round((focus.y + (topInset / ppu * 0.5f)) * ppu) / ppu;
             view.transform.position = new Vector3(x, y, -10f);
+        }
+
+        /// <summary>
+        /// Zooms <paramref name="steps"/> whole pixel scales in (or out, when negative), keeping the
+        /// world point under <paramref name="screenAnchor"/> where it is. False when already at
+        /// that end.
+        /// </summary>
+        public bool ZoomBy(int steps, Vector2 screenAnchor)
+        {
+            int next = Mathf.Clamp(zoomSteps + steps, 0, MaxZoomSteps);
+            if (view == null || next == zoomSteps)
+            {
+                return false;
+            }
+
+            Vector3 before = view.ScreenToWorldPoint(new Vector3(screenAnchor.x, screenAnchor.y, 0f));
+            zoomSteps = next;
+            if (zoomSteps == 0)
+            {
+                focus = content.center;
+                ApplyView();
+                return true;
+            }
+
+            ApplyView();
+            Vector3 after = view.ScreenToWorldPoint(new Vector3(screenAnchor.x, screenAnchor.y, 0f));
+            focus += (Vector2)(before - after);
+            ApplyView();
+            return true;
+        }
+
+        private void ReadZoom()
+        {
+            Mouse mouse = Mouse.current;
+            if (!InputEnabled || mouse == null || Time.unscaledTime < zoomReadyAt)
+            {
+                return;
+            }
+
+            float scroll = mouse.scroll.ReadValue().y;
+            Vector2 screen = mouse.position.ReadValue();
+            if (Mathf.Abs(scroll) < 0.01f || UiPointer.IsOverUi(screen))
+            {
+                return;
+            }
+
+            if (ZoomBy(scroll > 0f ? 1 : -1, screen))
+            {
+                zoomReadyAt = Time.unscaledTime + ZoomCooldown;
+            }
+        }
+
+        /// <summary>Zoomed in, keeps a walking figure away from the edges of the view.</summary>
+        private void Follow(float deltaTime)
+        {
+            if (zoomSteps == 0 || route == null)
+            {
+                return;
+            }
+
+            Rect visible = VisibleArea;
+            float marginX = visible.width * FollowMargin;
+            float marginY = visible.height * FollowMargin;
+            Vector2 at = avatar.position;
+            Vector2 target = focus;
+            target.x += Mathf.Min(0f, at.x - (visible.xMin + marginX)) + Mathf.Max(0f, at.x - (visible.xMax - marginX));
+            target.y += Mathf.Min(0f, at.y - (visible.yMin + marginY)) + Mathf.Max(0f, at.y - (visible.yMax - marginY));
+            if (target == focus)
+            {
+                return;
+            }
+
+            focus = Vector2.Lerp(focus, target, 1f - Mathf.Exp(-FollowRate * deltaTime));
+            ApplyView();
         }
 
         // ------------------------------------------------------------------ objective arrow
@@ -556,7 +722,9 @@ namespace BinakayanRising.UI.Camp
             }
 
             ReadPointer();
+            ReadZoom();
             Walk(Time.deltaTime);
+            Follow(Time.unscaledDeltaTime);
             Animate();
         }
 

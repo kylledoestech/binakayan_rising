@@ -12,8 +12,9 @@ using UnityEditor;
 namespace BinakayanRising.UI.Shell
 {
     /// <summary>
-    /// The battle's pause menu: Resume, Settings, Retreat and Main Menu (Quit outside a campaign),
-    /// over a frozen board.
+    /// The pause menu. In battle: Resume, Settings, Retreat and Main Menu (Quit outside a campaign),
+    /// over a frozen board. In the camp (<see cref="ShowInCamp"/>): Resume, Settings, Main Menu and
+    /// Quit Game, which asks first.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -49,6 +50,8 @@ namespace BinakayanRising.UI.Shell
         private bool canLeave;
         private int openedFrame;
         private bool settingsOpenLastFrame;
+        private bool inCamp;
+        private GameObject quitConfirm;
 
         private RectTransform card;
         private CanvasGroup cardGroup;
@@ -118,6 +121,36 @@ namespace BinakayanRising.UI.Shell
             return view;
         }
 
+        /// <summary>
+        /// Opens the menu over the camp (Esc in the camp, GDD p. 38). The camp's input switches off
+        /// by itself while the menu is up (<see cref="GameShell.ModalOpen"/>). Returns the open menu
+        /// when one is already up, and null outside the shell.
+        /// </summary>
+        public static PauseMenu ShowInCamp()
+        {
+            if (Current != null)
+            {
+                return Current;
+            }
+
+            if (GameShell.Current == null)
+            {
+                return null;
+            }
+
+            Canvas canvas = UiKit.Screen("Pause Menu", Theme.Layer.Pause);
+            UiKit.EnsureEventSystem();
+            var view = canvas.gameObject.AddComponent<PauseMenu>();
+            view.inCamp = true;
+            view.canLeave = true;
+            view.openedFrame = Time.frameCount;
+            view.Build(canvas.transform);
+            Current = view;
+            view.StartCoroutine(UiTween.Enter(view.card, view.cardGroup, new Vector2(0f, -40f), 0.25f));
+            UiSfx.Play(UiSfx.Cue.Open);
+            return view;
+        }
+
         private void Build(Transform root)
         {
             UiKit.Scrim(root);
@@ -153,7 +186,7 @@ namespace BinakayanRising.UI.Shell
                 UiKit.SealButton(column, TextKey.MenuSettings, OpenSettings, ButtonWidth, ButtonHeight, 0f, "Button Settings");
             }
 
-            if (battle.IsMission)
+            if (battle != null && battle.IsMission)
             {
                 retreat = UiKit.SealButton(column, TextKey.MissionRetreat, Retreat, ButtonWidth, ButtonHeight, 0f, "Button Retreat");
             }
@@ -161,6 +194,11 @@ namespace BinakayanRising.UI.Shell
             leave = GameShell.Current != null
                 ? UiKit.SealButton(column, TextKey.HubToTitle, MainMenu, ButtonWidth, ButtonHeight, 0f, "Button Main Menu")
                 : UiKit.SealButton(column, TextKey.MenuQuit, Quit, ButtonWidth, ButtonHeight, 0f, "Button Quit");
+
+            if (inCamp)
+            {
+                UiKit.SealButton(column, TextKey.PauseQuitGame, AskQuit, ButtonWidth, ButtonHeight, 0f, "Button Quit Game");
+            }
 
             TextMeshProUGUI hint = UiKit.Caption(column, Loc.Get(TextKey.PauseHint), TextAlignmentOptions.Center);
             UiKit.Localize(hint, TextKey.PauseHint);
@@ -172,7 +210,7 @@ namespace BinakayanRising.UI.Shell
         /// <summary>Retreat and Main Menu leave the battle unsettled; not once it is resolved.</summary>
         private bool LeaveAllowed
         {
-            get { return canLeave && battle != null && battle.CurrentPhase != BattlePlaytest.Phase.Finished; }
+            get { return inCamp || (canLeave && battle != null && battle.CurrentPhase != BattlePlaytest.Phase.Finished); }
         }
 
         private void RefreshButtons()
@@ -229,10 +267,23 @@ namespace BinakayanRising.UI.Shell
             BattlePlaytest leaving = battle;
             GameShell shell = GameShell.Current;
             Close();
-            leaving.EndMission();
+            if (leaving != null)
+            {
+                leaving.EndMission();
+            }
+
             if (shell != null)
             {
                 shell.ReturnToTitle();
+            }
+        }
+
+        /// <summary>Quit Game in the camp: asks first, then saves and quits.</summary>
+        private void AskQuit()
+        {
+            if (quitConfirm == null)
+            {
+                quitConfirm = UiControls.Confirm(TextKey.QuitConfirmTitle, TextKey.QuitConfirmBody, TextKey.MenuQuit, Quit);
             }
         }
 
@@ -273,8 +324,9 @@ namespace BinakayanRising.UI.Shell
 
         private void Update()
         {
-            // The board was removed under the menu (a retreat, or the battle ended otherwise).
-            if (battle == null)
+            // The board was removed under the menu (a retreat, or the battle ended otherwise), or
+            // the camp's shell is gone.
+            if (inCamp ? GameShell.Current == null : battle == null)
             {
                 if (Current == this)
                 {
@@ -291,7 +343,8 @@ namespace BinakayanRising.UI.Shell
             bool settingsOpen = GameShell.Current != null && GameShell.Current.SettingsOpen;
             bool settingsJustClosed = settingsOpenLastFrame;
             settingsOpenLastFrame = settingsOpen;
-            if (settingsOpen || settingsJustClosed || Time.frameCount <= openedFrame)
+            // The quit prompt on top has no Esc of its own; the menu under it must not close.
+            if (settingsOpen || settingsJustClosed || Time.frameCount <= openedFrame || quitConfirm != null)
             {
                 return;
             }

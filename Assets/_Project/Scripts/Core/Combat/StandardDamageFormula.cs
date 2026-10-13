@@ -3,12 +3,12 @@ using System;
 namespace BinakayanRising.Core.Combat
 {
     /// <summary>
-    /// The project's placeholder damage formula.
+    /// The damage formula every battle uses (design decision DD 1).
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>TODO(design): NOT SPECIFIED IN THE CAPSTONE DOCUMENT. THIS ENTIRE CLASS IS A PLACEHOLDER
-    /// AND MUST BE RATIFIED BY THE DESIGN TEAM BEFORE ANY BALANCING WORK.</b> The document names
+    /// <b>TODO(design): not specified in the capstone document. Built and in use; still needs the
+    /// group's sign-off (Docs/DESIGN-DECISIONS.md, DD 1).</b> The document names
     /// eight statistics and states that terrain (Table 2) and Kapatiran bonds (Table 3) modify them
     /// by percentages. It does not contain a damage equation, a crit multiplier, a mitigation rule,
     /// an accuracy mechanic, a definition of what Evasion does, or a single base stat value. Every

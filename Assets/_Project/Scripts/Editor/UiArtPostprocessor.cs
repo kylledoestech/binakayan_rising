@@ -162,8 +162,8 @@ namespace BinakayanRising.EditorTools
         /// Moves a sprite's pivot off centre where the consuming code requires it.
         /// </summary>
         /// <remarks>
-        /// <see cref="BinakayanRising.Gameplay.Presentation.HealthBarView"/> scales its fill sprite
-        /// along X to show remaining health, so the fill has to grow from its left edge. With the
+        /// A health bar that scales its fill sprite along X to show what remains needs the fill to
+        /// grow from its left edge. With the
         /// default centre pivot the bar drains symmetrically from the middle outward, which looks
         /// deliberate enough that it can survive review without anyone spotting it as a bug.
         /// Unit bodies pivot on their feet, so placing one at a cell centre stands it on the tile.

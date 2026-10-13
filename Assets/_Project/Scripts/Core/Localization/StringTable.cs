@@ -607,6 +607,9 @@ namespace BinakayanRising.Core.Localization
             Add(TextKey.ExMax, "Max", "Lahat");
             Add(TextKey.ExSell, "Sell", "Ibenta");
             Add(TextKey.ExPreview, "{0} {1}  ▸  {2} Reales", "{0} {1}  ▸  {2} Reales");
+            Add(TextKey.PauseQuitGame, "Quit Game", "Umalis sa Laro");
+            Add(TextKey.QuitConfirmTitle, "Quit to desktop?", "Isara ang laro?");
+            Add(TextKey.QuitConfirmBody, "Your campaign is saved.", "Naka-save ang iyong kampanya.");
         }
 
         /// <summary>The text for a key, falling back to English and then to the key's name.</summary>

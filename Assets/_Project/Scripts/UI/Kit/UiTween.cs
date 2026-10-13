@@ -15,9 +15,9 @@ namespace BinakayanRising.UI.Kit
     /// justify at the defense for no gain.
     /// </para>
     /// <para>
-    /// Everything here runs on unscaled time. Panels must still animate while the battlefield is
-    /// frozen — <c>QuizController</c> zeroes <see cref="Time.timeScale"/> while a quiz is open, and
-    /// a quiz panel that cannot slide in because of it would be a strange bug to chase.
+    /// Everything here runs on unscaled time. Panels must still animate whatever
+    /// <see cref="Time.timeScale"/> is: a quiz panel that could not slide in because something
+    /// froze time would be a strange bug to chase.
     /// </para>
     /// </remarks>
     public static class UiTween

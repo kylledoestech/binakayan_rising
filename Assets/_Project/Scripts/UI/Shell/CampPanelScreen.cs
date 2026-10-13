@@ -34,6 +34,7 @@ namespace BinakayanRising.UI.Shell
         private RectTransform body;
         private TextMeshProUGUI title;
         private int selectedTab = -1;
+        private int freeFrame = -1;
 
         /// <summary>The card, for screenshots and layout checks.</summary>
         public RectTransform Card
@@ -175,8 +176,13 @@ namespace BinakayanRising.UI.Shell
 
         protected virtual void Update()
         {
-            if (IsVisible && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame
-                && Shell != null && !Shell.SettingsOpen && PromotionCard.Current == null && RecruitReveal.Current == null)
+            // Esc backs out only when nothing was over the panel last frame either: the same press
+            // may just have closed Settings or a card on it (the Training screen's lore), and which
+            // of the two reads it first is up to Unity.
+            bool free = IsVisible && Shell != null && !Shell.SettingsOpen && !Shell.ModalOpen;
+            bool wasFree = freeFrame == Time.frameCount - 1;
+            freeFrame = free ? Time.frameCount : -1;
+            if (free && wasFree && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
                 Back();
                 return;

@@ -127,6 +127,10 @@ namespace BinakayanRising.UI.Shell
                     yield return CampaignRoute();
                     break;
 
+                case "campview":
+                    yield return CampViewRoute();
+                    break;
+
                 default:
                     yield return Phase1();
                     break;

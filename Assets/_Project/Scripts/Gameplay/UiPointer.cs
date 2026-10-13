@@ -12,9 +12,8 @@ namespace BinakayanRising.Gameplay
     /// <remarks>
     /// <para>
     /// Uses <see cref="EventSystem.RaycastAll"/> against a synthetic pointer event rather than
-    /// <c>EventSystem.IsPointerOverGameObject()</c>, for the reason documented on
-    /// <c>GridRaycaster.IsPointerOverUI</c>: the latter is tied to pointer ids the input module has
-    /// seen and can report false over a panel. The raycast form also respects
+    /// <c>EventSystem.IsPointerOverGameObject()</c>: the latter is tied to pointer ids the input
+    /// module has seen and can report false over a panel. The raycast form also respects
     /// <see cref="ICanvasRaycastFilter"/>, which is how the tutorial spotlight lets clicks fall
     /// through its hole onto the board.
     /// </para>

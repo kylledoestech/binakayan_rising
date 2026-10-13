@@ -2,7 +2,6 @@ using BinakayanRising.Core.Combat;
 using BinakayanRising.Core.Localization;
 using BinakayanRising.Data;
 using BinakayanRising.Gameplay;
-using BinakayanRising.Gameplay.Flow;
 using BinakayanRising.UI.Kit;
 using UnityEngine;
 
@@ -25,7 +24,7 @@ namespace BinakayanRising.UI.Shell
     /// which re-fights the rest of the battle with it.
     /// </para>
     /// </remarks>
-    public sealed class CampaignQuizRewards : IQuizRewardReceiver
+    public sealed class CampaignQuizRewards
     {
         private readonly BattlePlaytest battle;
 

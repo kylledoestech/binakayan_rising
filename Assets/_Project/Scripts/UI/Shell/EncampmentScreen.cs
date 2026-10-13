@@ -6,6 +6,7 @@ using BinakayanRising.UI.Camp;
 using BinakayanRising.UI.Kit;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace BinakayanRising.UI.Shell
 {
@@ -37,6 +38,7 @@ namespace BinakayanRising.UI.Shell
         private TextMeshProUGUI plateNote;
         private MetaGame bound;
         private bool pointerStale = true;
+        private int freeFrame = -1;
 
         /// <summary>
         /// Plays a hub-task quest's opening story scene the first time the quest is current
@@ -160,7 +162,20 @@ namespace BinakayanRising.UI.Shell
                 return;
             }
 
-            World.InputEnabled = !dialogue.IsOpen && !Shell.SettingsOpen && !Shell.ModalOpen && Machine != null && Machine.CurrentState == State;
+            bool free = !dialogue.IsOpen && !Shell.SettingsOpen && !Shell.ModalOpen && Machine != null && Machine.CurrentState == State;
+
+            // Esc pauses the camp (GDD p. 38), but only when the camp was free last frame too: the
+            // same press may just have closed Settings, the Library, a panel or this menu, and
+            // those read it in Update, before this.
+            Keyboard keys = Keyboard.current;
+            if (free && freeFrame == Time.frameCount - 1 && keys != null && keys.escapeKey.wasPressedThisFrame)
+            {
+                PauseMenu.ShowInCamp();
+                free = false;
+            }
+
+            freeFrame = free ? Time.frameCount : -1;
+            World.InputEnabled = free;
             PlayPendingStory();
 
             if (pointerStale && bound != null)

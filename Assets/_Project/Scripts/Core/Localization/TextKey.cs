@@ -385,6 +385,11 @@ namespace BinakayanRising.Core.Localization
         ExSell,
         ExPreview,
 
+        // The camp's pause menu (Esc in the camp, GDD p. 38).
+        PauseQuitGame,
+        QuitConfirmTitle,
+        QuitConfirmBody,
+
         Count
     }
 }
