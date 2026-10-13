@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
+using BinakayanRising.Core.Content;
 using BinakayanRising.Gameplay;
 using BinakayanRising.UI.Kit;
 using NUnit.Framework;
@@ -40,6 +41,31 @@ namespace BinakayanRising.Tests.Art
             ThemeAssets theme = LoadTheme();
             Assert.IsNotNull(theme.UnitBody(archetypeId), archetypeId + " has no body sprite in ThemeAssets.");
             Assert.IsNotNull(theme.UnitPortrait(archetypeId), archetypeId + " has no portrait sprite in ThemeAssets.");
+        }
+
+        private static IEnumerable<string> CutsceneCast()
+        {
+            var seen = new HashSet<string>();
+            foreach (Cutscene scene in Cutscenes.All)
+            {
+                foreach (CutsceneSlide slide in scene.Slides)
+                {
+                    foreach (string id in slide.Cast)
+                    {
+                        if (seen.Add(id))
+                        {
+                            yield return id;
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>An animated scene's cast walk on as their body sprites; one without art would simply not appear.</summary>
+        [TestCaseSource(nameof(CutsceneCast))]
+        public void EveryCutsceneCastMemberHasABody(string artId)
+        {
+            Assert.IsNotNull(LoadTheme().UnitBody(artId), artId + " walks into a cutscene but has no body sprite in ThemeAssets.");
         }
 
         [TestCaseSource(nameof(Archetypes))]

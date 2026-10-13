@@ -465,7 +465,7 @@ namespace BinakayanRising.Core.Localization
             Add(TextKey.MapWinHold, "Win: hold the line for {0} turns", "Panalo: manindigan nang {0} yugto");
             Add(TextKey.MapCost, "Cost: {0} Rations", "Gastos: {0} Rasyon");
             Add(TextKey.MapReward, "Reward: {0} Reales", "Gantimpala: {0} Reales");
-            Add(TextKey.MapRewardLesson, "Unlocks a Library lesson", "Nagbubukas ng aralin sa Aklatan");
+            Add(TextKey.MapRewardLesson, "Unlocks a Journal lesson", "Nagbubukas ng aralin sa Talaarawan");
             Add(TextKey.MapDeploy, "Deploy", "Humayo");
             Add(TextKey.MapReplay, "Fight Again", "Lumaban Muli");
             Add(TextKey.MapLocked, "Clear the quest before this one to unlock it.", "Tapusin muna ang naunang misyon upang mabuksan ito.");
@@ -478,7 +478,7 @@ namespace BinakayanRising.Core.Localization
             Add(TextKey.QuizRight, "Correct!", "Tama!");
             Add(TextKey.QuizWrong, "Not quite. The answer is {0}.", "Hindi tama. Ang sagot ay {0}.");
             Add(TextKey.QuizReales, "+{0} Reales for a right answer.", "+{0} Reales sa tamang sagot.");
-            Add(TextKey.LibTitle, "Library", "Aklatan");
+            Add(TextKey.LibTitle, "Journal", "Talaarawan");
             Add(TextKey.LibLocked, "Clear quest {0} to unlock this lesson.", "Tapusin ang misyon {0} upang mabuksan ang araling ito.");
             Add(TextKey.LibTest, "Level {0} Test", "Pagsusulit sa Antas {0}");
             Add(TextKey.LibTestLocked, "Clear Level {0} first.", "Tapusin muna ang Antas {0}.");
@@ -610,6 +610,21 @@ namespace BinakayanRising.Core.Localization
             Add(TextKey.PauseQuitGame, "Quit Game", "Umalis sa Laro");
             Add(TextKey.QuitConfirmTitle, "Quit to desktop?", "Isara ang laro?");
             Add(TextKey.QuitConfirmBody, "Your campaign is saved.", "Naka-save ang iyong kampanya.");
+
+            // Panel feedback: the Journal's Characters and Ranks tabs.
+            Add(TextKey.LibTabCharacters, "Characters", "Mga Tauhan");
+            Add(TextKey.LibTabRanks, "Ranks", "Mga Ranggo");
+            Add(TextKey.JnlMeetIn, "Meet in quest {0}", "Makikilala sa misyon {0}");
+            Add(TextKey.JnlLockedBody, "Reach quest {0} to meet this person.", "Marating ang misyon {0} upang makilala ang taong ito.");
+            Add(TextKey.JnlStoryCharacter, "A character of the story, not a figure from history.", "Isang tauhan ng kuwento, hindi tauhan ng kasaysayan.");
+            Add(TextKey.JnlHistorical, "A figure from history.", "Isang tauhan ng kasaysayan.");
+            Add(TextKey.JnlCharactersNote, "The people of the story. A new entry opens as you meet them.", "Ang mga tao sa kuwento. Nabubuksan ang bagong tala habang nakikilala mo sila.");
+            Add(TextKey.JnlRanksNote, "The {0} ranks of the revolutionary army: the Spanish army's ranks, in the Filipino forms the Katipunan adopted.", "Ang {0} ranggo ng hukbong rebolusyonaryo: ang mga ranggo ng hukbong Kastila, sa anyong Pilipino na ginamit ng Katipunan.");
+            Add(TextKey.JnlRankYours, "Your rank", "Iyong ranggo");
+            Add(TextKey.JnlRankStart, "Held from the start", "Hawak mula sa simula");
+            Add(TextKey.JnlRankEarned, "Earned in quest {0}: {1}", "Nakamit sa misyon {0}: {1}");
+            Add(TextKey.JnlRankLocked, "Clear quest {0}, {1}, to earn it.", "Tapusin ang misyon {0}, {1}, upang makamit ito.");
+            Add(TextKey.JnlDuty, "Duties", "Tungkulin");
         }
 
         /// <summary>The text for a key, falling back to English and then to the key's name.</summary>

@@ -26,6 +26,15 @@ namespace BinakayanRising.Gameplay
         /// <summary>The player's rank title, shown under the quest title.</summary>
         public string RankTitle;
 
+        /// <summary>
+        /// Where the battle is fought, in the player's language: the opening banner's headline and
+        /// the top bar's second line. Empty for the standalone playtest.
+        /// </summary>
+        public string Place;
+
+        /// <summary>When it is fought: a day of the battle, or the year before it.</summary>
+        public string When;
+
         /// <summary>The player's units, in roster order. Ids are the save's unit ids.</summary>
         public List<RosterEntry> Roster = new List<RosterEntry>();
 

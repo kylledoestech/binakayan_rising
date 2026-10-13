@@ -390,6 +390,21 @@ namespace BinakayanRising.Core.Localization
         QuitConfirmTitle,
         QuitConfirmBody,
 
+        // Panel feedback: the Journal's Characters and Ranks tabs.
+        LibTabCharacters,
+        LibTabRanks,
+        JnlMeetIn,
+        JnlLockedBody,
+        JnlStoryCharacter,
+        JnlHistorical,
+        JnlCharactersNote,
+        JnlRanksNote,
+        JnlRankYours,
+        JnlRankStart,
+        JnlRankEarned,
+        JnlRankLocked,
+        JnlDuty,
+
         Count
     }
 }

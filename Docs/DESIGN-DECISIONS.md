@@ -371,3 +371,21 @@ Table 3 lore rows of [As built](#as-built-sept-2026): support +1 per battle side
 
 Katipunan movement is 0: they hold the line from where they deploy (the Sabotage mission is the
 exception; see #38). Source: `Core/Content/UnitCatalog.cs`.
+
+## Capstone panel feedback (Oct 2026)
+
+The panel's five notes, and how each was built. Run `Tools/shots/run.sh panel` to photograph all of
+them; the route measures the moving parts as well as shooting them.
+
+| Note | Built as | Where |
+| --- | --- | --- |
+| Main character needs an indication (name label / highlight) | Evangelista's board label is a gold plate with a star; every other unit keeps the ink plate | `UI/Screens/WorldLabelLayer.cs` |
+| Location name, based on the story, every battle | A banner under the top bar at the start of each campaign battle (place in gold, date beneath) fades after about 3 s; the top bar keeps "RANK   Place · Date" for the rest of the battle | `UI/Screens/BattleHud.Banner.cs`, `BattleHud.TopBar.cs`, `Quest.When` |
+| Camp journal (educational): characters' biographies and terms, based on history | The Library is now the Journal, with four tabs: Lessons, Glossary, Characters, Ranks. Historical people only, plus the narrator marked as a story character; each entry opens once its quest is reached, and a locked one is a silhouette | `UI/Shell/LibraryPanel.cs`, `Core/Content/Figures.cs` |
+| Cutscenes: first mission animated | Act 1 keeps its painted slides and adds motion: a slow push-in, drifting clouds, the steamer crossing the bay with its smoke, lamplight and stars at night, a camp fire, and the slide's people walking in. Other acts are unchanged | `UI/Shell/CutsceneStage.cs`, `Cutscene.Animated`, `CutsceneSlide.Cast` |
+| Number of ranks, as a description | The Journal's Ranks tab lists all 8 ranks with each one's duties, which one the player holds, and the quest that earns each | `Core/Content/PlayerRanks.cs` (`Duty`) |
+
+**SME check pending** before the defense: the six biographies (Santiago Álvarez is the one person the
+story did not already name), the three battle dates (November 9, 10 and 11, 1896; the other quests
+say only "1896"), the eight rank duties, and every Filipino draft. Bonifacio, Blanco and Álvarez have
+no portrait yet and show the sun sigil in its place.

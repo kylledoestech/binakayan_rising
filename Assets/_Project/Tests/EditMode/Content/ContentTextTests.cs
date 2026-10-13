@@ -49,6 +49,7 @@ namespace BinakayanRising.Tests.Content
                 yield return Item(quest.Id + " title", quest.Title);
                 yield return Item(quest.Id + " tag", quest.Tag);
                 yield return Item(quest.Id + " place", quest.Place);
+                yield return Item(quest.Id + " when", quest.When);
                 yield return Item(quest.Id + " briefing", quest.Briefing);
             }
 
@@ -74,6 +75,14 @@ namespace BinakayanRising.Tests.Content
             {
                 yield return Item("rank " + i, PlayerRanks.At(i).Gloss);
                 yield return Item("rank " + i + " announcement", PlayerRanks.AnnouncementOf(i));
+                yield return Item("rank " + i + " duty", PlayerRanks.At(i).Duty);
+            }
+
+            foreach (Figure figure in Figures.All)
+            {
+                yield return Item("figure " + figure.Id + " name", figure.Name);
+                yield return Item("figure " + figure.Id + " role", figure.Role);
+                yield return Item("figure " + figure.Id + " bio", figure.Bio);
             }
 
             foreach (Cutscene scene in Cutscenes.All)

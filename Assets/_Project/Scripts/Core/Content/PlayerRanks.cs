@@ -14,11 +14,18 @@ namespace BinakayanRising.Core.Content
         /// <summary>What the title means.</summary>
         public readonly LocString Gloss;
 
-        public PlayerRank(int index, string title, LocString gloss)
+        /// <summary>
+        /// What the rank commands and answers for, for the Journal's rank ladder (panel feedback:
+        /// "# of ranks - as description").
+        /// </summary>
+        public readonly LocString Duty;
+
+        public PlayerRank(int index, string title, LocString gloss, LocString duty)
         {
             Index = index;
             Title = title;
             Gloss = gloss;
+            Duty = duty;
         }
     }
 
@@ -31,14 +38,30 @@ namespace BinakayanRising.Core.Content
     {
         private static readonly PlayerRank[] ladder =
         {
-            new PlayerRank(0, "Kawal", new LocString("Private", "Sundalo")),
-            new PlayerRank(1, "Kabo", new LocString("Corporal", "Pinuno ng pulutong")),
-            new PlayerRank(2, "Sarhento", new LocString("Sergeant", "Katuwang ng pinuno ng pulutong")),
-            new PlayerRank(3, "Tenyente", new LocString("Lieutenant", "Pinuno ng hanay")),
-            new PlayerRank(4, "Kapitan", new LocString("Captain", "Pinuno ng kompanya")),
-            new PlayerRank(5, "Komandante", new LocString("Major", "Pinuno ng batalyon")),
-            new PlayerRank(6, "Koronel", new LocString("Colonel", "Pinuno ng rehimyento")),
-            new PlayerRank(7, "Heneral", new LocString("General", "Pinuno ng hukbo"))
+            new PlayerRank(0, "Kawal", new LocString("Private", "Sundalo"), new LocString(
+                "The rank and file of the revolutionary army. A Kawal obeys the officers, keeps a weapon ready and holds a place in the line.",
+                "Ang karaniwang sundalo ng hukbong rebolusyonaryo. Sumusunod ang Kawal sa mga opisyal, laging handa ang sandata at hindi umaalis sa puwesto sa hanay.")),
+            new PlayerRank(1, "Kabo", new LocString("Corporal", "Pinuno ng pulutong"), new LocString(
+                "Leads a squad of a few soldiers. A Kabo passes orders down, keeps the squad together and leads it by example in the fight.",
+                "Namumuno sa isang pulutong ng ilang kawal. Ipinapasa ng Kabo ang mga utos, pinananatiling buo ang pulutong at nangunguna rito sa laban.")),
+            new PlayerRank(2, "Sarhento", new LocString("Sergeant", "Katuwang ng pinuno ng pulutong"), new LocString(
+                "The officers' right hand. A Sarhento drills the soldiers, keeps discipline and sees that every squad is armed and fed.",
+                "Ang kanang kamay ng mga opisyal. Sinasanay ng Sarhento ang mga kawal, pinananatili ang disiplina at tinitiyak na may armas at pagkain ang bawat pulutong.")),
+            new PlayerRank(3, "Tenyente", new LocString("Lieutenant", "Pinuno ng hanay"), new LocString(
+                "The first rank of officer. A Tenyente commands a platoon of several squads and takes the captain's place if the captain falls.",
+                "Ang unang ranggo ng opisyal. Pinamumunuan ng Tenyente ang isang hanay ng ilang pulutong at pumapalit sa kapitan kapag ito ay nasawi.")),
+            new PlayerRank(4, "Kapitan", new LocString("Captain", "Pinuno ng kompanya"), new LocString(
+                "Commands a company. A Kapitan plans its part in the battle, chooses where its soldiers stand and answers for every one of them.",
+                "Namumuno sa isang kompanya. Pinaplano ng Kapitan ang bahagi nito sa labanan, pinipili kung saan tatayo ang mga kawal at nananagot sa bawat isa sa kanila.")),
+            new PlayerRank(5, "Komandante", new LocString("Major", "Pinuno ng batalyon"), new LocString(
+                "Commands a battalion of several companies. A Komandante moves them together across the field and holds a whole stretch of the line.",
+                "Namumuno sa isang batalyon ng ilang kompanya. Sabay-sabay silang pinakikilos ng Komandante sa larangan at ipinagtatanggol ang isang buong bahagi ng hanay.")),
+            new PlayerRank(6, "Koronel", new LocString("Colonel", "Pinuno ng rehimyento"), new LocString(
+                "Commands a regiment. A Koronel helps the generals draw up the plan of battle and sees it carried out along the whole front.",
+                "Namumuno sa isang rehimyento. Katuwang ang Koronel ng mga heneral sa pagbuo ng plano ng labanan at tinitiyak na naisasagawa ito sa buong harapan.")),
+            new PlayerRank(7, "Heneral", new LocString("General", "Pinuno ng hukbo"), new LocString(
+                "Commands an army. A Heneral decides where and when to fight, and answers to the leaders of the revolution for the whole campaign.",
+                "Namumuno sa isang hukbo. Ang Heneral ang nagpapasya kung saan at kailan lalaban, at nananagot sa mga pinuno ng himagsikan para sa buong kampanya."))
         };
 
         /// <summary>

@@ -112,6 +112,11 @@ namespace BinakayanRising.UI.Screens
 
         private void Start()
         {
+            if (banner != null)
+            {
+                StartCoroutine(PlayBanner());
+            }
+
             // In the campaign only the quest marked as the tutorial teaches; a later battle never
             // opens on the guide, even for a player who skipped it.
             if (tutorial != null && (battle.Mission == null || battle.Mission.Tutorial))
@@ -224,6 +229,7 @@ namespace BinakayanRising.UI.Screens
             BuildRosterStrip(canvas.transform);
             BuildMinimap(canvas.transform);
             BuildOutcome(canvas.transform);
+            BuildBanner(canvas.transform);
             BuildDragGhost();
             BindPanelSlide();
 

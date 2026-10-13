@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using BinakayanRising.Core.Combat;
+using BinakayanRising.Core.Content;
 using BinakayanRising.Core.Localization;
 using BinakayanRising.Gameplay;
 using BinakayanRising.UI.Kit;
@@ -23,6 +24,11 @@ namespace BinakayanRising.UI.Screens
     /// It also puts them in the right place in the stack: under the HUD, so the side panel and the
     /// outcome scrim cover a name tag rather than the tag floating on top of a modal.
     /// </para>
+    /// <para>
+    /// <b>The main character.</b> Evangelista, whom the player plays, wears a gold plate with a
+    /// star and his full surname where everyone else has a three-letter tag on ink (panel
+    /// feedback: "main character - need indication, name label / highlight").
+    /// </para>
     /// </remarks>
     [AddComponentMenu("")]
     public sealed class WorldLabelLayer : MonoBehaviour
@@ -35,6 +41,11 @@ namespace BinakayanRising.UI.Screens
         private HealthBarPool healthBars;
         private WorldLabelPool nameLabels;
         private WorldLabelPool popupLabels;
+        private Image heroStar;
+        private string heroName;
+
+        /// <summary>Size of the star on the main character's plate, in canvas units.</summary>
+        private const float HeroStarSize = 16f;
 
         /// <summary>Creates the layer under <paramref name="parent"/>, bound to a battle.</summary>
         public static WorldLabelLayer Create(Transform parent, BattlePlaytest battle)
@@ -49,6 +60,16 @@ namespace BinakayanRising.UI.Screens
             // Built first so the bars draw under the name plates should the two ever touch.
             layer.healthBars = new HealthBarPool(canvas);
             layer.nameLabels = new WorldLabelPool(canvas, "Unit Labels", Theme.Type.Small, Theme.Parchment, plated: true);
+
+            // After the labels, so the star draws over its plate. One image: there is one Evangelista.
+            layer.heroStar = UiKit.Icon(UiKit.Stretch(UiKit.NewRect(canvas.transform, "Hero Star")), Theme.IconStar, HeroStarSize, Theme.Ink);
+            RectTransform star = (RectTransform)layer.heroStar.transform.parent;
+            star.anchorMin = Vector2.zero;
+            star.anchorMax = Vector2.zero;
+            star.pivot = new Vector2(0.5f, 0.5f);
+            layer.heroStar.raycastTarget = false;
+            star.gameObject.SetActive(false);
+            layer.heroName = HeroName();
 
             // Damage numbers are set two steps larger than the names they fly off. At body size
             // over a painted board they are gone before the eye finds them, which is the whole
@@ -70,6 +91,7 @@ namespace BinakayanRising.UI.Screens
 
             healthBars.Begin();
             nameLabels.Begin();
+            bool heroShown = false;
             for (int i = 0; i < units.Count; i++)
             {
                 BattlePlaytest.UnitSnapshot unit = units[i];
@@ -86,7 +108,17 @@ namespace BinakayanRising.UI.Screens
                     continue;
                 }
 
-                nameLabels.PlaceText(screen, unit.ShortName, Theme.Parchment, 0f);
+                if (IsMainCharacter(unit))
+                {
+                    float left = nameLabels.PlaceHero(screen, heroName, Theme.Ink, Theme.GoldBright, HeroStarSize + Theme.Space.Hair);
+                    RectTransform star = (RectTransform)heroStar.transform.parent;
+                    star.anchoredPosition = new Vector2(left + Theme.Space.Tight + (HeroStarSize * 0.5f), nameLabels.LastPosition.y);
+                    heroShown = true;
+                }
+                else
+                {
+                    nameLabels.PlaceText(screen, unit.ShortName, Theme.Parchment, 0f);
+                }
 
                 // Above the name tag rather than below it: under the head it would sit across the
                 // face, and the face is what tells one figure from the next.
@@ -95,6 +127,11 @@ namespace BinakayanRising.UI.Screens
 
             healthBars.End();
             nameLabels.End();
+            GameObject starObject = heroStar.transform.parent.gameObject;
+            if (starObject.activeSelf != heroShown)
+            {
+                starObject.SetActive(heroShown);
+            }
 
             popupLabels.Begin();
             for (int i = 0; i < popups.Count; i++)
@@ -117,6 +154,24 @@ namespace BinakayanRising.UI.Screens
             }
 
             popupLabels.End();
+        }
+
+        /// <summary>True for the player's own Evangelista, the story's main character.</summary>
+        private static bool IsMainCharacter(BattlePlaytest.UnitSnapshot unit)
+        {
+            return unit.Team == Team.Katipunan && unit.ArchetypeId == UnitCatalog.Evangelista;
+        }
+
+        /// <summary>
+        /// The surname on the main character's plate, in capitals: "EVANGELISTA". A proper noun,
+        /// the same in both languages, so it is read once rather than on every language change.
+        /// </summary>
+        private static string HeroName()
+        {
+            UnitArchetype hero = UnitCatalog.Find(UnitCatalog.Evangelista);
+            string name = hero != null ? hero.Name.English : "Evangelista";
+            int space = name.LastIndexOf(' ');
+            return (space >= 0 ? name.Substring(space + 1) : name).ToUpperInvariant();
         }
 
         private static Color PopupColor(BattlePlaytest.PopupKind kind)
@@ -333,6 +388,9 @@ namespace BinakayanRising.UI.Screens
             public BattlePlaytest.PopupKind Kind;
             public float Amount;
             public int Version = -1;
+
+            /// <summary>Room left on the plate before the text, for the main character's star.</summary>
+            public float Lead;
         }
 
         private readonly RectTransform root;
@@ -343,6 +401,9 @@ namespace BinakayanRising.UI.Screens
 
         private Material outlineMaterial;
         private int used;
+
+        /// <summary>Where the last label was placed, in canvas units.</summary>
+        public Vector2 LastPosition { get; private set; }
 
         public WorldLabelPool(Canvas canvas, string name, float size, Color defaultColor, bool plated)
         {
@@ -366,10 +427,35 @@ namespace BinakayanRising.UI.Screens
         /// <summary>Positions a plain text label.</summary>
         public void PlaceText(Vector3 screenPoint, string text, Color color, float rise)
         {
+            Place(screenPoint, text, color, rise, PlateColor, 0f);
+        }
+
+        /// <summary>
+        /// Positions the main character's label: <paramref name="plate"/> instead of ink, with
+        /// <paramref name="lead"/> left free before the text for the star. Returns the plate's left
+        /// edge, in canvas units, so the star can be set on it.
+        /// </summary>
+        public float PlaceHero(Vector3 screenPoint, string text, Color color, Color plate, float lead)
+        {
+            Slot slot = Place(screenPoint, text, color, 0f, plate, lead);
+            float width = slot.Plate != null ? slot.Plate.rectTransform.sizeDelta.x : slot.Label.preferredWidth;
+            return LastPosition.x - (width * 0.5f);
+        }
+
+        private Slot Place(Vector3 screenPoint, string text, Color color, float rise, Color plate, float lead)
+        {
             Slot slot = Next(screenPoint, color, rise);
-            if (!ReferenceEquals(slot.Text, text))
+            if (slot.Plate != null)
+            {
+                // Set every time: a slot that was the hero's last frame may be a regular's this one.
+                // Graphic.color only dirties the canvas when the value actually changes.
+                slot.Plate.color = plate;
+            }
+
+            if (!ReferenceEquals(slot.Text, text) || !Mathf.Approximately(slot.Lead, lead))
             {
                 slot.Text = text;
+                slot.Lead = lead;
                 slot.Version = -1;
                 slot.Label.text = text;
 
@@ -377,9 +463,17 @@ namespace BinakayanRising.UI.Screens
                 if (slot.Plate != null)
                 {
                     slot.Plate.rectTransform.sizeDelta = new Vector2(
-                        slot.Label.preferredWidth + (Theme.Space.Tight * 2f), PlateHeight);
+                        slot.Label.preferredWidth + (Theme.Space.Tight * 2f) + lead, PlateHeight);
                 }
             }
+
+            // The text sits right of centre by half the lead, so the plate stays centred on the unit.
+            if (lead > 0f)
+            {
+                slot.Label.rectTransform.anchoredPosition += new Vector2(lead * 0.5f, 0f);
+            }
+
+            return slot;
         }
 
         /// <summary>Positions a floating number, formatting it only when it changes.</summary>
@@ -476,6 +570,7 @@ namespace BinakayanRising.UI.Screens
                 slot.Plate.rectTransform.anchoredPosition = position;
             }
 
+            LastPosition = position;
             used++;
             return slot;
         }

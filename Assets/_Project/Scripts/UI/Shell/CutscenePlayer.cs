@@ -36,6 +36,7 @@ namespace BinakayanRising.UI.Shell
         private Action onFinished;
         private RawImage picture;
         private CanvasGroup pictureGroup;
+        private CutsceneStage stage;
         private TextMeshProUGUI caption;
         private RectTransform captionBox;
         private Image portrait;
@@ -51,6 +52,12 @@ namespace BinakayanRising.UI.Shell
 
         /// <summary>The scene playing now, or null. For screenshots and tests.</summary>
         public static CutscenePlayer Current { get; private set; }
+
+        /// <summary>What moves on the picture: nothing unless the scene is animated. For screenshots and tests.</summary>
+        public CutsceneStage Stage
+        {
+            get { return stage; }
+        }
 
         /// <summary>The slide showing, from 0.</summary>
         public int SlideIndex
@@ -111,6 +118,7 @@ namespace BinakayanRising.UI.Shell
             fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
             fitter.aspectRatio = (float)CutsceneArt.Width / CutsceneArt.Height;
             pictureGroup = UiKit.Group(frame.gameObject);
+            stage = frame.gameObject.AddComponent<CutsceneStage>();
 
             // The caption: a parchment label in the top-left corner.
             RectTransform label = UiKit.Panel(root, "Caption", blocksClicks: false);
@@ -191,6 +199,15 @@ namespace BinakayanRising.UI.Shell
                 StopCoroutine(fading);
             }
 
+            if (scene.Animated)
+            {
+                stage.Play(scene.Slides[index]);
+            }
+            else
+            {
+                stage.Clear();
+            }
+
             pictureGroup.alpha = 0f;
             fading = StartCoroutine(UiTween.Fade(pictureGroup, 1f, FadeSeconds));
             UiSfx.Play(UiSfx.Cue.Open);
@@ -199,7 +216,7 @@ namespace BinakayanRising.UI.Shell
         private void Render()
         {
             CutsceneSlide slide = scene.Slides[index];
-            picture.texture = CutsceneArt.For(slide);
+            picture.texture = CutsceneArt.For(slide, scene.Animated);
             caption.text = slide.Caption.Get();
             FitCaption();
 

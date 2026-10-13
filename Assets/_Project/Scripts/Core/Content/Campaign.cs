@@ -145,6 +145,13 @@ namespace BinakayanRising.Core.Content
         public LocString Tag;
 
         public LocString Place;
+
+        /// <summary>
+        /// When it happens: a day for the three days of the battle, the year before them. Shown
+        /// with <see cref="Place"/> on the battle's opening banner and top bar (panel feedback:
+        /// "location name based to story, every battle").
+        /// </summary>
+        public LocString When;
         public LocString Briefing;
 
         /// <summary>Cutscene played before the quest starts, or null.</summary>
@@ -259,6 +266,7 @@ namespace BinakayanRising.Core.Content
                 Title = new LocString("The Scholar of Ghent", "Ang Iskolar ng Ghent"),
                 Tag = new LocString("UI Tutorial", "Gabay sa Interface"),
                 Place = new LocString("Ghent, Belgium", "Ghent, Belhika"),
+                When = new LocString("1896", "1896"),
                 Briefing = new LocString(
                     "A student engineer answers the call from home. Meet your aide and learn the encampment.",
                     "Isang estudyanteng inhinyero ang tumugon sa tawag ng bayan. Kilalanin ang iyong katuwang at ang kampo."),
@@ -273,6 +281,7 @@ namespace BinakayanRising.Core.Content
                 Title = new LocString("The Reality Check", "Ang Pagkamulat"),
                 Tag = new LocString("Combat Tutorial", "Gabay sa Labanan"),
                 Place = new LocString("Kawit, Cavite", "Kawit, Kabite"),
+                When = new LocString("1896", "1896"),
                 Briefing = new LocString(
                     "A Spanish patrol probes the trench line. Deploy your troops and hold.",
                     "Isang patrolyang Kastila ang sumusubok sa hanay ng trinsera. Ipuwesto ang hukbo at manindigan."),
@@ -287,6 +296,7 @@ namespace BinakayanRising.Core.Content
                 Title = new LocString("The Vanguard's Rally", "Ang Pagtitipon ng Taliba"),
                 Tag = new LocString("Base Management", "Pamamahala ng Kampo"),
                 Place = new LocString("Kawit encampment", "Kampo sa Kawit"),
+                When = new LocString("1896", "1896"),
                 Briefing = new LocString(
                     "Farmers, teachers and medics come to the camp. Recruit them, drill them and arm them.",
                     "Dumarating sa kampo ang mga magsasaka, guro at mediko. Kalapin, sanayin at armasan sila."),
@@ -303,6 +313,7 @@ namespace BinakayanRising.Core.Content
                 Title = new LocString("Scavenging for the Cause", "Pangangalap para sa Layunin"),
                 Tag = new LocString("Resource Gathering", "Pag-iipon ng Yaman"),
                 Place = new LocString("Noveleta", "Noveleta"),
+                When = new LocString("1896", "1896"),
                 Briefing = new LocString(
                     "An army marches on its stomach. Harvest the Farm and Mine, then sell the surplus for Reales.",
                     "Ang hukbo ay lumalakad sa sikmura. Umani sa Bukid at Minahan, at ipagbili ang sobra kapalit ng Reales."),
@@ -319,6 +330,7 @@ namespace BinakayanRising.Core.Content
                 Title = new LocString("The Intercepted Armada", "Ang Naharang na Armada"),
                 Tag = new LocString("Synergy Drill", "Sanayang Buklod"),
                 Place = new LocString("Bacoor Bay shore", "Baybayin ng Bacoor"),
+                When = new LocString("1896", "1896"),
                 Briefing = new LocString(
                     "A landing party comes ashore. Place bonded pairs side by side - Kapatiran makes them stronger together.",
                     "May pangkat na dumaong sa pampang. Ipuwesto nang magkatabi ang magkabuklod - mas malakas sila nang magkasama."),
@@ -334,6 +346,7 @@ namespace BinakayanRising.Core.Content
                 Title = new LocString("Forging the Earthworks", "Ang Pagbuo ng mga Muog"),
                 Tag = new LocString("Defense", "Pagtatanggol"),
                 Place = new LocString("Binakayan", "Binakayan"),
+                When = new LocString("1896", "1896"),
                 Briefing = new LocString(
                     "The trenches are half dug. Keep the supply cart behind the line alive until turn 20 so the diggers can finish.",
                     "Kalahati pa lang ang trinsera. Iligtas ang kariton ng panustos sa likod ng hanay hanggang yugto 20 upang matapos ng mga manghuhukay."),
@@ -350,6 +363,7 @@ namespace BinakayanRising.Core.Content
                 Title = new LocString("The Silent Sabotage", "Ang Tahimik na Pananabotahe"),
                 Tag = new LocString("Stealth / Intelligence", "Paniktik"),
                 Place = new LocString("Cavite Nuevo", "Cavite Nuevo"),
+                When = new LocString("1896", "1896"),
                 Briefing = new LocString(
                     "Only three may slip behind enemy lines. Reach the marked powder magazine within 30 turns - they fight only what blocks the way.",
                     "Tatlo lamang ang maaaring pumuslit sa likod ng kaaway. Marating ang markadong imbakan ng pulbura sa loob ng 30 yugto - lalabanan lamang nila ang humaharang."),
@@ -367,6 +381,7 @@ namespace BinakayanRising.Core.Content
                 Title = new LocString("The First Wave", "Ang Unang Daluyong"),
                 Tag = new LocString("November 9, 1896", "Nobyembre 9, 1896"),
                 Place = new LocString("Binakayan", "Binakayan"),
+                When = new LocString("November 9, 1896", "Nobyembre 9, 1896"),
                 Briefing = new LocString(
                     "Blanco's offensive begins. Spanish columns advance on Binakayan under covering fire.",
                     "Nagsimula ang opensiba ni Blanco. Sumusulong ang mga hanay ng Kastila sa Binakayan."),
@@ -382,6 +397,7 @@ namespace BinakayanRising.Core.Content
                 Title = new LocString("The War of Attrition", "Ang Digmaan ng Pagtitiis"),
                 Tag = new LocString("November 10, 1896", "Nobyembre 10, 1896"),
                 Place = new LocString("Dalahican", "Dalahican"),
+                When = new LocString("November 10, 1896", "Nobyembre 10, 1896"),
                 Briefing = new LocString(
                     "The fighting shifts to the Dalahican shore. The enemy wades through the shallows.",
                     "Lumipat ang labanan sa baybayin ng Dalahican. Lumulusong ang kaaway sa mababaw na tubig."),
@@ -397,6 +413,7 @@ namespace BinakayanRising.Core.Content
                 Title = new LocString("The Decisive Dawn", "Ang Mapagpasyang Bukang-liwayway"),
                 Tag = new LocString("November 11, 1896", "Nobyembre 11, 1896"),
                 Place = new LocString("Binakayan-Dalahican", "Binakayan-Dalahican"),
+                When = new LocString("November 11, 1896", "Nobyembre 11, 1896"),
                 Briefing = new LocString(
                     "The last and largest assault. Everything Evangelista built is put to the test.",
                     "Ang huli at pinakamalaking salakay. Susubukin ang lahat ng itinayo ni Evangelista."),

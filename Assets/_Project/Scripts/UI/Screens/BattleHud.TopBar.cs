@@ -54,21 +54,22 @@ namespace BinakayanRising.UI.Screens
             Image sigil = UiKit.Sigil(row, 40f, Theme.Gold);
             FixWidth(sigil.rectTransform, 40f);
 
-            // A campaign battle names its quest, with the player's rank beneath it.
+            // A campaign battle names its quest, with the player's rank and where and when the
+            // battle is fought beneath it (panel feedback: "location name, every battle").
             MissionSetup mission = battle.Mission;
             if (mission != null)
             {
                 RectTransform titles = UiKit.Column(row, "Titles", 0f, 0f, TextAnchor.MiddleLeft);
-                FixWidth(titles, 330f);
+                FixWidth(titles, 430f);
                 ExpandChildren(titles);
 
                 TextMeshProUGUI quest = UiKit.Display(titles, mission.Title ?? string.Empty, Theme.Type.Body + 2f, TextAlignmentOptions.Left);
                 FitLine(quest, Theme.Type.Body + 2f);
                 FixHeight(quest.rectTransform, 30f);
 
-                TextMeshProUGUI rank = UiKit.Caption(titles, mission.RankTitle ?? string.Empty, TextAlignmentOptions.Left);
-                rank.color = Theme.Revolution;
-                rank.fontStyle = FontStyles.Bold | FontStyles.UpperCase;
+                TextMeshProUGUI rank = UiKit.Caption(titles, RankAndPlace(mission), TextAlignmentOptions.Left);
+                rank.color = Theme.InkSoft;
+                rank.fontStyle = FontStyles.Bold;
                 FitLine(rank, Theme.Type.Small);
                 FixHeight(rank.rectTransform, 22f);
                 Register("top.rank", rank.rectTransform);
@@ -285,6 +286,22 @@ namespace BinakayanRising.UI.Screens
             {
                 objectiveLabel.text = BattleText.Objective(battle.Rule, battle.TurnCap);
             }
+        }
+
+        /// <summary>
+        /// "KABO   Binakayan · November 9, 1896": the rank in the seal's red, the place and date
+        /// in soft ink after it. The place is left out of the standalone playtest, which has none.
+        /// </summary>
+        private static string RankAndPlace(MissionSetup mission)
+        {
+            string rank = "<color=#" + ColorUtility.ToHtmlStringRGB(Theme.Revolution) + ">"
+                + (mission.RankTitle ?? string.Empty).ToUpperInvariant() + "</color>";
+            if (string.IsNullOrEmpty(mission.Place))
+            {
+                return rank;
+            }
+
+            return rank + "   " + mission.Place + (string.IsNullOrEmpty(mission.When) ? string.Empty : " · " + mission.When);
         }
     }
 }

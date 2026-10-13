@@ -26,8 +26,11 @@ namespace BinakayanRising.UI.Shell
             cache.Clear();
         }
 
-        /// <summary>The slide's illustration, or its painted landscape.</summary>
-        public static Texture2D For(CutsceneSlide slide)
+        /// <summary>
+        /// The slide's illustration, or its painted landscape. <paramref name="staged"/> paints it
+        /// without what <see cref="CutsceneStage"/> moves across it, such as the ship at sea.
+        /// </summary>
+        public static Texture2D For(CutsceneSlide slide, bool staged = false)
         {
             if (slide == null)
             {
@@ -40,25 +43,43 @@ namespace BinakayanRising.UI.Shell
                 return drawn;
             }
 
-            string key = slide.Mood + "/" + slide.Image;
+            string key = slide.Mood + "/" + slide.Image + (staged ? "/staged" : string.Empty);
             Texture2D painted;
             if (!cache.TryGetValue(key, out painted) || painted == null)
             {
-                painted = Paint(slide.Mood, (slide.Image ?? string.Empty).GetHashCode());
+                painted = Paint(slide.Mood, (slide.Image ?? string.Empty).GetHashCode(), staged);
                 cache[key] = painted;
             }
 
             return painted;
         }
 
-        /// <summary>Paints <paramref name="mood"/>; <paramref name="seed"/> varies the details.</summary>
-        public static Texture2D Paint(SceneMood mood, int seed)
+        /// <summary>The row the sky starts at, from the bottom, for <paramref name="mood"/>.</summary>
+        public static int HorizonOf(SceneMood mood)
+        {
+            return mood == SceneMood.City ? 46 : 52;
+        }
+
+        /// <summary>
+        /// Where the night camp's lamp burns: high enough above the foot of the picture that the
+        /// narration box never covers it.
+        /// </summary>
+        public static Vector2Int LampOf(SceneMood mood)
+        {
+            return new Vector2Int(Width / 2, HorizonOf(mood) - 14);
+        }
+
+        /// <summary>
+        /// Paints <paramref name="mood"/>; <paramref name="seed"/> varies the details. A
+        /// <paramref name="staged"/> sea is painted empty, for the stage to sail its ship across.
+        /// </summary>
+        public static Texture2D Paint(SceneMood mood, int seed, bool staged = false)
         {
             var pixels = new Color32[Width * Height];
             var random = new System.Random(seed);
             Palette p = PaletteFor(mood);
 
-            int horizon = mood == SceneMood.City ? 46 : 52;
+            int horizon = HorizonOf(mood);
 
             // Sky, banded rather than smooth: pixel art steps its gradients.
             for (int y = horizon; y < Height; y++)
@@ -117,7 +138,7 @@ namespace BinakayanRising.UI.Shell
                     Tents(pixels, random, horizon, p);
                     break;
                 case SceneMood.Sea:
-                    Sea(pixels, random, horizon, p);
+                    Sea(pixels, random, horizon, p, !staged);
                     break;
                 case SceneMood.Trench:
                     Palms(pixels, random, horizon, p, 2);
@@ -133,7 +154,8 @@ namespace BinakayanRising.UI.Shell
                     break;
                 case SceneMood.Night:
                     Tents(pixels, random, horizon, p);
-                    Disc(pixels, 160, horizon - 20, 3, new Color32(0xF0, 0xD2, 0x64, 0xFF));
+                    Vector2Int lamp = LampOf(mood);
+                    Disc(pixels, lamp.x, lamp.y, 3, new Color32(0xF0, 0xD2, 0x64, 0xFF));
                     break;
             }
 
@@ -227,7 +249,7 @@ namespace BinakayanRising.UI.Shell
             }
         }
 
-        private static void Sea(Color32[] pixels, System.Random random, int horizon, Palette p)
+        private static void Sea(Color32[] pixels, System.Random random, int horizon, Palette p, bool ship)
         {
             // The whole ground band is water, with a strip of beach at the bottom.
             for (int y = 10; y < horizon; y++)
@@ -240,6 +262,10 @@ namespace BinakayanRising.UI.Shell
             }
 
             Rect(pixels, 0, 0, Width, 10, p.Ground);
+            if (!ship)
+            {
+                return;
+            }
 
             // A warship on the horizon: hull, masts, smoke.
             int shipX = 40 + random.Next(200);

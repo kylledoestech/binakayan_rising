@@ -488,6 +488,18 @@ namespace BinakayanRising.Tests.Meta
         }
 
         [Test]
+        public void AJournalFigureOpensWhenTheirQuestIsReached()
+        {
+            Figure blanco = Figures.Find(Figures.Blanco);
+            Assert.IsTrue(game.HasMet(Figures.Find(UnitCatalog.Evangelista)), "the hero is met in the opening scene");
+            Assert.IsFalse(game.HasMet(blanco));
+
+            ClearThrough("q07");
+            Assert.IsTrue(game.HasMet(blanco), "reaching q08 meets the man whose offensive it opens");
+            Assert.IsFalse(game.HasMet(null));
+        }
+
+        [Test]
         public void AHubTaskStepOnlyCountsWhileItsSubQuestIsCurrent()
         {
             game.Data.rations = 0;

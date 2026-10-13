@@ -47,5 +47,15 @@ namespace BinakayanRising.Core.Meta
         {
             return !string.IsNullOrEmpty(sceneId) && SetFlag(SceneFlag(sceneId));
         }
+
+        /// <summary>
+        /// True once the player has reached the quest <paramref name="figure"/> is met in, which
+        /// opens their Journal entry. Read from campaign progress rather than a flag of its own,
+        /// so a save from before the Journal shows everyone its player has already met.
+        /// </summary>
+        public bool HasMet(Figure figure)
+        {
+            return figure != null && IsUnlocked(Campaign.Find(figure.MetIn));
+        }
     }
 }

@@ -11,9 +11,10 @@ using UnityEngine.UI;
 namespace BinakayanRising.UI.Shell
 {
     /// <summary>
-    /// The Library: the lessons each cleared sub-quest unlocks, and a test per campaign level
-    /// once that level is cleared (panel feedback: "learning panel / assessment"); and, on its
-    /// second tab, the historical glossary (#50).
+    /// The Journal (the Library before the panel's "add journal"): the lessons each cleared
+    /// sub-quest unlocks, and a test per campaign level once that level is cleared (panel
+    /// feedback: "learning panel / assessment"); the historical glossary (#50); the people of the
+    /// story, with their biographies; and the rank ladder, with what each rank commands.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -25,6 +26,12 @@ namespace BinakayanRising.UI.Shell
     /// reward. Its terms are listed alphabetically in the language showing, a page of
     /// <see cref="GlossaryRows"/> at a time, so the list never needs a scroll bar.
     /// </para>
+    /// <para>
+    /// A person's entry opens when the player reaches the quest they are met in
+    /// (<see cref="MetaGame.HasMet"/>); until then the row says which quest that is. The rank
+    /// ladder shows all eight ranks from the start, the earned ones ticked and the player's own
+    /// marked, so the player always knows how far there is to go.
+    /// </para>
     /// </remarks>
     public sealed class LibraryPanel : MonoBehaviour
     {
@@ -32,9 +39,12 @@ namespace BinakayanRising.UI.Shell
         private const float CardHeight = 800f;
         private const float ListWidth = 460f;
         private const float RowHeight = 48f;
-        private const float TabWidth = 200f;
+        private const float TabWidth = 190f;
+        private const float PortraitSize = 132f;
         private const int LessonsTab = 0;
         private const int GlossaryTab = 1;
+        private const int CharactersTab = 2;
+        private const int RanksTab = 3;
 
         /// <summary>Glossary terms listed per page.</summary>
         public const int GlossaryRows = 10;
@@ -52,9 +62,29 @@ namespace BinakayanRising.UI.Shell
         private TextMeshProUGUI lessonTitle;
         private TextMeshProUGUI lessonBody;
         private int selected = -1;
-        private readonly Button[] tabs = new Button[2];
+        private readonly Button[] tabs = new Button[4];
         private RectTransform lessonsBody;
         private RectTransform glossaryBody;
+        private RectTransform charactersBody;
+        private RectTransform ranksBody;
+        private readonly List<Image> figureRims = new List<Image>();
+        private readonly List<TextMeshProUGUI> figureLabels = new List<TextMeshProUGUI>();
+        private Image figurePortrait;
+        private Image figureSigil;
+        private TextMeshProUGUI figureName;
+        private TextMeshProUGUI figureRole;
+        private TextMeshProUGUI figureBio;
+        private TextMeshProUGUI figureNote;
+        private int selectedFigure;
+        private readonly List<Image> rankRims = new List<Image>();
+        private readonly List<TextMeshProUGUI> rankLabels = new List<TextMeshProUGUI>();
+        private TextMeshProUGUI rankTitle;
+        private TextMeshProUGUI rankGloss;
+        private TextMeshProUGUI rankDuty;
+        private TextMeshProUGUI rankStatus;
+        private TextMeshProUGUI rankQuote;
+        private TextMeshProUGUI ranksNote;
+        private int selectedRank = -1;
         private readonly List<Button> termRows = new List<Button>();
         private readonly List<Image> termRims = new List<Image>();
         private readonly List<TextMeshProUGUI> termLabels = new List<TextMeshProUGUI>();
@@ -83,6 +113,12 @@ namespace BinakayanRising.UI.Shell
         public bool GlossaryShowing
         {
             get { return tab == GlossaryTab; }
+        }
+
+        /// <summary>The tab showing: 0 lessons, 1 glossary, 2 characters, 3 ranks.</summary>
+        public int Tab
+        {
+            get { return tab; }
         }
 
         /// <summary>The glossary page showing, from 0.</summary>
@@ -152,6 +188,10 @@ namespace BinakayanRising.UI.Shell
             UiLayout.Fix((RectTransform)tabs[LessonsTab].transform, TabWidth, 52f);
             tabs[GlossaryTab] = UiKit.SealButton(header, TextKey.LibTabGlossary, () => SelectTab(GlossaryTab, true), TabWidth, 52f, Theme.Type.Body, "Tab Glossary");
             UiLayout.Fix((RectTransform)tabs[GlossaryTab].transform, TabWidth, 52f);
+            tabs[CharactersTab] = UiKit.SealButton(header, TextKey.LibTabCharacters, () => SelectTab(CharactersTab, true), TabWidth, 52f, Theme.Type.Body, "Tab Characters");
+            UiLayout.Fix((RectTransform)tabs[CharactersTab].transform, TabWidth, 52f);
+            tabs[RanksTab] = UiKit.SealButton(header, TextKey.LibTabRanks, () => SelectTab(RanksTab, true), TabWidth, 52f, Theme.Type.Body, "Tab Ranks");
+            UiLayout.Fix((RectTransform)tabs[RanksTab].transform, TabWidth, 52f);
             Button close = UiKit.IconButton(header, Theme.IconClose, Close, 52f, "Button Close X");
             UiLayout.Fix((RectTransform)close.transform, 52f, 52f);
 
@@ -221,6 +261,8 @@ namespace BinakayanRising.UI.Shell
             }
 
             BuildGlossary(column);
+            BuildCharacters(column);
+            BuildRanks(column);
         }
 
         /// <summary>The glossary tab: a paged list of terms on the left, the definition on the right.</summary>
@@ -292,7 +334,7 @@ namespace BinakayanRising.UI.Shell
 
         // ------------------------------------------------------------------ tabs
 
-        /// <summary>Shows the lessons (0) or the glossary (1).</summary>
+        /// <summary>Shows the lessons (0), the glossary (1), the characters (2) or the ranks (3).</summary>
         public void SelectTab(int index, bool byClick)
         {
             if (byClick && index != tab)
@@ -300,9 +342,11 @@ namespace BinakayanRising.UI.Shell
                 UiSfx.Play(UiSfx.Cue.Toggle);
             }
 
-            tab = index == GlossaryTab ? GlossaryTab : LessonsTab;
+            tab = index >= LessonsTab && index <= RanksTab ? index : LessonsTab;
             lessonsBody.gameObject.SetActive(tab == LessonsTab);
             glossaryBody.gameObject.SetActive(tab == GlossaryTab);
+            charactersBody.gameObject.SetActive(tab == CharactersTab);
+            ranksBody.gameObject.SetActive(tab == RanksTab);
             Render();
         }
 
@@ -403,6 +447,301 @@ namespace BinakayanRising.UI.Shell
             pageNext.interactable = glossaryPage < GlossaryPageCount - 1;
         }
 
+        // ------------------------------------------------------------------ characters
+
+        /// <summary>The characters tab: everyone the story names on the left, the chosen one's entry on the right.</summary>
+        private void BuildCharacters(RectTransform column)
+        {
+            charactersBody = UiKit.Row(column, "Characters", Theme.Space.Huge, 0f, TextAnchor.UpperLeft);
+            UiLayout.FlexibleHeight(charactersBody);
+
+            RectTransform list = UiKit.Column(charactersBody, "People", Theme.Space.Hair, 0f, TextAnchor.UpperLeft);
+            UiLayout.Fix(list, ListWidth, 0f);
+            UiLayout.FlexibleHeight(list);
+            UiLayout.FillWidth(list);
+            IReadOnlyList<Figure> figures = Figures.All;
+            for (int i = 0; i < figures.Count; i++)
+            {
+                int figure = i;
+                Image rim;
+                Button row = UiKit.SelectableRow(list, "Figure " + figures[i].Id, out rim);
+                UiLayout.Fix((RectTransform)row.transform, ListWidth, RowHeight);
+                row.onClick.AddListener(() => SelectFigure(figure, true));
+                figureLabels.Add(RowLabel(row));
+                figureRims.Add(rim);
+            }
+
+            RectTransform desk = UiKit.Column(charactersBody, "Entry", Theme.Space.Snug, 0f, TextAnchor.UpperLeft);
+            UiLayout.Flexible(desk);
+            UiLayout.FlexibleHeight(desk);
+            UiLayout.FillWidth(desk);
+
+            // The portrait beside the name, as the dialogue box sets its speaker. Someone with no
+            // portrait drawn yet shows the sun of the revolution in its place.
+            RectTransform head = UiKit.Row(desk, "Head", Theme.Space.Wide, 0f, TextAnchor.MiddleLeft);
+            UiLayout.Fix(head, 0f, PortraitSize + 16f);
+            RectTransform well = UiKit.Well(head, "Portrait");
+            UiLayout.Fix(well, PortraitSize + 16f, PortraitSize + 16f);
+            figureSigil = UiKit.Sigil(well, PortraitSize * 0.6f, Theme.InkSoft);
+            UiKit.Anchor((RectTransform)figureSigil.transform.parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(PortraitSize * 0.6f, PortraitSize * 0.6f));
+            figurePortrait = UiKit.Icon(well, null, PortraitSize, Color.white);
+            UiKit.Anchor((RectTransform)figurePortrait.transform.parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(PortraitSize, PortraitSize));
+
+            RectTransform names = UiKit.Column(head, "Names", Theme.Space.Hair, 0f, TextAnchor.MiddleLeft);
+            UiLayout.Flexible(names);
+            UiLayout.FillWidth(names);
+            figureName = UiKit.Display(names, string.Empty, Theme.Type.Title, TextAlignmentOptions.Left);
+            figureName.color = Theme.Revolution;
+            UiLayout.OneLine(figureName, Theme.Type.Title);
+            UiLayout.Fix(figureName.rectTransform, 0f, 52f);
+            figureRole = UiKit.Caption(names, string.Empty, TextAlignmentOptions.Left);
+            figureRole.fontStyle = FontStyles.Italic;
+            UiLayout.OneLine(figureRole, Theme.Type.Body);
+            UiLayout.Fix(figureRole.rectTransform, 0f, 34f);
+
+            RectTransform page = UiKit.Well(desk, "Page");
+            UiLayout.Fix(page, 0f, 300f);
+            figureBio = UiKit.Body(page, string.Empty, Theme.Type.Body + 3f, TextAlignmentOptions.TopLeft);
+            figureBio.textWrappingMode = TextWrappingModes.Normal;
+            UiKit.Stretch(figureBio.rectTransform, Theme.Space.Wide);
+
+            figureNote = UiKit.Caption(desk, string.Empty, TextAlignmentOptions.TopLeft);
+            figureNote.textWrappingMode = TextWrappingModes.Normal;
+            figureNote.fontStyle = FontStyles.Italic;
+            UiLayout.Fix(figureNote.rectTransform, 0f, 60f);
+
+            charactersBody.gameObject.SetActive(false);
+        }
+
+        /// <summary>Opens the characters tab. For the shell's screenshot route.</summary>
+        public void ShowCharacters()
+        {
+            SelectTab(CharactersTab, false);
+        }
+
+        /// <summary>Shows the entry for the <paramref name="index"/>th person of <see cref="Figures.All"/>.</summary>
+        public void SelectFigure(int index, bool byClick)
+        {
+            if (index < 0 || index >= Figures.All.Count)
+            {
+                return;
+            }
+
+            if (byClick)
+            {
+                UiSfx.Play(UiSfx.Cue.Click);
+            }
+
+            selectedFigure = index;
+            Render();
+        }
+
+        private void RenderCharacters(MetaGame game)
+        {
+            IReadOnlyList<Figure> figures = Figures.All;
+            for (int i = 0; i < figures.Count; i++)
+            {
+                bool met = game.HasMet(figures[i]);
+                figureLabels[i].text = met ? figures[i].Name.Get() : "? ? ?  ·  " + Loc.Format(TextKey.JnlMeetIn, QuestNumber(figures[i].MetIn));
+                figureLabels[i].color = met ? Theme.Ink : Theme.InkSoft;
+                figureLabels[i].fontStyle = met ? FontStyles.Normal : FontStyles.Italic;
+                figureRims[i].color = i == selectedFigure ? Theme.Revolution : Theme.ParchmentDeep;
+            }
+
+            Figure shown = figures[Mathf.Clamp(selectedFigure, 0, figures.Count - 1)];
+            bool open = game.HasMet(shown);
+            Sprite face = Theme.Assets != null ? Theme.Assets.UnitPortrait(shown.Id) : null;
+            figurePortrait.sprite = face;
+            figurePortrait.enabled = face != null;
+
+            // Someone not yet met is a silhouette: there is a face, but not yet whose.
+            figurePortrait.color = open ? Color.white : new Color(Theme.Ink.r, Theme.Ink.g, Theme.Ink.b, 0.85f);
+            figureSigil.enabled = face == null;
+            if (open)
+            {
+                figureName.text = shown.Name.Get();
+                figureRole.text = string.IsNullOrEmpty(shown.Life) ? shown.Role.Get() : shown.Life + "  ·  " + shown.Role.Get();
+                figureBio.text = shown.Bio.Get();
+                figureNote.text = Loc.Get(shown.Historical ? TextKey.JnlHistorical : TextKey.JnlStoryCharacter) + "\n" + Loc.Get(TextKey.JnlCharactersNote);
+            }
+            else
+            {
+                figureName.text = "? ? ?";
+                figureRole.text = string.Empty;
+                figureBio.text = Loc.Format(TextKey.JnlLockedBody, QuestNumber(shown.MetIn));
+                figureNote.text = Loc.Get(TextKey.JnlCharactersNote);
+            }
+        }
+
+        /// <summary>The number of the quest with <paramref name="questId"/>, as players know it.</summary>
+        private static int QuestNumber(string questId)
+        {
+            Quest quest = Campaign.Find(questId);
+            return quest != null ? quest.Number : 0;
+        }
+
+        // ------------------------------------------------------------------ ranks
+
+        /// <summary>
+        /// The ranks tab: the ladder on the left, earned ranks ticked and the player's own marked;
+        /// on the right, what the chosen rank commands and how it is earned.
+        /// </summary>
+        private void BuildRanks(RectTransform column)
+        {
+            ranksBody = UiKit.Row(column, "Ranks", Theme.Space.Huge, 0f, TextAnchor.UpperLeft);
+            UiLayout.FlexibleHeight(ranksBody);
+
+            RectTransform list = UiKit.Column(ranksBody, "Ladder", Theme.Space.Hair, 0f, TextAnchor.UpperLeft);
+            UiLayout.Fix(list, ListWidth, 0f);
+            UiLayout.FlexibleHeight(list);
+            UiLayout.FillWidth(list);
+            for (int i = 0; i < PlayerRanks.Count; i++)
+            {
+                int rank = i;
+                Image rim;
+                Button row = UiKit.SelectableRow(list, "Rank " + PlayerRanks.At(i).Title, out rim);
+                UiLayout.Fix((RectTransform)row.transform, ListWidth, RowHeight);
+                row.onClick.AddListener(() => SelectRank(rank, true));
+                rankLabels.Add(RowLabel(row));
+                rankRims.Add(rim);
+            }
+
+            ranksNote = UiKit.Caption(list, string.Empty, TextAlignmentOptions.TopLeft);
+            ranksNote.textWrappingMode = TextWrappingModes.Normal;
+            ranksNote.fontStyle = FontStyles.Italic;
+            UiLayout.Fix(ranksNote.rectTransform, ListWidth, 72f);
+
+            RectTransform desk = UiKit.Column(ranksBody, "Rank", Theme.Space.Snug, 0f, TextAnchor.UpperLeft);
+            UiLayout.Flexible(desk);
+            UiLayout.FlexibleHeight(desk);
+            UiLayout.FillWidth(desk);
+
+            rankTitle = UiKit.Display(desk, string.Empty, Theme.Type.Title, TextAlignmentOptions.Left);
+            rankTitle.color = Theme.Revolution;
+            UiLayout.OneLine(rankTitle, Theme.Type.Title);
+            UiLayout.Fix(rankTitle.rectTransform, 0f, 48f);
+
+            rankGloss = UiKit.Caption(desk, string.Empty, TextAlignmentOptions.Left);
+            rankGloss.fontStyle = FontStyles.Italic;
+            UiLayout.OneLine(rankGloss, Theme.Type.Body);
+            UiLayout.Fix(rankGloss.rectTransform, 0f, 32f);
+
+            TextMeshProUGUI heading = UiKit.Body(desk, Loc.Get(TextKey.JnlDuty), Theme.Type.Body, TextAlignmentOptions.Left);
+            heading.fontStyle = FontStyles.Bold | FontStyles.UpperCase;
+            heading.color = Theme.InkSoft;
+            UiKit.Localize(heading, TextKey.JnlDuty);
+            UiLayout.OneLine(heading, Theme.Type.Body);
+            UiLayout.Fix(heading.rectTransform, 0f, 30f);
+
+            RectTransform page = UiKit.Well(desk, "Page");
+            UiLayout.Fix(page, 0f, 180f);
+            rankDuty = UiKit.Body(page, string.Empty, Theme.Type.Body + 3f, TextAlignmentOptions.TopLeft);
+            rankDuty.textWrappingMode = TextWrappingModes.Normal;
+            UiKit.Stretch(rankDuty.rectTransform, Theme.Space.Wide);
+
+            rankStatus = UiKit.Body(desk, string.Empty, Theme.Type.Body + 1f, TextAlignmentOptions.Left);
+            rankStatus.fontStyle = FontStyles.Bold;
+            rankStatus.textWrappingMode = TextWrappingModes.Normal;
+
+            // Two lines: a locked rank names the quest that earns it, and in Filipino that wraps.
+            UiLayout.Fix(rankStatus.rectTransform, 0f, 64f);
+
+            rankQuote = UiKit.Body(desk, string.Empty, Theme.Type.Body + 1f, TextAlignmentOptions.TopLeft);
+            rankQuote.fontStyle = FontStyles.Italic;
+            rankQuote.color = Theme.InkSoft;
+            rankQuote.textWrappingMode = TextWrappingModes.Normal;
+            UiLayout.Fix(rankQuote.rectTransform, 0f, 84f);
+
+            ranksBody.gameObject.SetActive(false);
+        }
+
+        /// <summary>Opens the ranks tab. For the shell's screenshot route.</summary>
+        public void ShowRanks()
+        {
+            SelectTab(RanksTab, false);
+        }
+
+        /// <summary>Shows rank <paramref name="index"/>, from 0 (Kawal).</summary>
+        public void SelectRank(int index, bool byClick)
+        {
+            if (index < 0 || index >= PlayerRanks.Count)
+            {
+                return;
+            }
+
+            if (byClick)
+            {
+                UiSfx.Play(UiSfx.Cue.Click);
+            }
+
+            selectedRank = index;
+            Render();
+        }
+
+        private void RenderRanks(MetaGame game)
+        {
+            int current = game.Rank.Index;
+            if (selectedRank < 0)
+            {
+                selectedRank = current;
+            }
+
+            for (int i = 0; i < PlayerRanks.Count; i++)
+            {
+                PlayerRank rank = PlayerRanks.At(i);
+                string mark = i == current ? "▸ " : (i < current ? "✓ " : "    ");
+                rankLabels[i].text = mark + (i + 1) + ". " + rank.Title + "  ·  " + rank.Gloss.Get();
+                rankLabels[i].color = i == current ? Theme.Revolution : (i < current ? Theme.Ink : Theme.InkSoft);
+                rankLabels[i].fontStyle = i == current ? FontStyles.Bold : (i < current ? FontStyles.Normal : FontStyles.Italic);
+                rankRims[i].color = i == selectedRank ? Theme.Revolution : Theme.ParchmentDeep;
+            }
+
+            PlayerRank shown = PlayerRanks.At(selectedRank);
+            rankTitle.text = shown.Title;
+            rankGloss.text = shown.Gloss.Get() + "  ·  " + Loc.Format(TextKey.RankUpStep, shown.Index + 1, PlayerRanks.Count);
+            rankDuty.text = shown.Duty.Get();
+
+            Quest milestone = Campaign.Find(PlayerRanks.MilestoneOf(shown.Index));
+            string earned = milestone != null
+                ? Loc.Format(TextKey.JnlRankEarned, milestone.Number, milestone.Title.Get())
+                : Loc.Get(TextKey.JnlRankStart);
+            if (shown.Index == current)
+            {
+                rankStatus.text = "▸ " + Loc.Get(TextKey.JnlRankYours) + "  ·  " + earned;
+                rankStatus.color = Theme.Revolution;
+            }
+            else if (shown.Index < current)
+            {
+                rankStatus.text = "✓ " + earned;
+                rankStatus.color = Theme.Ink;
+            }
+            else
+            {
+                rankStatus.text = milestone != null ? Loc.Format(TextKey.JnlRankLocked, milestone.Number, milestone.Title.Get()) : string.Empty;
+                rankStatus.color = Theme.InkSoft;
+            }
+
+            // What Tadah said when it was earned; a rank still ahead keeps his words for the day.
+            Character tadah = Characters.Find(Characters.Senador);
+            rankQuote.text = shown.Index <= current
+                ? "“" + PlayerRanks.AnnouncementOf(shown.Index).Get() + "”  — " + (tadah != null ? tadah.Name.Get() : string.Empty)
+                : string.Empty;
+            ranksNote.text = Loc.Format(TextKey.JnlRanksNote, PlayerRanks.Count);
+        }
+
+        /// <summary>A list row's one-line label, inset from the rim.</summary>
+        private static TextMeshProUGUI RowLabel(Button row)
+        {
+            TextMeshProUGUI label = UiKit.Body(row.transform, string.Empty, Theme.Type.Body, TextAlignmentOptions.Left);
+            label.raycastTarget = false;
+            UiLayout.OneLine(label, Theme.Type.Body);
+            label.rectTransform.anchorMin = Vector2.zero;
+            label.rectTransform.anchorMax = Vector2.one;
+            label.rectTransform.offsetMin = new Vector2(Theme.Space.Base, 2f);
+            label.rectTransform.offsetMax = new Vector2(-Theme.Space.Base, -2f);
+            return label;
+        }
+
         // ------------------------------------------------------------------ reading
 
         private void SelectFirstUnlocked()
@@ -465,6 +804,8 @@ namespace BinakayanRising.UI.Shell
             }
 
             RenderGlossary();
+            RenderCharacters(game);
+            RenderRanks(game);
 
             IReadOnlyList<Lesson> lessons = Learning.Lessons;
             for (int i = 0; i < lessons.Count; i++)

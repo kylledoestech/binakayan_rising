@@ -45,12 +45,19 @@ namespace BinakayanRising.Core.Content
         /// <summary>What the narrator says.</summary>
         public readonly LocString Line;
 
-        public CutsceneSlide(string image, SceneMood mood, LocString caption, LocString line)
+        /// <summary>
+        /// Who walks into an animated slide, left to right, as <c>Art/Units/</c> ids. Empty for a
+        /// landscape, and ignored unless the scene is <see cref="Cutscene.Animated"/>.
+        /// </summary>
+        public readonly string[] Cast;
+
+        public CutsceneSlide(string image, SceneMood mood, LocString caption, LocString line, params string[] cast)
         {
             Image = image;
             Mood = mood;
             Caption = caption;
             Line = line;
+            Cast = cast ?? new string[0];
         }
     }
 
@@ -64,10 +71,23 @@ namespace BinakayanRising.Core.Content
 
         public readonly CutsceneSlide[] Slides;
 
+        /// <summary>
+        /// Plays with moving layers over each picture: drifting sky, a ship under way, smoke and
+        /// lamplight, the slide's <see cref="CutsceneSlide.Cast"/> walking in, and a slow push-in.
+        /// Act 1 only (panel feedback: "cut scenes - 1st mission, animation").
+        /// </summary>
+        public readonly bool Animated;
+
         public Cutscene(string id, string narrator, params CutsceneSlide[] slides)
+            : this(id, narrator, false, slides)
+        {
+        }
+
+        public Cutscene(string id, string narrator, bool animated, params CutsceneSlide[] slides)
         {
             Id = id;
             Narrator = narrator;
+            Animated = animated;
             Slides = slides;
         }
     }
@@ -113,19 +133,22 @@ namespace BinakayanRising.Core.Content
         private static readonly List<Cutscene> all = new List<Cutscene>
         {
             // ---------------------------------------------------------- Act 1 (#34)
-            new Cutscene(Act1, Characters.Senador,
+            new Cutscene(Act1, Characters.Senador, true,
                 Slide("act1_1", SceneMood.City,
                     "Act 1 - The Scholar of Ghent", "Unang Yugto - Ang Iskolar ng Ghent",
                     "Ghent, Belgium, 1896. Edilberto Evangelista studies civil engineering at the university. A comfortable future waits for him in Europe.",
-                    "Ghent, Belhika, 1896. Nag-aaral si Edilberto Evangelista ng inhinyeriyang sibil sa pamantasan. Isang maginhawang kinabukasan ang naghihintay sa kanya sa Europa."),
+                    "Ghent, Belhika, 1896. Nag-aaral si Edilberto Evangelista ng inhinyeriyang sibil sa pamantasan. Isang maginhawang kinabukasan ang naghihintay sa kanya sa Europa.",
+                    UnitCatalog.Evangelista),
                 Slide("act1_2", SceneMood.Night,
                     "Letters from home", "Mga liham mula sa tahanan",
                     "Letters from the Philippines reach him. The Katipunan has risen against Spain.",
-                    "Dumating sa kanya ang mga liham mula sa Pilipinas. Bumangon na ang Katipunan laban sa Espanya."),
+                    "Dumating sa kanya ang mga liham mula sa Pilipinas. Bumangon na ang Katipunan laban sa Espanya.",
+                    UnitCatalog.Evangelista),
                 Slide("act1_3", SceneMood.Night,
                     "A choice", "Isang pasya",
                     "He can stay and prosper, or go home to a war. He packs his drawings and his books.",
-                    "Maaari siyang manatili at umunlad, o umuwi sa digmaan. Inimpake niya ang kanyang mga guhit at aklat."),
+                    "Maaari siyang manatili at umunlad, o umuwi sa digmaan. Inimpake niya ang kanyang mga guhit at aklat.",
+                    UnitCatalog.Evangelista),
                 Slide("act1_4", SceneMood.Sea,
                     "The voyage home", "Ang paglalayag pauwi",
                     "He sails for Manila. An engineer knows how to shape earth and build walls that stand - skills a revolution will need.",
@@ -133,7 +156,8 @@ namespace BinakayanRising.Core.Content
                 Slide("act1_5", SceneMood.Camp,
                     "Kawit, Cavite", "Kawit, Kabite",
                     "He comes home to the camp at Kawit. Here, you are that engineer. Your aide Tomas is waiting.",
-                    "Umuwi siya sa kampo sa Kawit. Dito, ikaw ang inhinyerong iyon. Naghihintay ang iyong katuwang na si Tomas.")),
+                    "Umuwi siya sa kampo sa Kawit. Dito, ikaw ang inhinyerong iyon. Naghihintay ang iyong katuwang na si Tomas.",
+                    UnitCatalog.Evangelista, Characters.Tomas)),
 
             // ---------------------------------------------------------- Act 2 (#34)
             // A dramatization: the skirmish stands for the early open-field losses the lessons
@@ -294,9 +318,9 @@ namespace BinakayanRising.Core.Content
             return null;
         }
 
-        private static CutsceneSlide Slide(string image, SceneMood mood, string captionEn, string captionFil, string lineEn, string lineFil)
+        private static CutsceneSlide Slide(string image, SceneMood mood, string captionEn, string captionFil, string lineEn, string lineFil, params string[] cast)
         {
-            return new CutsceneSlide(image, mood, new LocString(captionEn, captionFil), new LocString(lineEn, lineFil));
+            return new CutsceneSlide(image, mood, new LocString(captionEn, captionFil), new LocString(lineEn, lineFil), cast);
         }
     }
 }

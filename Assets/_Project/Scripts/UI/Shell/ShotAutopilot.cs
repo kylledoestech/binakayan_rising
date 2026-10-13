@@ -131,6 +131,10 @@ namespace BinakayanRising.UI.Shell
                     yield return CampViewRoute();
                     break;
 
+                case "panel":
+                    yield return PanelRoute();
+                    break;
+
                 default:
                     yield return Phase1();
                     break;
@@ -1736,7 +1740,7 @@ namespace BinakayanRising.UI.Shell
                 for (int i = 0; i < rects.Length; i++)
                 {
                     RectTransform rect = rects[i];
-                    if (rect.rect.width <= 0f || rect.rect.height <= 0f || rect.name == "Sigil" && rect.rect.width >= 600f || rect.name == "Picture")
+                    if (rect.rect.width <= 0f || rect.rect.height <= 0f || rect.name == "Sigil" && rect.rect.width >= 600f || rect.name == "Picture" || rect.GetComponentInParent<CutsceneStage>() != null)
                     {
                         continue;
                     }

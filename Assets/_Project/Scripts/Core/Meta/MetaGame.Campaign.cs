@@ -330,8 +330,8 @@ namespace BinakayanRising.Core.Meta
             "Kulang ang Rasyon para sa susunod na labanan - umani sa Bukid");
 
         private static readonly LocString TakeAssessment = new LocString(
-            "Take the Level {0} assessment at the Library",
-            "Sagutan ang pagsusulit ng Antas {0} sa Aklatan");
+            "Take the Level {0} assessment in the Journal",
+            "Sagutan ang pagsusulit ng Antas {0} sa Talaarawan");
 
         /// <summary>
         /// The one thing the player should do next, for the navigation guide. The campaign comes
